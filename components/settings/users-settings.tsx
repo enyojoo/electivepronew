@@ -653,8 +653,11 @@ export function UsersSettings() {
           if (!open) handleCloseEditDialog()
         }}
       >
-        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
+        <DialogContent 
+          className="sm:max-w-md max-h-[90vh] flex flex-col" 
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingUser?.id ? t("admin.users.edit") : (t("admin.users.createUser") || "Create User")}</DialogTitle>
             <DialogDescription>
               {editingUser?.id ? t("admin.settings.subtitle") : "Create a new user account. A temporary password will be generated."}
@@ -662,7 +665,7 @@ export function UsersSettings() {
           </DialogHeader>
 
           {editingUser && (
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">{t("admin.users.name")}</Label>
                 <Input
@@ -817,7 +820,7 @@ export function UsersSettings() {
             </div>
           )}
 
-          <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end">
+          <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end flex-shrink-0 border-t pt-4 mt-4">
             <Button type="button" variant="outline" onClick={handleCloseEditDialog} disabled={isSaving}>
               {t("admin.users.cancel")}
             </Button>
