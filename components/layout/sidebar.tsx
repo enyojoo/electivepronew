@@ -21,6 +21,7 @@ import {
 import { useLanguage } from "@/lib/language-context"
 import { useState } from "react"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
+import { useCachedSettings } from "@/hooks/use-cached-settings"
 
 interface SidebarProps {
   open: boolean
@@ -32,6 +33,7 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
   const pathname = usePathname()
   const { t, language } = useLanguage()
   const [electivesOpen, setElectivesOpen] = useState(pathname.includes("/electives"))
+  const { settings } = useCachedSettings()
 
   // Determine user role based on URL path
   const isAdmin = pathname.includes("/admin")
@@ -47,8 +49,9 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
         ? "/student/login"
         : "/auth/login"
 
-  // Use default logo
-  const logoUrl = DEFAULT_LOGO_URL
+  // Use settings logo if available, otherwise use default
+  // For admin pages, always use default logo
+  const logoUrl = isAdmin ? DEFAULT_LOGO_URL : (settings?.logo_url || DEFAULT_LOGO_URL)
 
   return (
     <>

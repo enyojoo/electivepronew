@@ -9,15 +9,8 @@ import { DynamicBranding } from "@/components/dynamic-branding"
 
 const inter = Inter({ subsets: ["latin"] })
 
-// Default favicon URL
-const DEFAULT_FAVICON_URL =
-  "https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/favicons//epro_favicon.svg"
+import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 
-// Default primary color
-const DEFAULT_PRIMARY_COLOR = "#027659"
-
-// Default platform name
-const DEFAULT_PLATFORM_NAME = "ElectivePRO"
 
 export default async function RootLayout({
   children,

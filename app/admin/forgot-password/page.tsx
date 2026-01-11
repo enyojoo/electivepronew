@@ -13,6 +13,7 @@ import Image from "next/image"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/components/ui/use-toast"
+import { DEFAULT_LOGO_URL } from "@/lib/constants"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -68,7 +69,7 @@ export default function ForgotPasswordPage() {
         <div className="mx-auto max-w-md space-y-6 w-full">
           <div className="flex justify-center mb-6">
             <Image
-              src="https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/logos//epro_logo.svg"
+              src={DEFAULT_LOGO_URL}
               alt="ElectivePRO Logo"
               width={160}
               height={45}
@@ -104,7 +105,7 @@ export default function ForgotPasswordPage() {
       <div className="mx-auto max-w-md space-y-6 w-full">
         <div className="flex justify-center mb-6">
           <Image
-            src="https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/logos//epro_logo.svg"
+            src={DEFAULT_LOGO_URL}
             alt="ElectivePRO Logo"
             width={160}
             height={45}

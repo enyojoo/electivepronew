@@ -1,12 +1,9 @@
 "use client"
 
-import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR } from "@/lib/constants"
+import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME, DEFAULT_LOGO_URL } from "@/lib/constants"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-
-// Default platform name
-const DEFAULT_PLATFORM_NAME = "ElectivePRO"
 
 export function DynamicBranding() {
   const pathname = usePathname()
@@ -14,6 +11,7 @@ export function DynamicBranding() {
     name?: string
     primary_color?: string
     favicon_url?: string
+    logo_url?: string
   } | null>(null)
 
   // Determine if we're in the admin section
@@ -25,7 +23,7 @@ export function DynamicBranding() {
       try {
         const { data, error } = await supabase
           .from("settings")
-          .select("name, primary_color, favicon_url")
+          .select("name, primary_color, favicon_url, logo_url")
           .eq("id", "00000000-0000-0000-0000-000000000000")
           .single()
 
@@ -58,9 +56,10 @@ export function DynamicBranding() {
       // Set default platform name for admin pages
       document.title = DEFAULT_PLATFORM_NAME
     } else if (settings) {
-      // For non-admin pages, use settings color, favicon, and name if available
+      // For non-admin pages, use settings color, favicon, logo, and name if available
       const primaryColor = settings.primary_color || DEFAULT_PRIMARY_COLOR
       const faviconUrl = settings.favicon_url || DEFAULT_FAVICON_URL
+      const logoUrl = settings.logo_url || DEFAULT_LOGO_URL
       const name = settings.name || DEFAULT_PLATFORM_NAME
 
       // Apply primary color as CSS variable
@@ -75,6 +74,9 @@ export function DynamicBranding() {
 
       // Update favicon
       updateFavicon(faviconUrl)
+
+      // Store logo URL in data attribute for components to use
+      document.documentElement.setAttribute("data-logo-url", logoUrl)
 
       // Update page title with settings name
       document.title = name

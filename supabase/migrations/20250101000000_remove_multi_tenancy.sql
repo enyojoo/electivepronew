@@ -291,8 +291,8 @@ VALUES (
   '00000000-0000-0000-0000-000000000000'::uuid,
   'ElectivePRO',
   '#027659',
-  'https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/logos//epro_logo.svg',
-  'https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/favicons//epro_favicon.svg'
+  'https://cldup.com/cE5TTe0PeC.svg',
+  'https://cldup.com/aRNSwxLaVk.png'
 )
 ON CONFLICT (id) DO NOTHING;
 
