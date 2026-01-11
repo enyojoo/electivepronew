@@ -330,13 +330,16 @@ export function UsersSettings() {
 
         const data = await response.json()
 
+        // Invalidate cache to trigger refetch
+        invalidateCache("users", "all")
+
         toast({
           title: "Success",
           description: `User created successfully. Temporary password: ${data.tempPassword}. Please share this with the user - they should change it on first login.`,
         })
       } else {
-        // Update existing user
-        const updateData: any = {
+        // Update existing user - profiles table only
+        const profileUpdateData: any = {
           full_name: editingUser.name,
           email: editingUser.email,
           role: editingUser.role,
@@ -344,22 +347,113 @@ export function UsersSettings() {
           updated_at: new Date().toISOString(),
         }
 
-        // Add role-specific fields
-        if (editingUser.role === UserRole.STUDENT || editingUser.role === UserRole.PROGRAM_MANAGER) {
-          updateData.degree_id = editingUser.degreeId || null
-          updateData.academic_year = editingUser.year || null
-          updateData.group_id = editingUser.groupId || null
+        // Update profile
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update(profileUpdateData)
+          .eq("id", editingUser.id)
+
+        if (profileError) throw profileError
+
+        // Handle role-specific profile tables
+        // Only save role-specific fields if the role requires them (form shows these fields)
+        if (editingUser.role === UserRole.STUDENT) {
+          // Update or create student_profiles - only save fields that exist in the form
+          const studentProfileData: any = {
+            profile_id: editingUser.id,
+          }
+          
+          // Only include fields if they're provided (form shows these for students)
+          if (editingUser.groupId !== undefined && editingUser.groupId !== "") {
+            studentProfileData.group_id = editingUser.groupId
+          } else {
+            studentProfileData.group_id = null
+          }
+          
+          if (editingUser.year !== undefined && editingUser.year !== "") {
+            studentProfileData.enrollment_year = editingUser.year
+          } else {
+            studentProfileData.enrollment_year = null
+          }
+
+          const { error: studentProfileError } = await supabase
+            .from("student_profiles")
+            .upsert(studentProfileData, { onConflict: "profile_id" })
+
+          if (studentProfileError) throw studentProfileError
+
+          // Remove manager profile if it exists
+          await supabase.from("manager_profiles").delete().eq("profile_id", editingUser.id)
+        } else if (editingUser.role === UserRole.PROGRAM_MANAGER) {
+          // For program managers, we need to find the program_id from degree_id
+          // First, get the program_id from the degree
+          let programId = null
+          if (editingUser.degreeId) {
+            const { data: programData } = await supabase
+              .from("programs")
+              .select("id")
+              .eq("degree_id", editingUser.degreeId)
+              .limit(1)
+
+            if (programData && programData.length > 0) {
+              programId = programData[0].id
+            }
+          }
+
+          // Get academic_year_id from the year if provided
+          let academicYearId = null
+          if (editingUser.year) {
+            // Find academic_year by year text and program_id
+            if (programId) {
+              const { data: academicYearData } = await supabase
+                .from("academic_years")
+                .select("id")
+                .eq("program_id", programId)
+                .eq("year", editingUser.year)
+                .limit(1)
+
+              if (academicYearData && academicYearData.length > 0) {
+                academicYearId = academicYearData[0].id
+              }
+            }
+          }
+
+          // Update or create manager_profiles - only save fields that exist in the form
+          const managerProfileData: any = {
+            profile_id: editingUser.id,
+          }
+          
+          // Only include fields if they're provided (form shows these for program managers)
+          if (editingUser.degreeId !== undefined && editingUser.degreeId !== "") {
+            managerProfileData.degree_id = editingUser.degreeId
+            managerProfileData.program_id = programId
+          } else {
+            managerProfileData.degree_id = null
+            managerProfileData.program_id = null
+          }
+          
+          if (academicYearId) {
+            managerProfileData.academic_year_id = academicYearId
+          } else {
+            managerProfileData.academic_year_id = null
+          }
+
+          const { error: managerProfileError } = await supabase
+            .from("manager_profiles")
+            .upsert(managerProfileData, { onConflict: "profile_id" })
+
+          if (managerProfileError) throw managerProfileError
+
+          // Remove student profile if it exists
+          await supabase.from("student_profiles").delete().eq("profile_id", editingUser.id)
         } else {
-          // Clear these fields for admin users
-          updateData.degree_id = null
-          updateData.academic_year = null
-          updateData.group_id = null
+          // For admin users, remove any student or manager profiles
+          await supabase.from("student_profiles").delete().eq("profile_id", editingUser.id)
+          await supabase.from("manager_profiles").delete().eq("profile_id", editingUser.id)
         }
 
-        // Update profile
-        const { error } = await supabase.from("profiles").update(updateData).eq("id", editingUser.id)
-
-        if (error) throw error
+        // Invalidate cache to trigger refetch
+        invalidateCache("users", "all")
 
         toast({
           title: "Success",
@@ -654,7 +748,7 @@ export function UsersSettings() {
         }}
       >
         <DialogContent 
-          className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0" 
+          className="sm:max-w-lg flex flex-col p-0 gap-0" 
           onPointerDownOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
@@ -665,7 +759,7 @@ export function UsersSettings() {
           </DialogHeader>
 
           {editingUser && (
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="px-6 py-4">
               <div className="space-y-5">
                 {/* Basic Information Section */}
                 <div className="space-y-4">
