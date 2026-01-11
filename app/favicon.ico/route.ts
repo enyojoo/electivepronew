@@ -1,77 +1,75 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
-
-const DEFAULT_FAVICON_URL =
-  "https://pbqvvvdhssghkpvsluvw.supabase.co/storage/v1/object/public/favicons//epro_favicon.svg"
+import { DEFAULT_FAVICON_URL } from "@/lib/constants"
 
 export async function GET(request: NextRequest) {
   try {
     let faviconUrl = DEFAULT_FAVICON_URL
 
-    // Try to get favicon from settings table (only if Supabase is configured)
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    // Try to get favicon from settings table (only if Supabase is configured and not during build)
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://placeholder.supabase.co"
+    ) {
       try {
-        const { data: settings } = await supabase
+        const { data: settings, error } = await supabase
           .from("settings")
           .select("favicon_url")
           .eq("id", "00000000-0000-0000-0000-000000000000")
           .single()
 
-        if (settings?.favicon_url) {
+        if (!error && settings?.favicon_url) {
           faviconUrl = settings.favicon_url
         }
       } catch (error) {
-        console.error("Error fetching settings for favicon:", error)
-        // Fall back to default
+        // Silently fall back to default during build or if settings fetch fails
       }
     }
 
-    // Fetch the favicon from the URL
-    const faviconResponse = await fetch(faviconUrl)
+    // Fetch the favicon from the URL (with timeout for build-time)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
 
-    if (!faviconResponse.ok) {
-      // Fallback to default if fetch fails
-      const defaultResponse = await fetch(DEFAULT_FAVICON_URL)
-      if (defaultResponse.ok) {
-        const buffer = await defaultResponse.arrayBuffer()
-        return new NextResponse(buffer, {
-          headers: {
-            "Content-Type": "image/svg+xml",
-            "Cache-Control": "public, max-age=3600",
-          },
-        })
+    try {
+      const faviconResponse = await fetch(faviconUrl, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      if (!faviconResponse.ok) {
+        throw new Error("Favicon fetch failed")
       }
-      return new NextResponse("Not Found", { status: 404 })
+
+      const buffer = await faviconResponse.arrayBuffer()
+      const contentType = faviconResponse.headers.get("content-type") || "image/x-icon"
+
+      return new NextResponse(buffer, {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=3600",
+        },
+      })
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      // During build time or if fetch fails, return a simple SVG favicon
+      // This prevents build errors when network is unavailable
+      const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#027659"/><text x="50" y="70" font-size="60" fill="white" text-anchor="middle" font-family="Arial">E</text></svg>`
+      return new NextResponse(svgFavicon, {
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "public, max-age=3600",
+        },
+      })
     }
-
-    const buffer = await faviconResponse.arrayBuffer()
-    const contentType = faviconResponse.headers.get("content-type") || "image/x-icon"
-
-    return new NextResponse(buffer, {
+  } catch (error) {
+    // Final fallback: return a simple SVG favicon
+    const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#027659"/><text x="50" y="70" font-size="60" fill="white" text-anchor="middle" font-family="Arial">E</text></svg>`
+    return new NextResponse(svgFavicon, {
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": "image/svg+xml",
         "Cache-Control": "public, max-age=3600",
       },
     })
-  } catch (error) {
-    console.error("Error serving favicon:", error)
-
-    // Fallback to default favicon
-    try {
-      const defaultResponse = await fetch(DEFAULT_FAVICON_URL)
-      if (defaultResponse.ok) {
-        const buffer = await defaultResponse.arrayBuffer()
-        return new NextResponse(buffer, {
-          headers: {
-            "Content-Type": "image/svg+xml",
-            "Cache-Control": "public, max-age=3600",
-          },
-        })
-      }
-    } catch (fallbackError) {
-      console.error("Error serving default favicon:", fallbackError)
-    }
-
-    return new NextResponse("Not Found", { status: 404 })
   }
 }
