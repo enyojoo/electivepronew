@@ -41,7 +41,6 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
 
   const handleCancelEdit = () => {
     setName(originalName)
-    setEmail(originalEmail)
     setIsEditing(false)
   }
 
@@ -55,23 +54,12 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
         .from("profiles")
         .update({
           full_name: name,
-          // Note: We don't update email in profiles table directly
+          // Note: Email is not editable for admin accounts
         })
         .eq("id", adminProfile.id)
 
       if (profileError) {
         throw profileError
-      }
-
-      // Update email in auth if it changed
-      if (email !== adminProfile?.email) {
-        const { error: authError } = await supabase.auth.updateUser({
-          email: email,
-        })
-
-        if (authError) {
-          throw authError
-        }
       }
 
       // Invalidate the cache
@@ -171,8 +159,8 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
                 id="email" 
                 type="email" 
                 value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                disabled={!isEditing}
+                disabled={true}
+                readOnly
               />
             )}
           </div>

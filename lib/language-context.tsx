@@ -692,6 +692,7 @@ const translations: Translations = {
     "admin.users.selectDegreeFirst": "Select a degree first",
     "admin.users.basicInfo": "Basic Information",
     "admin.users.createUser": "Create User",
+    "admin.users.createUserDescription": "Create a new user account. A temporary password will be generated.",
     "admin.users.managerDetails": "Manager Details",
     "admin.users.selectStatus": "Select status",
     "admin.users.studentDetails": "Student Details",
@@ -1926,6 +1927,7 @@ const translations: Translations = {
     "settings.account.saving": "Сохранение...",
     "admin.users.basicInfo": "Основная информация",
     "admin.users.createUser": "Создать пользователя",
+    "admin.users.createUserDescription": "Создать новый аккаунт пользователя. Будет сгенерирован временный пароль.",
     "admin.users.managerDetails": "Детали менеджера",
     "admin.users.selectStatus": "Выберите статус",
     "admin.users.studentDetails": "Детали студента",
@@ -2361,9 +2363,17 @@ const getStoredLanguage = (): "en" | "ru" | null => {
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // Initialize with a placeholder, will be updated in useEffect
-  const [language, setLanguageState] = useState<"en" | "ru">("en")
-  const [isInitialized, setIsInitialized] = useState(false)
+  // Initialize language synchronously on client to avoid flash
+  // Check stored preference first, then fall back to browser language
+  const [language, setLanguageState] = useState<"en" | "ru">(() => {
+    // Only run on client side
+    if (typeof window === "undefined") return "en"
+    
+    const storedLang = getStoredLanguage()
+    if (storedLang) return storedLang
+    
+    return detectBrowserLanguage()
+  })
 
   // Custom setter that also updates localStorage
   const setLanguage = useCallback((newLanguage: "en" | "ru") => {
@@ -2374,16 +2384,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       console.error("Error setting localStorage:", error)
     }
   }, [])
-
-  // Initialize language based on stored preference or browser language
-  useEffect(() => {
-    if (!isInitialized) {
-      const storedLang = getStoredLanguage()
-      const initialLang = storedLang || detectBrowserLanguage()
-      setLanguageState(initialLang)
-      setIsInitialized(true)
-    }
-  }, [isInitialized])
 
   const t = useCallback(
     (key: string, params?: Record<string, any>) => {

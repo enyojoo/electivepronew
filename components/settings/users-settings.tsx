@@ -754,7 +754,7 @@ export function UsersSettings() {
           <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle className="text-xl">{editingUser?.id ? t("admin.users.edit") : (t("admin.users.createUser") || "Create User")}</DialogTitle>
             <DialogDescription className="mt-1.5">
-              {editingUser?.id ? t("admin.settings.subtitle") : "Create a new user account. A temporary password will be generated."}
+              {editingUser?.id ? t("admin.settings.subtitle") : t("admin.users.createUserDescription")}
             </DialogDescription>
           </DialogHeader>
 
