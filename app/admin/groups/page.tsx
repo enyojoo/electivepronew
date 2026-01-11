@@ -93,12 +93,12 @@ export default function GroupsPage() {
     name: "",
     degreeId: "",
     academicYearId: "",
-    newYear: "",
-    useNewYear: false,
+    yearInput: "",
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
   const [filteredAcademicYears, setFilteredAcademicYears] = useState<AcademicYear[]>([])
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false)
 
   // Delete confirmation dialog state
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
@@ -525,6 +525,7 @@ export default function GroupsPage() {
         name: group.name,
         degreeId: group.degreeId,
         academicYearId: academicYear?.id || "",
+        yearInput: group.academicYear || "",
         status: group.status,
       })
       setIsEditing(true)
@@ -533,8 +534,7 @@ export default function GroupsPage() {
         name: "",
         degreeId: degrees.length > 0 ? degrees[0].id : "",
         academicYearId: "",
-        newYear: "",
-        useNewYear: false,
+        yearInput: "",
         status: "active",
       })
       setIsEditing(false)
@@ -555,17 +555,26 @@ export default function GroupsPage() {
       ...currentGroup,
       [name]: value,
       // Reset academic year selection when degree changes
-      ...(name === "degreeId" && { academicYearId: "", useNewYear: false, newYear: "" }),
+      ...(name === "degreeId" && { academicYearId: "", yearInput: "" }),
     })
   }
 
-  const handleYearModeChange = (useNew: boolean) => {
+  const handleYearInputChange = (value: string) => {
     setCurrentGroup({
       ...currentGroup,
-      useNewYear: useNew,
-      academicYearId: useNew ? "" : currentGroup.academicYearId,
-      newYear: useNew ? currentGroup.newYear : "",
+      yearInput: value,
+      academicYearId: "", // Clear selected ID when typing
     })
+    setIsYearDropdownOpen(true)
+  }
+
+  const handleYearSelect = (yearId: string, yearValue: string) => {
+    setCurrentGroup({
+      ...currentGroup,
+      academicYearId: yearId,
+      yearInput: yearValue,
+    })
+    setIsYearDropdownOpen(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -574,10 +583,11 @@ export default function GroupsPage() {
     try {
       let academicYearId = currentGroup.academicYearId
 
-      // If creating a new academic year
-      if (currentGroup.useNewYear && currentGroup.newYear && currentGroup.degreeId) {
+      // If yearInput is provided but no academicYearId is selected, check if it's a new year
+      if (currentGroup.yearInput && !academicYearId && currentGroup.degreeId) {
+        const yearValue = currentGroup.yearInput.trim()
+        
         // Validate year format (should be 4 digits)
-        const yearValue = currentGroup.newYear.trim()
         if (!/^\d{4}$/.test(yearValue)) {
           throw new Error(t("admin.groups.invalidYear") || "Year must be a 4-digit number (e.g., 2025)")
         }
@@ -614,7 +624,7 @@ export default function GroupsPage() {
       }
 
       if (!academicYearId) {
-        throw new Error(t("admin.groups.errorSelectYear") || "Please select or create an academic year")
+        throw new Error(t("admin.groups.errorSelectYear") || "Please select or enter an academic year")
       }
 
       if (isEditing) {
@@ -966,67 +976,52 @@ export default function GroupsPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="academicYearId">{t("admin.groups.year")}</Label>
+                <Label htmlFor="yearInput">{t("admin.groups.year")}</Label>
                 {!currentGroup.degreeId ? (
-                  <select
-                    id="academicYearId"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100"
+                  <Input
+                    id="yearInput"
+                    className="w-full bg-gray-100"
                     disabled
-                  >
-                    <option>{t("admin.groups.selectDegreeFirst") || "Select degree first"}</option>
-                  </select>
+                    placeholder={t("admin.groups.selectDegreeFirst") || "Select degree first"}
+                  />
                 ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={!currentGroup.useNewYear ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleYearModeChange(false)}
-                        className="flex-1"
-                      >
-                        {t("admin.groups.selectExisting") || "Select Existing"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={currentGroup.useNewYear ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleYearModeChange(true)}
-                        className="flex-1"
-                      >
-                        {t("admin.groups.addNew") || "Add New"}
-                      </Button>
-                    </div>
-                    {!currentGroup.useNewYear ? (
-                      <select
-                        id="academicYearId"
-                        name="academicYearId"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                        value={currentGroup.academicYearId}
-                        onChange={handleInputChange}
-                        required={!currentGroup.useNewYear}
-                        disabled={isLoadingYears}
-                      >
-                        <option value="">{t("admin.groups.selectYear")}</option>
-                        {filteredAcademicYears.map((year) => (
-                          <option key={year.id} value={year.id}>
-                            {year.year}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <Input
-                        id="newYear"
-                        name="newYear"
-                        type="number"
-                        min="2000"
-                        max="2100"
-                        placeholder={t("admin.groups.yearPlaceholder") || "e.g., 2025"}
-                        value={currentGroup.newYear}
-                        onChange={handleInputChange}
-                        required={currentGroup.useNewYear}
-                        className="w-full"
-                      />
+                  <div className="relative">
+                    <Input
+                      id="yearInput"
+                      name="yearInput"
+                      type="text"
+                      placeholder={t("admin.groups.yearPlaceholder") || "e.g., 2025"}
+                      value={currentGroup.yearInput}
+                      onChange={(e) => handleYearInputChange(e.target.value)}
+                      onFocus={() => setIsYearDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsYearDropdownOpen(false), 200)}
+                      required
+                      className="w-full"
+                    />
+                    {isYearDropdownOpen && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredAcademicYears
+                          .filter((year) =>
+                            currentGroup.yearInput
+                              ? year.year.includes(currentGroup.yearInput)
+                              : true
+                          )
+                          .map((year) => (
+                            <button
+                              key={year.id}
+                              type="button"
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                              onClick={() => handleYearSelect(year.id, year.year)}
+                            >
+                              {year.year}
+                            </button>
+                          ))}
+                        {filteredAcademicYears.length === 0 && !currentGroup.yearInput && (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            {t("admin.groups.noYearsAvailable") || "No years available. Type a year to create one."}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
