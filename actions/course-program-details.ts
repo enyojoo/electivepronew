@@ -1,12 +1,11 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseServerClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function getCourseProgram(id: string) {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase.from("elective_courses").select("*").eq("id", id).single()
 
     if (error) {
@@ -27,6 +26,7 @@ export async function getCoursesFromIds(courseIds: string[]) {
   }
 
   try {
+    const supabase = getSupabaseServerClient()
     // Try different approaches to get the courses
     const { data: courses, error } = await supabase.from("courses").select("*").in("id", courseIds)
 
@@ -44,6 +44,7 @@ export async function getCoursesFromIds(courseIds: string[]) {
 
 export async function getCourseSelections(electiveCourseId: string) {
   try {
+    const supabase = getSupabaseServerClient()
     const { data: selections, error } = await supabase
       .from("course_selections")
       .select(`
@@ -82,6 +83,7 @@ export async function getCourseSelections(electiveCourseId: string) {
 
 export async function updateCourseSelectionStatus(selectionId: string, status: "approved" | "rejected") {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase
       .from("course_selections")
       .update({ status })
@@ -106,6 +108,7 @@ export async function updateStudentCourseSelection(
   status: "approved" | "rejected" | "pending",
 ) {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase
       .from("course_selections")
       .update({

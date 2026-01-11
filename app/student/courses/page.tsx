@@ -9,13 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowRight, CheckCircle, AlertCircle, Clock, Inbox } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
-
-// Create a singleton Supabase client to prevent multiple instances
-const supabaseClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
 export default function ElectivesPage() {
   const { t, language } = useLanguage()
@@ -23,6 +20,7 @@ export default function ElectivesPage() {
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
   const [electiveCourses, setElectiveCourses] = useState<any[]>([])
   const [courseSelections, setCourseSelections] = useState<any[]>([])
+  const supabaseClient = getSupabaseBrowserClient()
   const [isLoading, setIsLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 

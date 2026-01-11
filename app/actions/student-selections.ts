@@ -1,28 +1,7 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
-import { cookies } from "next/headers" // To get the Supabase client configured for the user
-
-// Helper to get a server-side Supabase client
-// This assumes you have a way to initialize Supabase client on the server,
-// possibly using cookies for auth. Adjust as per your Supabase setup.
-const createSupabaseServerClient = () => {
-  const cookieStore = cookies()
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!, // Use service role for direct DB modification if RLS is restrictive
-    // Or, configure client to use user's session from cookies
-    {
-      global: {
-        headers: {
-          // If you're using user's session:
-          // Authorization: `Bearer ${cookieStore.get('supabase-auth-token')?.value}`,
-        },
-      },
-    },
-  )
-}
+import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function cancelCourseSelection(formData: FormData) {
   const studentId = formData.get("studentId") as string
@@ -32,7 +11,7 @@ export async function cancelCourseSelection(formData: FormData) {
     return { success: false, error: "Missing student ID or elective course ID." }
   }
 
-  const supabase = createSupabaseServerClient() // Or your specific server client creation logic
+  const supabase = getSupabaseServerClient()
 
   try {
     // Option 1: Delete the record entirely

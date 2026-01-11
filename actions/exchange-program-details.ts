@@ -1,12 +1,11 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseServerClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function getExchangeProgram(id: string) {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase.from("elective_exchange").select("*").eq("id", id).single()
 
     if (error) {
@@ -27,6 +26,7 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
   }
 
   try {
+    const supabase = getSupabaseServerClient()
     // First get universities
     const { data: universities, error: univError } = await supabase
       .from("universities")
@@ -73,6 +73,7 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
 
 export async function getExchangeSelections(exchangeId: string) {
   try {
+    const supabase = getSupabaseServerClient()
     // First get the selections
     const { data: selections, error: selectionsError } = await supabase
       .from("exchange_selections")
@@ -126,6 +127,7 @@ export async function getExchangeSelections(exchangeId: string) {
 
 export async function getUniversitySelectionData(universityId: string, exchangeId: string) {
   try {
+    const supabase = getSupabaseServerClient()
     // Get all selections for this exchange
     const { data: selections, error: selectionsError } = await supabase
       .from("exchange_selections")
@@ -186,6 +188,7 @@ export async function getUniversitySelectionData(universityId: string, exchangeI
 
 export async function downloadStatementFile(statementUrl: string) {
   try {
+    const supabase = getSupabaseServerClient()
     // Extract the file path from the full URL if needed
     let filePath = statementUrl
     if (statementUrl.includes("/storage/v1/object/public/statements/")) {
@@ -210,6 +213,7 @@ export async function downloadStatementFile(statementUrl: string) {
 
 export async function updateSelectionStatus(selectionId: string, status: "approved" | "rejected") {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase
       .from("exchange_selections")
       .update({ status })
@@ -236,6 +240,7 @@ export async function updateStudentSelection(
   status: "approved" | "rejected" | "pending",
 ) {
   try {
+    const supabase = getSupabaseServerClient()
     const { data, error } = await supabase
       .from("exchange_selections")
       .update({

@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff } from "lucide-react"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

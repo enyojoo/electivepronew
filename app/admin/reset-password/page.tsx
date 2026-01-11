@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -17,7 +17,7 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("")
   const router = useRouter()
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   // Check if user is in password reset flow
   useEffect(() => {

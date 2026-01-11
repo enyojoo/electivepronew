@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,7 +27,7 @@ export default function StudentLoginPage() {
   const { t } = useLanguage()
   const { toast } = useToast()
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)

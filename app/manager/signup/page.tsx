@@ -15,7 +15,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useLanguage } from "@/lib/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Eye, EyeOff } from "lucide-react"
 
 export default function ManagerSignupPage() {
@@ -42,7 +42,7 @@ export default function ManagerSignupPage() {
   // Ref to prevent multiple fetches
   const dataFetchedRef = useRef(false)
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   // Load all data once when the component mounts
   useEffect(() => {

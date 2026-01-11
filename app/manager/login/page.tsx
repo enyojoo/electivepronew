@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { useLanguage } from "@/lib/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Eye, EyeOff } from "lucide-react"
 
 export default function ManagerLoginPage() {
@@ -28,7 +28,7 @@ export default function ManagerLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
