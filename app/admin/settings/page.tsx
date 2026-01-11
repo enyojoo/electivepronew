@@ -64,7 +64,7 @@ export default function SettingsPage() {
                 <TabsTrigger value="branding">{t("admin.settings.tabs.branding")}</TabsTrigger>
                 <TabsTrigger value="account">{t("admin.settings.tabs.account")}</TabsTrigger>
                 <TabsTrigger value="degrees">{t("admin.settings.tabs.degrees")}</TabsTrigger>
-                <TabsTrigger value="users">Users</TabsTrigger>
+                <TabsTrigger value="users">{t("admin.settings.tabs.users")}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="branding" className="space-y-6">
