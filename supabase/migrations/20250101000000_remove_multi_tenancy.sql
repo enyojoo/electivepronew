@@ -274,10 +274,11 @@ CREATE TABLE IF NOT EXISTS selection_universities (
 -- ====================================================
 
 -- Settings table for single-institution branding and settings
+-- Note: Default values are hardcoded in application code (lib/constants.ts), not in database
 CREATE TABLE IF NOT EXISTS settings (
   id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-  name TEXT NOT NULL DEFAULT 'ElectivePRO',
-  primary_color TEXT NOT NULL DEFAULT '#027659',
+  name TEXT,
+  primary_color TEXT,
   logo_url TEXT,
   favicon_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
