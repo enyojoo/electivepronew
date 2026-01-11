@@ -31,13 +31,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the user's profile using the admin client to bypass RLS
-    const { data: profile, error: profileError } = await supabaseAdmin
+    let { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single()
 
-    if (profileError) {
+    // If profile doesn't exist, create it with admin role (for initial setup)
+    if (profileError && profileError.code === "PGRST116") {
+      console.log("Profile not found, creating default admin profile for user:", userId)
+      
+      // Create profile with admin role
+      const { data: newProfile, error: createError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: userId,
+          email: user.email || "",
+          full_name: user.user_metadata?.full_name || "Admin User",
+          role: "admin", // Default to admin for initial setup
+          is_active: true,
+        })
+        .select("role")
+        .single()
+
+      if (createError) {
+        console.error("Error creating profile:", createError)
+        return NextResponse.json({ error: "Error creating user profile" }, { status: 500 })
+      }
+
+      profile = newProfile
+    } else if (profileError) {
       console.error("Profile fetch error:", profileError)
       return NextResponse.json({ error: "Error fetching user profile" }, { status: 500 })
     }

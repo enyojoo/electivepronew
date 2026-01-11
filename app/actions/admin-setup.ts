@@ -1,17 +1,9 @@
 "use server"
 
-import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
+import { getSupabaseServerClient } from "@/lib/supabase"
 
 export async function ensureAdminUserExists() {
-  const cookieStore = cookies()
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
-      },
-    },
-  })
+  const supabase = getSupabaseServerClient()
 
   // Check if admin user exists
   const { data: existingAdmin, error: checkError } = await supabase
