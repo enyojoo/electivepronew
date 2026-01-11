@@ -27,8 +27,11 @@ export function BrandingSettings() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLogoUploading, setIsLogoUploading] = useState(false)
   const [isFaviconUploading, setIsFaviconUploading] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [institutionName, setInstitutionName] = useState("")
+  const [originalPrimaryColor, setOriginalPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
+  const [originalInstitutionName, setOriginalInstitutionName] = useState("")
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
@@ -37,16 +40,28 @@ export function BrandingSettings() {
     if (settings) {
       setFaviconUrl(settings.favicon_url || null)
       setLogoUrl(settings.logo_url || null)
-      setPrimaryColor(settings.primary_color || DEFAULT_PRIMARY_COLOR)
-      setInstitutionName(settings.name || "")
+      const color = settings.primary_color || DEFAULT_PRIMARY_COLOR
+      const name = settings.name || ""
+      setPrimaryColor(color)
+      setInstitutionName(name)
+      setOriginalPrimaryColor(color)
+      setOriginalInstitutionName(name)
     } else {
       // Initialize with defaults if settings not loaded yet
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setInstitutionName("")
+      setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
+      setOriginalInstitutionName("")
       setFaviconUrl(null)
       setLogoUrl(null)
     }
   }, [settings])
+
+  const handleCancelEdit = () => {
+    setPrimaryColor(originalPrimaryColor)
+    setInstitutionName(originalInstitutionName)
+    setIsEditing(false)
+  }
 
   const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -183,6 +198,11 @@ export function BrandingSettings() {
       // Invalidate the cache
       invalidateCache("settings", SETTINGS_ID)
 
+      // Update original values and exit edit mode
+      setOriginalPrimaryColor(primaryColor)
+      setOriginalInstitutionName(institutionName)
+      setIsEditing(false)
+
       toast({
         title: t("settings.toast.changesSaved"),
         description: t("settings.toast.changesSavedDesc"),
@@ -233,6 +253,7 @@ export function BrandingSettings() {
                 value={institutionName}
                 onChange={(e) => setInstitutionName(e.target.value)}
                 placeholder={t("settings.branding.institutionNamePlaceholder")}
+                disabled={!isEditing}
               />
             )}
           </div>
@@ -349,9 +370,13 @@ export function BrandingSettings() {
               ) : (
                 <div className="flex items-center gap-2">
                   <div
-                    className="h-10 w-10 rounded border cursor-pointer"
+                    className={`h-10 w-10 rounded border ${isEditing ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
                     style={{ backgroundColor: primaryColor }}
-                    onClick={() => document.getElementById("colorPickerInput")?.click()}
+                    onClick={() => {
+                      if (isEditing) {
+                        document.getElementById("colorPickerInput")?.click()
+                      }
+                    }}
                   />
                   <div className="relative flex-1">
                     <Input
@@ -359,18 +384,25 @@ export function BrandingSettings() {
                       type="text"
                       value={primaryColor}
                       onChange={(e) => {
+                        if (!isEditing) return
                         // Validate if it's a valid hex color
                         const isValidHex = /^#([0-9A-F]{3}){1,2}$/i.test(e.target.value)
                         if (isValidHex || e.target.value.startsWith("#")) {
                           setPrimaryColor(e.target.value)
                         }
                       }}
+                      disabled={!isEditing}
                     />
                     <input
                       id="colorPickerInput"
                       type="color"
                       value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      onChange={(e) => {
+                        if (isEditing) {
+                          setPrimaryColor(e.target.value)
+                        }
+                      }}
+                      disabled={!isEditing}
                       className="absolute opacity-0"
                       style={{ height: 0, width: 0 }}
                       aria-label="Select color"
@@ -381,20 +413,28 @@ export function BrandingSettings() {
             </div>
           </div>
 
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" onClick={handleResetDefaults} disabled={isLoading}>
-              {t("settings.branding.reset")}
-            </Button>
-            <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("settings.branding.saving")}
-                </>
-              ) : (
-                t("settings.branding.save")
-              )}
-            </Button>
+          <div className="flex justify-end gap-2 pt-4">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving || isLoading}>
+                  {t("settings.account.cancel") || "Cancel"}
+                </Button>
+                <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("settings.branding.saving")}
+                    </>
+                  ) : (
+                    t("settings.branding.save")
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)} disabled={isLoading}>
+                {t("settings.account.edit") || "Edit"}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
