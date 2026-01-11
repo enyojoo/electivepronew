@@ -8,20 +8,22 @@ export async function GET(request: NextRequest) {
   try {
     let faviconUrl = DEFAULT_FAVICON_URL
 
-    // Try to get favicon from settings table
-    try {
-      const { data: settings } = await supabase
-        .from("settings")
-        .select("favicon_url")
-        .eq("id", "00000000-0000-0000-0000-000000000000")
-        .single()
+    // Try to get favicon from settings table (only if Supabase is configured)
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      try {
+        const { data: settings } = await supabase
+          .from("settings")
+          .select("favicon_url")
+          .eq("id", "00000000-0000-0000-0000-000000000000")
+          .single()
 
-      if (settings?.favicon_url) {
-        faviconUrl = settings.favicon_url
+        if (settings?.favicon_url) {
+          faviconUrl = settings.favicon_url
+        }
+      } catch (error) {
+        console.error("Error fetching settings for favicon:", error)
+        // Fall back to default
       }
-    } catch (error) {
-      console.error("Error fetching settings for favicon:", error)
-      // Fall back to default
     }
 
     // Fetch the favicon from the URL

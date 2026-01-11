@@ -1,9 +1,8 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 import { redirect } from "next/navigation"
 
 export async function getCurrentUser() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const {
     data: { session },

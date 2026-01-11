@@ -1,12 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { supabaseAdmin, createServerComponentClient } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
     // Verify the current user is an admin
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = await createServerComponentClient()
     const {
       data: { session },
     } = await supabase.auth.getSession()

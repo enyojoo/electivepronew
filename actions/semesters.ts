@@ -1,7 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 
 export interface Semester {
   id: string
@@ -11,7 +10,7 @@ export interface Semester {
 }
 
 export async function getSemesters() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase.from("semesters").select("id, name, name_ru, code").order("name")
 

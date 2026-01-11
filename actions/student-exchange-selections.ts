@@ -1,7 +1,6 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "@/lib/session"
 
@@ -21,7 +20,7 @@ export async function createStudentExchangeSelection({
   motivationLetterUrl,
   transcriptUrl,
 }: CreateStudentExchangeSelectionParams) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
   const user = await getCurrentUser()
 
   // Create the selection
@@ -66,7 +65,7 @@ export async function createStudentExchangeSelection({
 }
 
 export async function getStudentExchangeSelections() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
   const user = await getCurrentUser()
 
   const { data, error } = await supabase
@@ -107,7 +106,7 @@ export async function getStudentExchangeSelections() {
 }
 
 export async function getStudentExchangeSelection(id: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("student_exchange_selections")

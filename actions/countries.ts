@@ -1,10 +1,9 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 
 export async function getCountries() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase.from("countries").select("code, name, name_ru").order("name")
 

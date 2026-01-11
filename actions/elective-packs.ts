@@ -1,10 +1,9 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 
 export async function getElectivePacks() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("elective_packs")
@@ -21,7 +20,7 @@ export async function getElectivePacks() {
 }
 
 export async function getElectivePack(id: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("elective_packs")

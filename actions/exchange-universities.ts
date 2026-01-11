@@ -1,12 +1,11 @@
 "use server"
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 import type { ExchangeUniversity, ExchangeUniversityFormData } from "@/types/exchange-university"
 import { revalidatePath } from "next/cache"
 
 export async function getExchangeUniversities(electivePackId?: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   let query = supabase
     .from("exchange_universities")
@@ -29,7 +28,7 @@ export async function getExchangeUniversities(electivePackId?: string) {
 }
 
 export async function getExchangeUniversity(id: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("exchange_universities")
@@ -46,7 +45,7 @@ export async function getExchangeUniversity(id: string) {
 }
 
 export async function createExchangeUniversity(formData: ExchangeUniversityFormData) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase.from("exchange_universities").insert(formData).select().single()
 
@@ -60,7 +59,7 @@ export async function createExchangeUniversity(formData: ExchangeUniversityFormD
 }
 
 export async function updateExchangeUniversity(id: string, formData: Partial<ExchangeUniversityFormData>) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("exchange_universities")
@@ -83,7 +82,7 @@ export async function updateExchangeUniversity(id: string, formData: Partial<Exc
 }
 
 export async function deleteExchangeUniversity(id: string) {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = await createServerComponentClient()
 
   // Instead of actually deleting, we'll set the status to inactive
   const { error } = await supabase

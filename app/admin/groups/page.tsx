@@ -280,7 +280,7 @@ function GroupsTableContent() {
     }
 
     fetchReferenceData()
-  }, [t, toast, getCachedData, setCachedData, institution, language])
+  }, [t, toast, getCachedData, setCachedData, language])
 
   // Add this after the other useEffect hooks
   useEffect(() => {

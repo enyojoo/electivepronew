@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createServerComponentClient } from "@/lib/supabase"
 
 export async function getUserFromRequest(req: NextRequest) {
   try {
-    const supabaseServerClient = createServerComponentClient({ cookies })
+    const supabaseServerClient = await createServerComponentClient()
     const {
       data: { session },
       error: sessionError,

@@ -2232,7 +2232,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       // Support parameter substitution (e.g., {count} in translation strings)
       if (params) {
         translation = Object.entries(params).reduce((acc, [paramKey, value]) => {
-          return acc.replace(new RegExp(`{${paramKey}}`, "g"), String(value))
+          // Escape special regex characters in paramKey and use literal braces
+          const escapedKey = paramKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          return acc.replace(new RegExp(`\\{${escapedKey}\\}`, "g"), String(value))
         }, translation)
       }
       
