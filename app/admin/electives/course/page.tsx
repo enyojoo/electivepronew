@@ -507,8 +507,8 @@ export default function CourseElectivesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          {t("manager.electives.noCourseElectives", "No course elective packs found.")}
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {t("manager.electives.noCourseElectives", "No course electives found")}
                         </TableCell>
                       </TableRow>
                     )}

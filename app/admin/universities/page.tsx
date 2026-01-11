@@ -564,8 +564,8 @@ export default function UniversitiesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          {t("admin.universities.noUniversitiesFound", "No universities found matching your criteria")}
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {t("admin.universities.noUniversitiesFound", "No universities found")}
                         </TableCell>
                       </TableRow>
                     )}

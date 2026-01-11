@@ -600,8 +600,8 @@ export default function CoursesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          {t("admin.courses.noCoursesFound")}
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          {t("admin.courses.noCoursesFound", "No courses found")}
                         </TableCell>
                       </TableRow>
                     )}

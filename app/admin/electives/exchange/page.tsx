@@ -450,8 +450,8 @@ export default function ExchangeElectivesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          {t("manager.electives.noExchangePrograms", "No exchange programs found.")}
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          {t("manager.electives.noExchangePrograms", "No exchange programs found")}
                         </TableCell>
                       </TableRow>
                     )}
