@@ -86,17 +86,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (role === "program_manager" && groupId) {
-      // Get program_id from group
+      // Get degree_id from group
       const { data: groupData } = await supabaseAdmin
         .from("groups")
-        .select("program_id")
+        .select("degree_id")
         .eq("id", groupId)
         .single()
 
-      if (groupData?.program_id) {
+      if (groupData?.degree_id) {
         const { error: managerError } = await supabaseAdmin.from("manager_profiles").insert({
           profile_id: authData.user.id,
-          program_id: groupData.program_id,
+          degree_id: groupData.degree_id,
         })
         if (managerError) {
           console.error("Error creating manager profile:", managerError)

@@ -63,7 +63,7 @@ export default function UserEditPage() {
         // Fetch groups
         const { data: groupsData, error: groupsError } = await supabase
           .from("groups")
-          .select("id, name, degree_id, display_name, program_id, academic_year_id")
+          .select("id, name, degree_id, display_name, academic_year_id")
           .eq("status", "active")
 
         if (groupsError) throw groupsError

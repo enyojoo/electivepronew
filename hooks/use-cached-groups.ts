@@ -39,7 +39,7 @@ export function useCachedGroups() {
       try {
         const supabase = getSupabaseBrowserClient()
 
-        // Fetch groups with programs, degrees, and academic years through proper relationships
+        // Fetch groups with degrees and academic years through proper relationships
         const { data: groupsData, error: groupsError } = await supabase
           .from("groups")
           .select(`
@@ -47,16 +47,13 @@ export function useCachedGroups() {
             name,
             display_name,
             status,
+            degree_id,
             academic_year_id,
             academic_years(
               id,
               year
             ),
-            programs(
-              id,
-              degree_id,
-              degrees(id, name, name_ru)
-            )
+            degrees(id, name, name_ru)
           `)
           .order("name")
 
@@ -88,9 +85,12 @@ export function useCachedGroups() {
 
         // Format the groups data
         const formattedGroups = groupsData.map((group) => {
-          // Extract degree info from programs relationship
-          const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
-          const degree = program?.degrees ? (Array.isArray(program.degrees) ? program.degrees[0] : program.degrees) : null
+          // Extract degree info directly
+          const degree = group.degrees
+            ? Array.isArray(group.degrees)
+              ? group.degrees[0]
+              : group.degrees
+            : null
           
           // Extract academic year
           const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
@@ -100,7 +100,7 @@ export function useCachedGroups() {
             name: group.name,
             displayName: group.display_name,
             degree: degree?.name || "Unknown",
-            degreeId: program?.degree_id || "",
+            degreeId: group.degree_id || "",
             academicYear: academicYear?.year || "",
             students: studentCountMap.get(group.id) || 0,
             status: group.status,

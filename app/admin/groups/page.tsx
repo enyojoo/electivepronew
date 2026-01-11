@@ -93,9 +93,12 @@ export default function GroupsPage() {
     name: "",
     degreeId: "",
     academicYearId: "",
+    newYear: "",
+    useNewYear: false,
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
+  const [filteredAcademicYears, setFilteredAcademicYears] = useState<AcademicYear[]>([])
 
   // Delete confirmation dialog state
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
@@ -172,16 +175,13 @@ export default function GroupsPage() {
             name,
             display_name,
             status,
+            degree_id,
             academic_year_id,
             academic_years(
               id,
               year
             ),
-            programs(
-              id,
-              degree_id,
-              degrees(id, name, name_ru)
-            )
+            degrees(id, name, name_ru)
           `)
           .order("name")
 
@@ -212,11 +212,10 @@ export default function GroupsPage() {
 
         // Format the groups data
         const formattedGroups: Group[] = groupsData.map((group) => {
-          const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
-          const degree = program?.degrees
-            ? Array.isArray(program.degrees)
-              ? program.degrees[0]
-              : program.degrees
+          const degree = group.degrees
+            ? Array.isArray(group.degrees)
+              ? group.degrees[0]
+              : group.degrees
             : null
           const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
 
@@ -225,7 +224,7 @@ export default function GroupsPage() {
             name: group.name,
             displayName: group.display_name || "",
             degree: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Unknown",
-            degreeId: program?.degree_id || "",
+            degreeId: group.degree_id || "",
             academicYear: academicYear?.year || "",
             students: studentCountMap.get(group.id) || 0,
             status: group.status,
@@ -307,7 +306,7 @@ export default function GroupsPage() {
       try {
         const { data, error } = await supabase
           .from("academic_years")
-          .select("id, year")
+          .select("id, year, degree_id")
           .eq("is_active", true)
           .order("year", { ascending: false })
 
@@ -338,6 +337,16 @@ export default function GroupsPage() {
     fetchAcademicYears()
   }, [supabase, toast, t, isLoadingYears])
 
+  // Filter academic years by selected degree
+  useEffect(() => {
+    if (currentGroup.degreeId && academicYears.length > 0) {
+      const filtered = academicYears.filter((ay: any) => ay.degree_id === currentGroup.degreeId)
+      setFilteredAcademicYears(filtered)
+    } else {
+      setFilteredAcademicYears([])
+    }
+  }, [currentGroup.degreeId, academicYears])
+
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
     const channel = supabase
@@ -359,16 +368,13 @@ export default function GroupsPage() {
                 name,
                 display_name,
                 status,
+                degree_id,
                 academic_year_id,
                 academic_years(
                   id,
                   year
                 ),
-                programs(
-                  id,
-                  degree_id,
-                  degrees(id, name, name_ru)
-                )
+                degrees(id, name, name_ru)
               `)
               .order("name")
 
@@ -398,11 +404,10 @@ export default function GroupsPage() {
 
             // Format the groups data
             const formattedGroups: Group[] = groupsData.map((group) => {
-              const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
-              const degree = program?.degrees
-                ? Array.isArray(program.degrees)
-                  ? program.degrees[0]
-                  : program.degrees
+              const degree = group.degrees
+                ? Array.isArray(group.degrees)
+                  ? group.degrees[0]
+                  : group.degrees
                 : null
               const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
 
@@ -411,7 +416,7 @@ export default function GroupsPage() {
                 name: group.name,
                 displayName: group.display_name || "",
                 degree: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Unknown",
-                degreeId: program?.degree_id || "",
+                degreeId: group.degree_id || "",
                 academicYear: academicYear?.year || "",
                 students: studentCountMap.get(group.id) || 0,
                 status: group.status,
@@ -524,11 +529,12 @@ export default function GroupsPage() {
       })
       setIsEditing(true)
     } else {
-      const defaultYear = academicYears.length > 0 ? academicYears[0].id : ""
       setCurrentGroup({
         name: "",
         degreeId: degrees.length > 0 ? degrees[0].id : "",
-        academicYearId: defaultYear,
+        academicYearId: "",
+        newYear: "",
+        useNewYear: false,
         status: "active",
       })
       setIsEditing(false)
@@ -548,6 +554,17 @@ export default function GroupsPage() {
     setCurrentGroup({
       ...currentGroup,
       [name]: value,
+      // Reset academic year selection when degree changes
+      ...(name === "degreeId" && { academicYearId: "", useNewYear: false, newYear: "" }),
+    })
+  }
+
+  const handleYearModeChange = (useNew: boolean) => {
+    setCurrentGroup({
+      ...currentGroup,
+      useNewYear: useNew,
+      academicYearId: useNew ? "" : currentGroup.academicYearId,
+      newYear: useNew ? currentGroup.newYear : "",
     })
   }
 
@@ -555,6 +572,51 @@ export default function GroupsPage() {
     e.preventDefault()
 
     try {
+      let academicYearId = currentGroup.academicYearId
+
+      // If creating a new academic year
+      if (currentGroup.useNewYear && currentGroup.newYear && currentGroup.degreeId) {
+        // Validate year format (should be 4 digits)
+        const yearValue = currentGroup.newYear.trim()
+        if (!/^\d{4}$/.test(yearValue)) {
+          throw new Error(t("admin.groups.invalidYear") || "Year must be a 4-digit number (e.g., 2025)")
+        }
+
+        // Check if year already exists for this degree
+        const { data: existingYear } = await supabase
+          .from("academic_years")
+          .select("id")
+          .eq("degree_id", currentGroup.degreeId)
+          .eq("year", yearValue)
+          .single()
+
+        if (existingYear) {
+          academicYearId = existingYear.id
+        } else {
+          // Create new academic year
+          const { data: newYearData, error: yearError } = await supabase
+            .from("academic_years")
+            .insert({
+              degree_id: currentGroup.degreeId,
+              year: yearValue,
+              is_active: true,
+            })
+            .select("id")
+            .single()
+
+          if (yearError) throw yearError
+          academicYearId = newYearData.id
+
+          // Invalidate academic years cache
+          localStorage.removeItem(ACADEMIC_YEARS_CACHE_KEY)
+          setIsLoadingYears(true)
+        }
+      }
+
+      if (!academicYearId) {
+        throw new Error(t("admin.groups.errorSelectYear") || "Please select or create an academic year")
+      }
+
       if (isEditing) {
         // Update existing group
         const { error } = await supabase
@@ -562,7 +624,7 @@ export default function GroupsPage() {
           .update({
             name: currentGroup.name,
             degree_id: currentGroup.degreeId,
-            academic_year_id: currentGroup.academicYearId,
+            academic_year_id: academicYearId,
             status: currentGroup.status,
           })
           .eq("id", currentGroup.id)
@@ -579,7 +641,7 @@ export default function GroupsPage() {
           .insert({
             name: currentGroup.name,
             degree_id: currentGroup.degreeId,
-            academic_year_id: currentGroup.academicYearId,
+            academic_year_id: academicYearId,
             status: currentGroup.status,
           })
 
@@ -905,22 +967,69 @@ export default function GroupsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="academicYearId">{t("admin.groups.year")}</Label>
-                <select
-                  id="academicYearId"
-                  name="academicYearId"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  value={currentGroup.academicYearId}
-                  onChange={handleInputChange}
-                  required
-                  disabled={isLoadingYears}
-                >
-                  <option value="">{t("admin.groups.selectYear")}</option>
-                  {academicYears.map((year) => (
-                    <option key={year.id} value={year.id}>
-                      {year.year}
-                    </option>
-                  ))}
-                </select>
+                {!currentGroup.degreeId ? (
+                  <select
+                    id="academicYearId"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100"
+                    disabled
+                  >
+                    <option>{t("admin.groups.selectDegreeFirst") || "Select degree first"}</option>
+                  </select>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={!currentGroup.useNewYear ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleYearModeChange(false)}
+                        className="flex-1"
+                      >
+                        {t("admin.groups.selectExisting") || "Select Existing"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={currentGroup.useNewYear ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleYearModeChange(true)}
+                        className="flex-1"
+                      >
+                        {t("admin.groups.addNew") || "Add New"}
+                      </Button>
+                    </div>
+                    {!currentGroup.useNewYear ? (
+                      <select
+                        id="academicYearId"
+                        name="academicYearId"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                        value={currentGroup.academicYearId}
+                        onChange={handleInputChange}
+                        required={!currentGroup.useNewYear}
+                        disabled={isLoadingYears}
+                      >
+                        <option value="">{t("admin.groups.selectYear")}</option>
+                        {filteredAcademicYears.map((year) => (
+                          <option key={year.id} value={year.id}>
+                            {year.year}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        id="newYear"
+                        name="newYear"
+                        type="number"
+                        min="2000"
+                        max="2100"
+                        placeholder={t("admin.groups.yearPlaceholder") || "e.g., 2025"}
+                        value={currentGroup.newYear}
+                        onChange={handleInputChange}
+                        required={currentGroup.useNewYear}
+                        className="w-full"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

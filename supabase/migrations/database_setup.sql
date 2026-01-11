@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS programs (
 -- Academic Years table
 CREATE TABLE IF NOT EXISTS academic_years (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  program_id UUID NOT NULL REFERENCES programs(id) ON DELETE RESTRICT,
+  degree_id UUID NOT NULL REFERENCES degrees(id) ON DELETE RESTRICT,
   year TEXT NOT NULL,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS academic_years (
 -- Groups table
 CREATE TABLE IF NOT EXISTS groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  program_id UUID NOT NULL REFERENCES programs(id) ON DELETE RESTRICT,
+  degree_id UUID NOT NULL REFERENCES degrees(id) ON DELETE RESTRICT,
   academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
   display_name TEXT NOT NULL,
@@ -294,11 +294,11 @@ CREATE INDEX IF NOT EXISTS idx_programs_degree_id ON programs(degree_id);
 CREATE INDEX IF NOT EXISTS idx_programs_status ON programs(status);
 
 -- Academic Years indexes
-CREATE INDEX IF NOT EXISTS idx_academic_years_program_id ON academic_years(program_id);
+CREATE INDEX IF NOT EXISTS idx_academic_years_degree_id ON academic_years(degree_id);
 CREATE INDEX IF NOT EXISTS idx_academic_years_is_active ON academic_years(is_active);
 
 -- Groups indexes
-CREATE INDEX IF NOT EXISTS idx_groups_program_id ON groups(program_id);
+CREATE INDEX IF NOT EXISTS idx_groups_degree_id ON groups(degree_id);
 CREATE INDEX IF NOT EXISTS idx_groups_academic_year_id ON groups(academic_year_id);
 CREATE INDEX IF NOT EXISTS idx_groups_status ON groups(status);
 
@@ -332,6 +332,7 @@ CREATE INDEX IF NOT EXISTS idx_exchange_selections_status ON exchange_selections
 
 -- Manager Profiles indexes
 CREATE INDEX IF NOT EXISTS idx_manager_profiles_program_id ON manager_profiles(program_id);
+CREATE INDEX IF NOT EXISTS idx_manager_profiles_degree_id ON manager_profiles(degree_id);
 CREATE INDEX IF NOT EXISTS idx_manager_profiles_profile_id ON manager_profiles(profile_id);
 
 -- Student Profiles indexes
@@ -414,6 +415,8 @@ END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Helper function to check if user is a manager of a specific program
+-- This function is deprecated but kept for compatibility
+-- New code should use degree_id directly from manager_profiles
 CREATE OR REPLACE FUNCTION public.is_manager_of_program(program_id UUID)
 RETURNS BOOLEAN AS $func$
 BEGIN
@@ -421,7 +424,9 @@ BEGIN
     SELECT 1 
     FROM manager_profiles 
     WHERE profile_id = auth.uid() 
-      AND manager_profiles.program_id = is_manager_of_program.program_id
+      AND manager_profiles.degree_id = (
+        SELECT degree_id FROM programs WHERE id = program_id
+      )
   );
 END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
@@ -530,7 +535,7 @@ CREATE POLICY "Managers can view profiles in their programs"
     EXISTS (
       SELECT 1 FROM manager_profiles mp
       JOIN student_profiles sp ON sp.group_id IN (
-        SELECT id FROM groups WHERE program_id = mp.program_id
+        SELECT id FROM groups WHERE degree_id = mp.degree_id
       )
       WHERE mp.profile_id = auth.uid() AND sp.profile_id = profiles.id
     )
@@ -900,7 +905,7 @@ CREATE POLICY "Managers can view students in their programs"
     public.user_role() = 'program_manager' AND
     EXISTS (
       SELECT 1 FROM manager_profiles mp
-      JOIN groups g ON g.program_id = mp.program_id
+      JOIN groups g ON g.degree_id = mp.degree_id
       WHERE mp.profile_id = auth.uid() AND g.id = student_profiles.group_id
     )
   );
@@ -1301,7 +1306,7 @@ CREATE POLICY "Managers can read statements for their students"
     EXISTS (
       SELECT 1 FROM manager_profiles mp
       JOIN student_profiles sp ON sp.group_id IN (
-        SELECT id FROM groups WHERE program_id = mp.program_id
+        SELECT id FROM groups WHERE degree_id = mp.degree_id
       )
       WHERE mp.profile_id = auth.uid() 
       -- File name format: userId_packId_timestamp.ext

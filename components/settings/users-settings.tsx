@@ -386,36 +386,19 @@ export function UsersSettings() {
           // Remove manager profile if it exists
           await supabase.from("manager_profiles").delete().eq("profile_id", editingUser.id)
         } else if (editingUser.role === UserRole.PROGRAM_MANAGER) {
-          // For program managers, we need to find the program_id from degree_id
-          // First, get the program_id from the degree
-          let programId = null
-          if (editingUser.degreeId) {
-            const { data: programData } = await supabase
-              .from("programs")
-              .select("id")
-              .eq("degree_id", editingUser.degreeId)
-              .limit(1)
-
-            if (programData && programData.length > 0) {
-              programId = programData[0].id
-            }
-          }
-
           // Get academic_year_id from the year if provided
           let academicYearId = null
-          if (editingUser.year) {
-            // Find academic_year by year text and program_id
-            if (programId) {
-              const { data: academicYearData } = await supabase
-                .from("academic_years")
-                .select("id")
-                .eq("program_id", programId)
-                .eq("year", editingUser.year)
-                .limit(1)
+          if (editingUser.year && editingUser.degreeId) {
+            // Find academic_year by year text and degree_id
+            const { data: academicYearData } = await supabase
+              .from("academic_years")
+              .select("id")
+              .eq("degree_id", editingUser.degreeId)
+              .eq("year", editingUser.year)
+              .limit(1)
 
-              if (academicYearData && academicYearData.length > 0) {
-                academicYearId = academicYearData[0].id
-              }
+            if (academicYearData && academicYearData.length > 0) {
+              academicYearId = academicYearData[0].id
             }
           }
 
@@ -427,10 +410,8 @@ export function UsersSettings() {
           // Only include fields if they're provided (form shows these for program managers)
           if (editingUser.degreeId !== undefined && editingUser.degreeId !== "") {
             managerProfileData.degree_id = editingUser.degreeId
-            managerProfileData.program_id = programId
           } else {
             managerProfileData.degree_id = null
-            managerProfileData.program_id = null
           }
           
           if (academicYearId) {

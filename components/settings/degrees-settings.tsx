@@ -25,6 +25,7 @@ interface DegreeFormData {
   name: string
   nameRu: string
   code: string
+  duration_years: number
   status: string
 }
 
@@ -41,6 +42,7 @@ export function DegreesSettings() {
     name: "",
     nameRu: "",
     code: "",
+    duration_years: 4,
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
@@ -84,6 +86,7 @@ export function DegreesSettings() {
           name: degree.name,
           nameRu: degree.name_ru || "",
           code: degree.code,
+          duration_years: degree.duration_years || 4,
           status: degree.status,
         }))
 
@@ -131,6 +134,7 @@ export function DegreesSettings() {
         name: "",
         nameRu: "",
         code: "",
+        duration_years: 4,
         status: "active",
       })
       setIsEditing(false)
@@ -201,6 +205,7 @@ export function DegreesSettings() {
             name: currentDegree.name,
             name_ru: currentDegree.nameRu,
             code: currentDegree.code,
+            duration_years: currentDegree.duration_years,
             status: currentDegree.status,
           })
           .eq("id", currentDegree.id)
@@ -224,6 +229,7 @@ export function DegreesSettings() {
             name: currentDegree.name,
             name_ru: currentDegree.nameRu,
             code: currentDegree.code,
+            duration_years: currentDegree.duration_years,
             status: currentDegree.status,
           })
           .select()
@@ -487,6 +493,26 @@ export function DegreesSettings() {
                   <Label htmlFor="code">{t("admin.degrees.code")}</Label>
                   <Input id="code" name="code" value={currentDegree.code} onChange={handleInputChange} required />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration_years">{t("admin.degrees.duration")}</Label>
+                  <Input
+                    id="duration_years"
+                    name="duration_years"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={currentDegree.duration_years}
+                    onChange={(e) =>
+                      setCurrentDegree({
+                        ...currentDegree,
+                        duration_years: parseInt(e.target.value) || 4,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="status">{t("admin.degrees.status")}</Label>
                   <select
