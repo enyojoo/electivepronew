@@ -30,12 +30,26 @@ const isValidUrl = (url: string | null | undefined): boolean => {
   }
 }
 
-// Preload default images to prevent flashing
+// Global image cache to persist across component remounts
+const imageCache = {
+  logo: DEFAULT_LOGO_URL,
+  favicon: DEFAULT_FAVICON_URL,
+}
+
+// Preload default images to prevent flashing - ensure they're cached globally
 if (typeof window !== "undefined") {
+  // Preload and cache default images
   const preloadLogo = new Image()
   preloadLogo.src = DEFAULT_LOGO_URL
+  preloadLogo.onload = () => {
+    imageCache.logo = DEFAULT_LOGO_URL
+  }
+  
   const preloadFavicon = new Image()
   preloadFavicon.src = DEFAULT_FAVICON_URL
+  preloadFavicon.onload = () => {
+    imageCache.favicon = DEFAULT_FAVICON_URL
+  }
 }
 
 export function BrandingSettings() {
@@ -58,45 +72,76 @@ export function BrandingSettings() {
   // Use refs to directly manipulate image elements without causing re-renders
   const logoImgRef = useRef<HTMLImageElement>(null)
   const faviconImgRef = useRef<HTMLImageElement>(null)
-  const logoSrcRef = useRef<string>(DEFAULT_LOGO_URL)
-  const faviconSrcRef = useRef<string>(DEFAULT_FAVICON_URL)
-  const hasSetInitialSrcRef = useRef(false)
+  const logoSrcRef = useRef<string>(imageCache.logo)
+  const faviconSrcRef = useRef<string>(imageCache.favicon)
 
-  // Set initial image sources once on mount, then only update when URL changes
-  useEffect(() => {
-    if (!hasSetInitialSrcRef.current && !isLoading) {
-      // Set initial sources
-      const finalLogoSrc = isValidUrl(logoUrl) ? logoUrl : DEFAULT_LOGO_URL
-      const finalFaviconSrc = isValidUrl(faviconUrl) ? faviconUrl : DEFAULT_FAVICON_URL
-      
-      logoSrcRef.current = finalLogoSrc
-      faviconSrcRef.current = finalFaviconSrc
-      
-      // Directly set img src to avoid React re-render
-      if (logoImgRef.current) {
-        logoImgRef.current.src = finalLogoSrc
-      }
-      if (faviconImgRef.current) {
-        faviconImgRef.current.src = finalFaviconSrc
-      }
-      
-      hasSetInitialSrcRef.current = true
-    } else if (hasSetInitialSrcRef.current && !isLoading) {
-      // Update only when URL actually changes
-      const finalLogoSrc = isValidUrl(logoUrl) ? logoUrl : DEFAULT_LOGO_URL
-      const finalFaviconSrc = isValidUrl(faviconUrl) ? faviconUrl : DEFAULT_FAVICON_URL
-      
-      if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
-        logoSrcRef.current = finalLogoSrc
-        logoImgRef.current.src = finalLogoSrc
-      }
-      
-      if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
-        faviconSrcRef.current = finalFaviconSrc
-        faviconImgRef.current.src = finalFaviconSrc
-      }
+  // Ref callbacks to set src immediately when element is created (synchronous, prevents flash)
+  const setLogoRef = (element: HTMLImageElement | null) => {
+    logoImgRef.current = element
+    if (element) {
+      // Set src immediately from cache to prevent flash
+      element.src = imageCache.logo
+      logoSrcRef.current = imageCache.logo
     }
-  }, [logoUrl, faviconUrl, isLoading])
+  }
+
+  const setFaviconRef = (element: HTMLImageElement | null) => {
+    faviconImgRef.current = element
+    if (element) {
+      // Set src immediately from cache to prevent flash
+      element.src = imageCache.favicon
+      faviconSrcRef.current = imageCache.favicon
+    }
+  }
+
+  // Update images when settings load or URLs change (but only if different from current)
+  useEffect(() => {
+    const finalLogoSrc = isValidUrl(logoUrl) ? logoUrl : DEFAULT_LOGO_URL
+    const finalFaviconSrc = isValidUrl(faviconUrl) ? faviconUrl : DEFAULT_FAVICON_URL
+    
+    // Only update if the URL actually changed
+    if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
+      // Preload the new image before switching
+      const img = new Image()
+      img.onload = () => {
+        if (logoImgRef.current && logoSrcRef.current !== finalLogoSrc) {
+          logoSrcRef.current = finalLogoSrc
+          logoImgRef.current.src = finalLogoSrc
+          imageCache.logo = finalLogoSrc
+        }
+      }
+      img.onerror = () => {
+        // If custom image fails, keep default
+        if (logoImgRef.current && logoSrcRef.current !== DEFAULT_LOGO_URL) {
+          logoSrcRef.current = DEFAULT_LOGO_URL
+          logoImgRef.current.src = DEFAULT_LOGO_URL
+          imageCache.logo = DEFAULT_LOGO_URL
+        }
+      }
+      img.src = finalLogoSrc
+    }
+    
+    if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
+      // Preload the new image before switching
+      const img = new Image()
+      img.onload = () => {
+        if (faviconImgRef.current && faviconSrcRef.current !== finalFaviconSrc) {
+          faviconSrcRef.current = finalFaviconSrc
+          faviconImgRef.current.src = finalFaviconSrc
+          imageCache.favicon = finalFaviconSrc
+        }
+      }
+      img.onerror = () => {
+        // If custom image fails, keep default
+        if (faviconImgRef.current && faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
+          faviconSrcRef.current = DEFAULT_FAVICON_URL
+          faviconImgRef.current.src = DEFAULT_FAVICON_URL
+          imageCache.favicon = DEFAULT_FAVICON_URL
+        }
+      }
+      img.src = finalFaviconSrc
+    }
+  }, [logoUrl, faviconUrl])
 
   // Use ref values for initial render - these won't change on re-renders
   const logoSrc = logoSrcRef.current
@@ -391,7 +436,7 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      ref={logoImgRef}
+                      ref={setLogoRef}
                       src={logoSrc}
                       alt="Logo"
                       className="h-full w-full object-contain"
@@ -446,7 +491,7 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      ref={faviconImgRef}
+                      ref={setFaviconRef}
                       src={faviconSrc}
                       alt="Favicon"
                       className="h-full w-full object-contain"
