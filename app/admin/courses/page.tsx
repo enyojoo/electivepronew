@@ -278,8 +278,8 @@ export default function CoursesPage() {
           COURSES_CACHE_KEY,
           JSON.stringify({
             data: {
-              courses: data,
-              totalCourses: count,
+              courses: filteredCourses,
+              totalCourses: count || 0,
             },
             timestamp: Date.now(),
             filters: {
