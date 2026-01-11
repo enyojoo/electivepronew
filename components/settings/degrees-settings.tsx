@@ -71,19 +71,31 @@ export function DegreesSettings() {
 
   // Format and set degrees from cached data
   useEffect(() => {
-    if (cachedDegrees && cachedDegrees.length > 0) {
-      const formattedDegrees = cachedDegrees.map((degree) => ({
-        id: degree.id.toString(),
-        name: degree.name,
-        nameRu: degree.name_ru || "",
-        code: degree.code,
-        status: degree.status,
-      }))
+    // If we're still loading, don't update yet
+    if (isLoadingDegrees) {
+      return
+    }
 
-      setDegrees(formattedDegrees)
-      setFilteredDegrees(formattedDegrees)
-    } else if (!isLoadingDegrees) {
-      // Only clear if we're done loading and there's no data
+    // If we have cached degrees (even if empty array), format and set them
+    if (cachedDegrees !== null && cachedDegrees !== undefined) {
+      if (cachedDegrees.length > 0) {
+        const formattedDegrees = cachedDegrees.map((degree) => ({
+          id: degree.id.toString(),
+          name: degree.name,
+          nameRu: degree.name_ru || "",
+          code: degree.code,
+          status: degree.status,
+        }))
+
+        setDegrees(formattedDegrees)
+        setFilteredDegrees(formattedDegrees)
+      } else {
+        // Empty array - no degrees found
+        setDegrees([])
+        setFilteredDegrees([])
+      }
+    } else {
+      // No cached data and not loading - set empty
       setDegrees([])
       setFilteredDegrees([])
     }

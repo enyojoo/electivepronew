@@ -20,7 +20,8 @@ export function useCachedDegrees() {
       // Try to get data from cache first
       const cachedDegrees = getCachedData<any[]>("degrees", "all")
 
-      if (cachedDegrees && cachedDegrees.length > 0) {
+      // If cached data exists (even if empty array), use it
+      if (cachedDegrees !== null && cachedDegrees !== undefined) {
         console.log("Using cached degrees data")
         setDegrees(cachedDegrees)
         setIsLoading(false)
@@ -30,15 +31,17 @@ export function useCachedDegrees() {
       // If not in cache, fetch from API
       console.log("Fetching degrees data from API")
       try {
-        const { data, error } = await supabase.from("degrees").select("*")
+        const { data, error } = await supabase.from("degrees").select("*").order("name")
 
         if (error) throw error
 
-        // Save to cache
-        setCachedData("degrees", "all", data || [])
+        const degreesData = data || []
+
+        // Save to cache (even if empty array)
+        setCachedData("degrees", "all", degreesData)
 
         // Update state
-        setDegrees(data || [])
+        setDegrees(degreesData)
       } catch (error: any) {
         console.error("Error fetching degrees:", error)
         setError(error.message)
@@ -47,6 +50,8 @@ export function useCachedDegrees() {
           description: "Failed to load degrees data",
           variant: "destructive",
         })
+        // Set empty array on error so loading stops
+        setDegrees([])
       } finally {
         setIsLoading(false)
       }
