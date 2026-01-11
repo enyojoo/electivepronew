@@ -21,23 +21,31 @@ const transformUserData = (data: any[], currentLanguage: string) => {
       groupId = studentProfile.group_id || ""
       year = studentProfile.enrollment_year || ""
       
-      if (studentProfile.groups) {
-        groupName = studentProfile.groups.name || ""
+      // Handle groups - could be object or array
+      const group = Array.isArray(studentProfile.groups) ? studentProfile.groups[0] : studentProfile.groups
+      if (group) {
+        groupName = group.name || ""
         
-        // Get degree from program
-        if (studentProfile.groups.programs && studentProfile.groups.programs.degrees) {
-          const degree = studentProfile.groups.programs.degrees
-          degreeId = studentProfile.groups.programs.degree_id || ""
-          degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
+        // Get degree from program - programs could be object or array
+        const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
+        if (program) {
+          degreeId = program.degree_id || ""
+          // degrees could be object or array
+          const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
+          if (degree) {
+            degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
+          }
         }
       }
     } else if (profile.role === "program_manager" && profile.manager_profiles && profile.manager_profiles.length > 0) {
       const managerProfile = profile.manager_profiles[0]
-      if (managerProfile.degrees) {
-        degreeId = managerProfile.degree_id || ""
-        degreeName = currentLanguage === "ru" && managerProfile.degrees.name_ru 
-          ? managerProfile.degrees.name_ru 
-          : managerProfile.degrees.name || ""
+      degreeId = managerProfile.degree_id || ""
+      // degrees could be object or array
+      const degree = Array.isArray(managerProfile.degrees) ? managerProfile.degrees[0] : managerProfile.degrees
+      if (degree) {
+        degreeName = currentLanguage === "ru" && degree.name_ru 
+          ? degree.name_ru 
+          : degree.name || ""
       }
     }
 
@@ -115,19 +123,19 @@ export function useCachedUsers() {
 
         if (profilesError) throw profilesError
 
-        // Fetch student profiles with groups and degrees
+        // Fetch student profiles with groups
         const { data: studentProfilesData } = await supabase
           .from("student_profiles")
           .select(`
             profile_id,
             group_id,
             enrollment_year,
-            groups!inner(
+            groups(
               id,
               name,
-              programs!inner(
+              programs(
                 degree_id,
-                degrees!inner(id, name, name_ru)
+                degrees(id, name, name_ru)
               )
             )
           `)
