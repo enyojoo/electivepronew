@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS degrees (
   name TEXT NOT NULL,
   name_ru TEXT,
   code TEXT NOT NULL,
-  duration_years INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
