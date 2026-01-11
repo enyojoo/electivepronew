@@ -49,9 +49,24 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
         ? "/student/login"
         : "/auth/login"
 
-  // Use settings logo if available, otherwise use default
+  // Helper function to validate if a URL is valid
+  const isValidUrl = (url: string | null | undefined): boolean => {
+    if (!url) return false
+    try {
+      const parsedUrl = new URL(url)
+      return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+    } catch {
+      return false
+    }
+  }
+
+  // Use settings logo if available and valid, otherwise use default
   // For admin pages, always use default logo
-  const logoUrl = isAdmin ? DEFAULT_LOGO_URL : (settings?.logo_url || DEFAULT_LOGO_URL)
+  const logoUrl = isAdmin
+    ? DEFAULT_LOGO_URL
+    : isValidUrl(settings?.logo_url)
+      ? settings.logo_url!
+      : DEFAULT_LOGO_URL
 
   return (
     <>

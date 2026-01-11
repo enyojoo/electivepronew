@@ -19,6 +19,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
 
+// Helper function to validate if a URL is valid
+const isValidUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false
+  try {
+    const parsedUrl = new URL(url)
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 export function BrandingSettings() {
   const { t } = useLanguage()
   const { toast } = useToast()
@@ -268,17 +279,23 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-16" />
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    <img
-                      src={logoUrl || DEFAULT_LOGO_URL}
-                      alt="Logo"
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        // Fallback to default if custom logo fails to load
-                        if (logoUrl) {
+                    {isValidUrl(logoUrl) ? (
+                      <img
+                        src={logoUrl!}
+                        alt="Logo"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          // Fallback to default if custom logo fails to load
                           e.currentTarget.src = DEFAULT_LOGO_URL
-                        }
-                      }}
-                    />
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={DEFAULT_LOGO_URL}
+                        alt="Logo"
+                        className="h-full w-full object-contain"
+                      />
+                    )}
                   </div>
                 )}
                 <label htmlFor="logo-upload" className="cursor-pointer">
@@ -319,17 +336,23 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-10" />
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    <img
-                      src={faviconUrl || DEFAULT_FAVICON_URL}
-                      alt="Favicon"
-                      className="h-full w-full object-contain"
-                      onError={(e) => {
-                        // Fallback to default if custom favicon fails to load
-                        if (faviconUrl) {
+                    {isValidUrl(faviconUrl) ? (
+                      <img
+                        src={faviconUrl!}
+                        alt="Favicon"
+                        className="h-full w-full object-contain"
+                        onError={(e) => {
+                          // Fallback to default if custom favicon fails to load
                           e.currentTarget.src = DEFAULT_FAVICON_URL
-                        }
-                      }}
-                    />
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={DEFAULT_FAVICON_URL}
+                        alt="Favicon"
+                        className="h-full w-full object-contain"
+                      />
+                    )}
                   </div>
                 )}
                 <label htmlFor="favicon-upload" className="cursor-pointer">

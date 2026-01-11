@@ -2,6 +2,17 @@ import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { DEFAULT_FAVICON_URL } from "@/lib/constants"
 
+// Helper function to validate if a URL is valid
+const isValidUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false
+  try {
+    const parsedUrl = new URL(url)
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     let faviconUrl = DEFAULT_FAVICON_URL
@@ -19,7 +30,7 @@ export async function GET(request: NextRequest) {
           .eq("id", "00000000-0000-0000-0000-000000000000")
           .single()
 
-        if (!error && settings?.favicon_url) {
+        if (!error && settings?.favicon_url && isValidUrl(settings.favicon_url)) {
           faviconUrl = settings.favicon_url
         }
       } catch (error) {

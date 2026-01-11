@@ -5,6 +5,17 @@ import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
+// Helper function to validate if a URL is valid
+const isValidUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false
+  try {
+    const parsedUrl = new URL(url)
+    return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
 export function DynamicBranding() {
   const pathname = usePathname()
   const [settings, setSettings] = useState<{
@@ -58,8 +69,8 @@ export function DynamicBranding() {
     } else if (settings) {
       // For non-admin pages, use settings color, favicon, logo, and name if available
       const primaryColor = settings.primary_color || DEFAULT_PRIMARY_COLOR
-      const faviconUrl = settings.favicon_url || DEFAULT_FAVICON_URL
-      const logoUrl = settings.logo_url || DEFAULT_LOGO_URL
+      const faviconUrl = isValidUrl(settings.favicon_url) ? settings.favicon_url! : DEFAULT_FAVICON_URL
+      const logoUrl = isValidUrl(settings.logo_url) ? settings.logo_url! : DEFAULT_LOGO_URL
       const name = settings.name || DEFAULT_PLATFORM_NAME
 
       // Apply primary color as CSS variable
