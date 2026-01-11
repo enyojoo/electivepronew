@@ -106,7 +106,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       const universityUuids = packData.universities || []
       if (universityUuids.length > 0) {
         const { data: fetchedUnis, error: unisError } = await supabase
-          .from("universities")
+          .from("exchange_universities")
           .select("*")
           .in("id", universityUuids)
 

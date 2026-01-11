@@ -17,6 +17,7 @@ import { useLanguage } from "@/lib/language-context"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { getSortedCountries, getCountryName, type Country } from "@/lib/countries"
 
 // University status options
 const statusOptions = [
@@ -43,14 +44,6 @@ interface University {
   description_ru?: string | null
 }
 
-interface Country {
-  id: string
-  code: string
-  name: string
-  name_ru: string | null
-  created_at: string
-}
-
 export default function EditUniversityPage() {
   const params = useParams()
   const router = useRouter()
@@ -58,7 +51,6 @@ export default function EditUniversityPage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const supabase = getSupabaseBrowserClient()
-  const [countries, setCountries] = useState<Country[]>([])
   const [university, setUniversity] = useState<University | null>(null)
   const [formData, setFormData] = useState({
     name: "",
@@ -66,49 +58,22 @@ export default function EditUniversityPage() {
     description: "",
     description_ru: "",
     city: "",
-    city_ru: "",
     country: "",
     website: "",
     status: "active",
     max_students: 5,
     university_languages: [] as string[],
-    university_programs: [] as string[],
   })
   const [customLanguage, setCustomLanguage] = useState("")
-  const [customProgram, setCustomProgram] = useState("")
 
-  // Fetch countries from Supabase
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const { data, error } = await supabase.from("countries").select("*").order("name", { ascending: true })
-
-        if (error) {
-          throw error
-        }
-
-        if (data) {
-          setCountries(data)
-        }
-      } catch (error) {
-        console.error("Error fetching countries:", error)
-        toast({
-          title: t("admin.newUniversity.error", "Error"),
-          description: t("admin.newUniversity.errorFetchingCountries", "Failed to fetch countries"),
-          variant: "destructive",
-        })
-      }
-    }
-
-    fetchCountries()
-  }, [supabase, toast, t])
+  // Countries are now static data from lib/countries.ts - no need to fetch
 
   // Fetch university data
   useEffect(() => {
     const fetchUniversity = async () => {
       try {
         const { data, error } = await supabase
-          .from("universities")
+          .from("exchange_universities")
           .select("*")
           .eq("id", params.id)
           .single()
@@ -125,13 +90,11 @@ export default function EditUniversityPage() {
             description: data.description || "",
             description_ru: data.description_ru || "",
             city: data.city || "",
-            city_ru: data.city_ru || "",
             country: data.country || "",
             website: data.website || "",
             status: data.status || "active",
             max_students: data.max_students || 5,
-            university_languages: data.university_languages || [],
-            university_programs: data.university_programs || [],
+            university_languages: data.language ? data.language.split(", ") : [],
           })
         }
       } catch (error) {
@@ -173,16 +136,6 @@ export default function EditUniversityPage() {
     }
   }
 
-  const handleAddProgram = () => {
-    if (customProgram && !formData.university_programs.includes(customProgram)) {
-      setFormData((prev) => ({
-        ...prev,
-        university_programs: [...prev.university_programs, customProgram],
-      }))
-      setCustomProgram("")
-    }
-  }
-
   const handleRemoveLanguage = (language: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -190,21 +143,10 @@ export default function EditUniversityPage() {
     }))
   }
 
-  const handleRemoveProgram = (program: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      university_programs: prev.university_programs.filter((p) => p !== program),
-    }))
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent, type: "language" | "program") => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      if (type === "language") {
-        handleAddLanguage()
-      } else {
-        handleAddProgram()
-      }
+      handleAddLanguage()
     }
   }
 
@@ -218,20 +160,18 @@ export default function EditUniversityPage() {
       }
 
       const { error } = await supabase
-        .from("universities")
+        .from("exchange_universities")
         .update({
           name: formData.name,
           name_ru: formData.name_ru || null,
           description: formData.description || null,
           description_ru: formData.description_ru || null,
           city: formData.city,
-          city_ru: formData.city_ru || null,
           country: formData.country,
+          language: formData.university_languages.length > 0 ? formData.university_languages.join(", ") : null,
           website: formData.website || null,
           status: formData.status,
           max_students: formData.max_students,
-          university_languages: formData.university_languages,
-          university_programs: formData.university_programs,
           updated_at: new Date().toISOString(),
         })
         .eq("id", university.id)
@@ -378,70 +318,19 @@ export default function EditUniversityPage() {
                   </div>
                 </div>
 
-                {/* Available Programs */}
-                <div className="space-y-2">
-                  <Label htmlFor="programs">{t("admin.newUniversity.programs", "Available Programs")}</Label>
-
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.university_programs.map((program) => (
-                      <Badge key={program} variant="secondary" className="px-2 py-1 text-sm">
-                        {program}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProgram(program)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      id="programs"
-                      placeholder={t("admin.newUniversity.addProgram", "Add program")}
-                      value={customProgram}
-                      onChange={(e) => setCustomProgram(e.target.value)}
-                      onKeyPress={(e) => handleKeyPress(e, "program")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAddProgram}
-                      disabled={!customProgram}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
               </div>
 
-              {/* City - English and Russian */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="city">{t("admin.newUniversity.cityEn", "City (English)")}</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
-                    value={formData.city}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city_ru">{t("admin.newUniversity.cityRu", "City (Russian)")}</Label>
-                  <Input
-                    id="city_ru"
-                    name="city_ru"
-                    placeholder={t("admin.newUniversity.cityPlaceholder", "Кембридж")}
-                    value={formData.city_ru}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+              {/* City */}
+              <div className="space-y-2">
+                <Label htmlFor="city">{t("admin.newUniversity.city", "City")}</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
+                  value={formData.city}
+                  onChange={handleChange}
+                  required
+                />
               </div>
 
               {/* Country and Website */}
@@ -453,9 +342,12 @@ export default function EditUniversityPage() {
                       <SelectValue placeholder={t("admin.newUniversity.selectCountry", "Select country")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map((country) => (
-                        <SelectItem key={country.id} value={country.code}>
-                          {language === "ru" && country.name_ru ? country.name_ru : country.name}
+                      {getSortedCountries(language).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{getCountryName(country, language)}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

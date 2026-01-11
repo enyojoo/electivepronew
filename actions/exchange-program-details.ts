@@ -29,7 +29,7 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
     const supabase = getSupabaseServerClient()
     // First get universities
     const { data: universities, error: univError } = await supabase
-      .from("universities")
+      .from("exchange_universities")
       .select("*")
       .in("id", universityIds)
       .order("name")
@@ -39,23 +39,11 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
       return []
     }
 
-    // Then get languages for each university from university_languages column
+    // Parse languages from the language field (comma-separated string)
     const universitiesWithLanguages = (universities || []).map((university) => {
-      // Parse the university_languages column if it exists and is a string
       let languages = []
-      if (university.university_languages) {
-        try {
-          // If it's already an array, use it directly
-          if (Array.isArray(university.university_languages)) {
-            languages = university.university_languages
-          } else if (typeof university.university_languages === "string") {
-            // If it's a string, try to parse it as JSON
-            languages = JSON.parse(university.university_languages)
-          }
-        } catch (error) {
-          console.error("Error parsing university languages:", error)
-          languages = []
-        }
+      if (university.language) {
+        languages = university.language.split(", ").filter(Boolean)
       }
 
       return {

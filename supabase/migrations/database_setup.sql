@@ -66,15 +66,7 @@ CREATE TABLE IF NOT EXISTS groups (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Countries table
-CREATE TABLE IF NOT EXISTS countries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  name_ru TEXT,
-  code TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Countries table removed - using static data from lib/countries.ts instead
 
 -- ====================================================
 -- STEP 2: CREATE ELECTIVE-RELATED TABLES
@@ -154,20 +146,7 @@ CREATE TABLE IF NOT EXISTS exchange_universities (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Universities table (general universities, not exchange-specific)
-CREATE TABLE IF NOT EXISTS universities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  name_ru TEXT,
-  country TEXT NOT NULL,
-  city TEXT NOT NULL,
-  website TEXT,
-  description TEXT,
-  description_ru TEXT,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- Universities table removed - using exchange_universities table instead
 
 -- ====================================================
 -- STEP 3: CREATE PROFILE EXTENSION TABLES
@@ -362,8 +341,6 @@ DROP TRIGGER IF EXISTS update_academic_years_updated_at ON academic_years;
 CREATE TRIGGER update_academic_years_updated_at BEFORE UPDATE ON academic_years FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_groups_updated_at ON groups;
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-DROP TRIGGER IF EXISTS update_countries_updated_at ON countries;
-CREATE TRIGGER update_countries_updated_at BEFORE UPDATE ON countries FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_elective_packs_updated_at ON elective_packs;
 CREATE TRIGGER update_elective_packs_updated_at BEFORE UPDATE ON elective_packs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
@@ -374,8 +351,6 @@ DROP TRIGGER IF EXISTS update_elective_exchange_updated_at ON elective_exchange;
 CREATE TRIGGER update_elective_exchange_updated_at BEFORE UPDATE ON elective_exchange FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_exchange_universities_updated_at ON exchange_universities;
 CREATE TRIGGER update_exchange_universities_updated_at BEFORE UPDATE ON exchange_universities FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-DROP TRIGGER IF EXISTS update_universities_updated_at ON universities;
-CREATE TRIGGER update_universities_updated_at BEFORE UPDATE ON universities FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_manager_profiles_updated_at ON manager_profiles;
 CREATE TRIGGER update_manager_profiles_updated_at BEFORE UPDATE ON manager_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 DROP TRIGGER IF EXISTS update_student_profiles_updated_at ON student_profiles;
@@ -705,21 +680,7 @@ CREATE POLICY "Admins and managers can manage elective packs"
   USING (public.user_role() IN ('admin', 'program_manager'))
   WITH CHECK (public.user_role() IN ('admin', 'program_manager'));
 
--- UNIVERSITIES TABLE
-ALTER TABLE universities ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Authenticated users can read universities" ON universities;
-CREATE POLICY "Authenticated users can read universities"
-  ON universities FOR SELECT
-  TO authenticated
-  USING (true);
-
-DROP POLICY IF EXISTS "Admins and managers can manage universities" ON universities;
-CREATE POLICY "Admins and managers can manage universities"
-  ON universities FOR ALL
-  TO authenticated
-  USING (public.user_role() IN ('admin', 'program_manager'))
-  WITH CHECK (public.user_role() IN ('admin', 'program_manager'));
+-- UNIVERSITIES TABLE removed - using exchange_universities table instead
 
 -- EXCHANGE_UNIVERSITIES TABLE
 ALTER TABLE exchange_universities ENABLE ROW LEVEL SECURITY;
@@ -916,21 +877,7 @@ CREATE POLICY "Admins can manage student profiles"
   USING (public.user_role() = 'admin')
   WITH CHECK (public.user_role() = 'admin');
 
--- COUNTRIES TABLE
-ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Public read access to countries" ON countries;
-CREATE POLICY "Public read access to countries"
-  ON countries FOR SELECT
-  TO authenticated, anon
-  USING (true);
-
-DROP POLICY IF EXISTS "Admins can manage countries" ON countries;
-CREATE POLICY "Admins can manage countries"
-  ON countries FOR ALL
-  TO authenticated
-  USING (public.user_role() = 'admin')
-  WITH CHECK (public.user_role() = 'admin');
+-- COUNTRIES TABLE removed - using static data from lib/countries.ts instead
 
 -- PROGRAM_ELECTIVES TABLE
 ALTER TABLE program_electives ENABLE ROW LEVEL SECURITY;

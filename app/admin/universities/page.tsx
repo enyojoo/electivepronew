@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useDialogState } from "@/hooks/use-dialog-state"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
+import { countries, getCountryName, type Country } from "@/lib/countries"
 
 // Define the University type
 interface University {
@@ -41,23 +42,14 @@ interface University {
   name_ru: string | null
   country: string
   city: string
-  city_ru: string | null
   website: string | null
+  language: string | null
   status: string
   max_students: number
   created_at: string
   updated_at: string
-  university_languages: string[] | null
-  university_programs: string[] | null
-}
-
-// Define the Country type
-interface Country {
-  id: string
-  code: string
-  name: string
-  name_ru: string | null
-  created_at: string
+  description?: string | null
+  description_ru?: string | null
 }
 
 // Cache keys
@@ -70,9 +62,7 @@ const CACHE_EXPIRY = 60 * 60 * 1000
 export default function UniversitiesPage() {
   const [universities, setUniversities] = useState<University[]>([])
   const [filteredUniversities, setFilteredUniversities] = useState<University[]>([])
-  const [countries, setCountries] = useState<Country[]>([])
   const [isLoadingUniversities, setIsLoadingUniversities] = useState(true)
-  const [isLoadingCountries, setIsLoadingCountries] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [countryFilter, setCountryFilter] = useState("all")
@@ -124,45 +114,7 @@ export default function UniversitiesPage() {
     loadCachedData()
   }, [])
 
-  // Fetch countries from Supabase
-  useEffect(() => {
-    const fetchCountries = async () => {
-      if (!isLoadingCountries) {
-        return
-      }
-
-      try {
-        const { data, error } = await supabase.from("countries").select("*").order("name", { ascending: true })
-
-        if (error) {
-          throw error
-        }
-
-        setCountries(data || [])
-
-        // Cache the countries data
-        localStorage.setItem(
-          COUNTRIES_CACHE_KEY,
-          JSON.stringify({
-            data,
-            timestamp: Date.now(),
-          }),
-        )
-      } catch (error: any) {
-        console.error("Error fetching countries:", error)
-        toast({
-          title: t("admin.universities.error", "Error"),
-          description:
-            t("admin.universities.errorFetchingCountries", "Failed to fetch countries") + ": " + error.message,
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingCountries(false)
-      }
-    }
-
-    fetchCountries()
-  }, [supabase, toast, t, isLoadingCountries])
+  // Countries are now static data from lib/countries.ts - no need to fetch
 
   // Fetch universities from Supabase
   useEffect(() => {
@@ -173,7 +125,7 @@ export default function UniversitiesPage() {
 
       try {
         const { data, error } = await supabase
-          .from("universities")
+          .from("exchange_universities")
           .select("*")
           .order("name", { ascending: true })
 
@@ -212,7 +164,7 @@ export default function UniversitiesPage() {
       .channel("universities-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "universities" },
+        { event: "*", schema: "public", table: "exchange_universities" },
         async () => {
           // Invalidate cache
           localStorage.removeItem(UNIVERSITIES_CACHE_KEY)
@@ -221,7 +173,7 @@ export default function UniversitiesPage() {
           // Refetch universities
           try {
             const { data, error } = await supabase
-              .from("universities")
+              .from("exchange_universities")
               .select("*")
               .order("name", { ascending: true })
 
@@ -292,9 +244,6 @@ export default function UniversitiesPage() {
 
   // Get localized city based on current language
   const getLocalizedCity = (university: University) => {
-    if (language === "ru" && university.city_ru) {
-      return university.city_ru
-    }
     return university.city
   }
 
@@ -302,11 +251,7 @@ export default function UniversitiesPage() {
   const getLocalizedCountry = (countryCode: string) => {
     const country = countries.find((c) => c.code === countryCode)
     if (!country) return countryCode
-
-    if (language === "ru" && country.name_ru) {
-      return country.name_ru
-    }
-    return country.name
+    return getCountryName(country, language)
   }
 
   // Get status badge based on status
@@ -339,7 +284,7 @@ export default function UniversitiesPage() {
   const handleStatusChange = async (universityId: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from("universities")
+        .from("exchange_universities")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", universityId)
 
@@ -391,7 +336,7 @@ export default function UniversitiesPage() {
     if (!universityToDelete) return
 
     try {
-      const { error } = await supabase.from("universities").delete().eq("id", universityToDelete)
+      const { error } = await supabase.from("exchange_universities").delete().eq("id", universityToDelete)
 
       if (error) {
         throw error
@@ -483,7 +428,7 @@ export default function UniversitiesPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={countryFilter} onValueChange={setCountryFilter} disabled={isLoadingCountries}>
+                  <Select value={countryFilter} onValueChange={setCountryFilter}>
                     <SelectTrigger className="w-[180px]">
                       <Globe className="mr-2 h-4 w-4" />
                       <SelectValue placeholder={t("admin.universities.country", "Country")} />
@@ -491,8 +436,11 @@ export default function UniversitiesPage() {
                     <SelectContent>
                       <SelectItem value="all">{t("admin.universities.allCountries", "All Countries")}</SelectItem>
                       {countries.map((country) => (
-                        <SelectItem key={country.id} value={country.code}>
-                          {language === "ru" && country.name_ru ? country.name_ru : country.name}
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{getCountryName(country, language)}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

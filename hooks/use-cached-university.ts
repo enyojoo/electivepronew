@@ -40,7 +40,7 @@ export function useCachedUniversity(universityId: string | undefined) {
 
       try {
         const { data, error } = await supabase
-          .from("universities")
+          .from("exchange_universities")
           .select("*")
           .eq("id", universityId)
           .single()

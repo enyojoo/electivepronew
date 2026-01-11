@@ -30,7 +30,7 @@ interface University {
   name_ru: string | null
   country: string
   city: string
-  city_ru: string | null
+  language: string | null
   max_students: number
   status: string
 }
@@ -186,7 +186,7 @@ export default function ExchangeBuilderPage() {
     try {
       console.log("Fetching universities...")
       const { data, error } = await supabase
-        .from("universities")
+        .from("exchange_universities")
         .select("*")
         .eq("status", "active")
         .order("name", { ascending: true })
@@ -237,9 +237,6 @@ export default function ExchangeBuilderPage() {
 
   // Get localized city based on current language
   const getLocalizedCity = (university: University) => {
-    if (language === "ru" && university.city_ru) {
-      return university.city_ru
-    }
     return university.city
   }
 

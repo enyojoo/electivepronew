@@ -17,6 +17,7 @@ import { useLanguage } from "@/lib/language-context"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { getSortedCountries, getCountryName, type Country } from "@/lib/countries"
 
 // University status options
 const statusOptions = [
@@ -25,65 +26,28 @@ const statusOptions = [
   { value: "draft", label: "Draft" },
 ]
 
-interface Country {
-  id: string
-  code: string
-  name: string
-  name_ru: string | null
-  created_at: string
-}
-
 export default function NewUniversityPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  const [countries, setCountries] = useState<Country[]>([])
   const [university, setUniversity] = useState({
     name: "",
     name_ru: "",
     description: "",
     description_ru: "",
     city: "",
-    city_ru: "",
     country: "",
+    language: "",
     website: "",
     status: "active", // Default status
     max_students: 5, // Default max students
   })
 
-  // State for languages and programs
+  // State for languages
   const [languages, setLanguages] = useState<string[]>([])
-  const [programs, setPrograms] = useState<string[]>([])
   const [customLanguage, setCustomLanguage] = useState("")
-  const [customProgram, setCustomProgram] = useState("")
-
-  // Fetch countries from Supabase
-  useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const { data, error } = await supabase.from("countries").select("*").order("name", { ascending: true })
-
-        if (error) {
-          throw error
-        }
-
-        if (data) {
-          setCountries(data)
-        }
-      } catch (error) {
-        console.error("Error fetching countries:", error)
-        toast({
-          title: t("admin.newUniversity.error", "Error"),
-          description: t("admin.newUniversity.errorFetchingCountries", "Failed to fetch countries"),
-          variant: "destructive",
-        })
-      }
-    }
-
-    fetchCountries()
-  }, [supabase, toast, t])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -105,47 +69,39 @@ export default function NewUniversityPage() {
     }
   }
 
-  const handleAddProgram = () => {
-    if (customProgram && !programs.includes(customProgram)) {
-      setPrograms([...programs, customProgram])
-      setCustomProgram("")
-    }
-  }
-
   const handleRemoveLanguage = (language: string) => {
     setLanguages(languages.filter((l) => l !== language))
   }
 
-  const handleRemoveProgram = (program: string) => {
-    setPrograms(programs.filter((p) => p !== program))
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent, type: "language" | "program") => {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault()
-      if (type === "language") {
-        handleAddLanguage()
-      } else {
-        handleAddProgram()
-      }
+      handleAddLanguage()
     }
   }
 
-  // Update the handleSubmit function to properly format the data for Supabase
+  // Update the handleSubmit function to save to exchange_universities table
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Prepare data with languages and programs
+      // Prepare data for exchange_universities table
       const universityData = {
-        ...university,
-        university_languages: languages,
-        university_programs: programs,
+        name: university.name,
+        name_ru: university.name_ru || null,
+        description: university.description || null,
+        description_ru: university.description_ru || null,
+        city: university.city,
+        country: university.country,
+        language: languages.length > 0 ? languages.join(", ") : null,
+        website: university.website || null,
+        max_students: university.max_students,
+        status: university.status,
       }
 
-      // Make the API call to Supabase
-      const { error } = await supabase.from("universities").insert([universityData])
+      // Make the API call to Supabase - save to exchange_universities table
+      const { error } = await supabase.from("exchange_universities").insert([universityData])
 
       if (error) throw error
 
@@ -245,111 +201,56 @@ export default function NewUniversityPage() {
                 </div>
               </div>
 
-              {/* Languages of Instruction and Available Programs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Languages of Instruction */}
-                <div className="space-y-2">
-                  <Label htmlFor="languages">{t("admin.newUniversity.languages", "Languages of Instruction")}</Label>
+              {/* Languages of Instruction */}
+              <div className="space-y-2">
+                <Label htmlFor="languages">{t("admin.newUniversity.languages", "Languages of Instruction")}</Label>
 
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {languages.map((language) => (
-                      <Badge key={language} variant="secondary" className="px-2 py-1 text-sm">
-                        {language}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLanguage(language)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      id="languages"
-                      placeholder={t("admin.newUniversity.addLanguage", "Add language")}
-                      value={customLanguage}
-                      onChange={(e) => setCustomLanguage(e.target.value)}
-                      onKeyPress={(e) => handleKeyPress(e, "language")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAddLanguage}
-                      disabled={!customLanguage}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {languages.map((language) => (
+                    <Badge key={language} variant="secondary" className="px-2 py-1 text-sm">
+                      {language}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLanguage(language)}
+                        className="ml-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
                 </div>
 
-                {/* Available Programs */}
-                <div className="space-y-2">
-                  <Label htmlFor="programs">{t("admin.newUniversity.programs", "Available Programs")}</Label>
-
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {programs.map((program) => (
-                      <Badge key={program} variant="secondary" className="px-2 py-1 text-sm">
-                        {program}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveProgram(program)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      id="programs"
-                      placeholder={t("admin.newUniversity.addProgram", "Add program")}
-                      value={customProgram}
-                      onChange={(e) => setCustomProgram(e.target.value)}
-                      onKeyPress={(e) => handleKeyPress(e, "program")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAddProgram}
-                      disabled={!customProgram}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="flex gap-2">
+                  <Input
+                    id="languages"
+                    placeholder={t("admin.newUniversity.addLanguage", "Add language")}
+                    value={customLanguage}
+                    onChange={(e) => setCustomLanguage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAddLanguage}
+                    disabled={!customLanguage}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
 
-              {/* City - English and Russian */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="city">{t("admin.newUniversity.cityEn", "City (English)")}</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
-                    value={university.city}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city_ru">{t("admin.newUniversity.cityRu", "City (Russian)")}</Label>
-                  <Input
-                    id="city_ru"
-                    name="city_ru"
-                    placeholder={t("admin.newUniversity.cityPlaceholder", "Кембридж")}
-                    value={university.city_ru}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+              {/* City */}
+              <div className="space-y-2">
+                <Label htmlFor="city">{t("admin.newUniversity.city", "City")}</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
+                  value={university.city}
+                  onChange={handleChange}
+                  required
+                />
               </div>
 
               {/* Country and Website */}
@@ -360,10 +261,13 @@ export default function NewUniversityPage() {
                     <SelectTrigger>
                       <SelectValue placeholder={t("admin.newUniversity.selectCountry", "Select country")} />
                     </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((country) => (
-                        <SelectItem key={country.id} value={country.code}>
-                          {language === "ru" && country.name_ru ? country.name_ru : country.name}
+                    <SelectContent className="max-h-[300px]">
+                      {getSortedCountries(language).map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{getCountryName(country, language)}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -48,7 +48,7 @@ export async function createExchangeProgram(data: {
       try {
         // Get university details
         const { data: universityData, error: universityError } = await supabase
-          .from("universities")
+          .from("exchange_universities")
           .select("name, name_ru, country, city, max_students")
           .eq("id", universityId)
           .single()

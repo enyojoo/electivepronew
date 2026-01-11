@@ -37,7 +37,7 @@ interface University {
   name_ru: string | null
   country: string
   city: string
-  city_ru: string | null
+  language: string | null
   max_students: number
   status: string
 }
@@ -225,11 +225,11 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     setIsLoadingUniversities(true)
     try {
       console.log("Fetching universities...")
-      const { data, error } = await supabase
-        .from("universities")
-        .select("*")
-        .eq("status", "active")
-        .order("name", { ascending: true })
+        const { data, error } = await supabase
+          .from("exchange_universities")
+          .select("*")
+          .eq("status", "active")
+          .order("name", { ascending: true })
 
       if (error) throw error
 
@@ -262,8 +262,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     return (
       (university.name && university.name.toLowerCase().includes(term)) ||
       (university.name_ru && university.name_ru.toLowerCase().includes(term)) ||
-      (university.city && university.city.toLowerCase().includes(term)) ||
-      (university.city_ru && university.city_ru.toLowerCase().includes(term))
+      (university.city && university.city.toLowerCase().includes(term))
     )
   })
 
@@ -277,9 +276,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
 
   // Get localized city based on current language
   const getLocalizedCity = (university: University) => {
-    if (language === "ru" && university.city_ru) {
-      return university.city_ru
-    }
     return university.city
   }
 

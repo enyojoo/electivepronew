@@ -9,7 +9,7 @@ export async function getExchangeUniversities(electivePackId?: string) {
 
   let query = supabase
     .from("exchange_universities")
-    .select("*, countries(name, name_ru)")
+    .select("*")
     .eq("status", "active")
     .order("name")
 
@@ -32,7 +32,7 @@ export async function getExchangeUniversity(id: string) {
 
   const { data, error } = await supabase
     .from("exchange_universities")
-    .select("*, countries(name, name_ru)")
+    .select("*")
     .eq("id", id)
     .single()
 

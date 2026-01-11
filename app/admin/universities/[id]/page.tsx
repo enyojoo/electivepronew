@@ -11,8 +11,8 @@ import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedUniversity } from "@/hooks/use-cached-university"
-import { useCachedCountries } from "@/hooks/use-cached-countries"
 import { useDataCache } from "@/lib/data-cache-context"
+import { countries, getCountryName } from "@/lib/countries"
 
 interface University {
   id: string
@@ -20,14 +20,12 @@ interface University {
   name_ru: string | null
   country: string
   city: string
-  city_ru: string | null
   website: string | null
+  language: string | null
   status: string
   max_students: number
   created_at: string
   updated_at: string
-  university_languages: string[] | null
-  university_programs: string[] | null
   description?: string
   description_ru?: string | null
 }
@@ -42,7 +40,6 @@ export default function UniversityDetailsPage() {
 
   // Use our custom hooks for cached data
   const { university } = useCachedUniversity(params.id as string)
-  const { countries } = useCachedCountries()
 
   const getLocalizedName = (university: University) => {
     if (language === "ru" && university.name_ru) {
@@ -52,20 +49,13 @@ export default function UniversityDetailsPage() {
   }
 
   const getLocalizedCity = (university: University) => {
-    if (language === "ru" && university.city_ru) {
-      return university.city_ru
-    }
     return university.city
   }
 
   const getLocalizedCountry = (countryCode: string) => {
     const country = countries.find((c) => c.code === countryCode)
     if (!country) return countryCode
-
-    if (language === "ru" && country.name_ru) {
-      return country.name_ru
-    }
-    return country.name
+    return getCountryName(country, language)
   }
 
   const getLocalizedDescription = (university: University) => {

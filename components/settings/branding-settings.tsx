@@ -68,6 +68,10 @@ export function BrandingSettings() {
   const [originalInstitutionName, setOriginalInstitutionName] = useState("")
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null)
+  const [pendingFaviconFile, setPendingFaviconFile] = useState<File | null>(null)
+  const [pendingLogoUrl, setPendingLogoUrl] = useState<string | null>(null)
+  const [pendingFaviconUrl, setPendingFaviconUrl] = useState<string | null>(null)
   
   // Use refs to directly manipulate image elements without causing re-renders
   const logoImgRef = useRef<HTMLImageElement>(null)
@@ -175,6 +179,10 @@ export function BrandingSettings() {
   const handleCancelEdit = () => {
     setPrimaryColor(originalPrimaryColor)
     setInstitutionName(originalInstitutionName)
+    setPendingLogoFile(null)
+    setPendingFaviconFile(null)
+    setPendingLogoUrl(null)
+    setPendingFaviconUrl(null)
     setIsEditing(false)
   }
 
@@ -205,28 +213,12 @@ export function BrandingSettings() {
 
     setIsFaviconUploading(true)
     try {
+      // Upload file but don't save to database yet - just store for preview
       const newFaviconUrl = await uploadFavicon(file)
-      setFaviconUrl(newFaviconUrl)
-
-      // Update settings with new favicon URL
-      const { error } = await supabase
-        .from("settings")
-        .update({ favicon_url: newFaviconUrl })
-        .eq("id", SETTINGS_ID)
-
-      if (error) {
-        console.error("Error updating settings with favicon_url:", error)
-        throw error
-      }
-
-      // Update cache with new settings immediately
-      const updatedSettings = {
-        ...settings,
-        favicon_url: newFaviconUrl,
-      }
-      setCachedData("settings", SETTINGS_ID, updatedSettings)
+      setPendingFaviconFile(file)
+      setPendingFaviconUrl(newFaviconUrl)
       
-      // Update local state immediately so it shows without refetch
+      // Update preview immediately
       setFaviconUrl(newFaviconUrl)
 
       toast({
@@ -272,25 +264,12 @@ export function BrandingSettings() {
 
     setIsLogoUploading(true)
     try {
+      // Upload file but don't save to database yet - just store for preview
       const newLogoUrl = await uploadLogo(file)
-      setLogoUrl(newLogoUrl)
-
-      // Update settings with new logo URL
-      const { error } = await supabase.from("settings").update({ logo_url: newLogoUrl }).eq("id", SETTINGS_ID)
-
-      if (error) {
-        console.error("Error updating settings with logo_url:", error)
-        throw error
-      }
-
-      // Update cache with new settings immediately
-      const updatedSettings = {
-        ...settings,
-        logo_url: newLogoUrl,
-      }
-      setCachedData("settings", SETTINGS_ID, updatedSettings)
+      setPendingLogoFile(file)
+      setPendingLogoUrl(newLogoUrl)
       
-      // Update local state immediately so it shows without refetch
+      // Update preview immediately
       setLogoUrl(newLogoUrl)
 
       toast({
@@ -312,12 +291,30 @@ export function BrandingSettings() {
   const handleSaveChanges = async () => {
     setIsSaving(true)
     try {
+      // Prepare update object with all changes
+      const updateData: {
+        name?: string
+        primary_color?: string
+        logo_url?: string | null
+        favicon_url?: string | null
+      } = {
+        name: institutionName,
+        primary_color: primaryColor,
+      }
+
+      // Include logo URL if a new logo was uploaded
+      if (pendingLogoUrl) {
+        updateData.logo_url = pendingLogoUrl
+      }
+
+      // Include favicon URL if a new favicon was uploaded
+      if (pendingFaviconUrl) {
+        updateData.favicon_url = pendingFaviconUrl
+      }
+
       const { error } = await supabase
         .from("settings")
-        .update({
-          name: institutionName,
-          primary_color: primaryColor,
-        })
+        .update(updateData)
         .eq("id", SETTINGS_ID)
 
       if (error) {
@@ -329,12 +326,24 @@ export function BrandingSettings() {
         ...settings,
         name: institutionName,
         primary_color: primaryColor,
+        logo_url: pendingLogoUrl || settings?.logo_url || null,
+        favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
       }
       setCachedData("settings", SETTINGS_ID, updatedSettings)
 
-      // Update original values and exit edit mode
+      // Update original values and clear pending changes
       setOriginalPrimaryColor(primaryColor)
       setOriginalInstitutionName(institutionName)
+      if (pendingLogoUrl) {
+        setLogoUrl(pendingLogoUrl)
+      }
+      if (pendingFaviconUrl) {
+        setFaviconUrl(pendingFaviconUrl)
+      }
+      setPendingLogoFile(null)
+      setPendingFaviconFile(null)
+      setPendingLogoUrl(null)
+      setPendingFaviconUrl(null)
       setIsEditing(false)
 
       toast({
@@ -458,7 +467,7 @@ export function BrandingSettings() {
                     size="sm"
                     className="h-10"
                     type="button"
-                    disabled={isLogoUploading || isLoading}
+                    disabled={isLogoUploading || isLoading || !isEditing}
                     onClick={() => document.getElementById("logo-upload")?.click()}
                   >
                     {isLogoUploading ? (
@@ -476,7 +485,7 @@ export function BrandingSettings() {
                     accept="image/png,image/jpeg,image/svg+xml"
                     className="hidden"
                     onChange={handleLogoUpload}
-                    disabled={isLogoUploading || isLoading}
+                    disabled={isLogoUploading || isLoading || !isEditing}
                   />
                 </label>
               </div>
@@ -513,7 +522,7 @@ export function BrandingSettings() {
                     size="sm"
                     className="h-10"
                     type="button"
-                    disabled={isFaviconUploading || isLoading}
+                    disabled={isFaviconUploading || isLoading || !isEditing}
                     onClick={() => document.getElementById("favicon-upload")?.click()}
                   >
                     {isFaviconUploading ? (
@@ -531,7 +540,7 @@ export function BrandingSettings() {
                     accept="image/png,image/x-icon,image/svg+xml"
                     className="hidden"
                     onChange={handleFaviconUpload}
-                    disabled={isFaviconUploading || isLoading}
+                    disabled={isFaviconUploading || isLoading || !isEditing}
                   />
                 </label>
               </div>
