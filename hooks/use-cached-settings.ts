@@ -16,9 +16,6 @@ export function useCachedSettings() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      setIsLoading(true)
-      setError(null)
-
       // Try to get data from cache first
       const cachedSettings = getCachedData<any>("settings", SETTINGS_ID)
 
@@ -30,6 +27,8 @@ export function useCachedSettings() {
       }
 
       // If not in cache, fetch from API
+      setIsLoading(true)
+      setError(null)
       console.log("Fetching settings from API")
       try {
         const supabase = getSupabaseBrowserClient()

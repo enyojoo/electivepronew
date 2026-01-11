@@ -33,32 +33,69 @@ import {
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/lib/language-context"
-import { supabase } from "@/lib/supabase"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useDataCache } from "@/lib/data-cache-context"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useDialogState } from "@/hooks/use-dialog-state"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 
-// Create a separate component for the groups table content
-function GroupsTableContent() {
+// Cache keys
+const GROUPS_CACHE_KEY = "admin_groups_cache"
+const DEGREES_CACHE_KEY = "admin_degrees_cache"
+const ACADEMIC_YEARS_CACHE_KEY = "admin_academic_years_cache"
+
+// Cache expiry time (1 hour)
+const CACHE_EXPIRY = 60 * 60 * 1000
+
+interface Group {
+  id: string
+  name: string
+  displayName: string
+  degree: string
+  degreeId: string
+  academicYear: string
+  students: number
+  status: string
+}
+
+interface Degree {
+  id: string
+  name: string
+  name_ru: string | null
+}
+
+interface AcademicYear {
+  id: string
+  year: string
+}
+
+export default function GroupsPage() {
   const { t, language } = useLanguage()
-  const [groups, setGroups] = useState<any[]>([])
-  const [filteredGroups, setFilteredGroups] = useState<any[]>([])
+  const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
+
+  const [groups, setGroups] = useState<Group[]>([])
+  const [filteredGroups, setFilteredGroups] = useState<Group[]>([])
+  const [degrees, setDegrees] = useState<Degree[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true)
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
+  const [isLoadingYears, setIsLoadingYears] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [yearFilter, setYearFilter] = useState("all")
+  const [degreeFilter, setDegreeFilter] = useState("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+
+  // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentGroup, setCurrentGroup] = useState<any>({
     name: "",
     degreeId: "",
-    academicYear: "",
+    academicYearId: "",
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
-  const [degrees, setDegrees] = useState<any[]>([])
-  const [years, setYears] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingYears, setIsLoadingYears] = useState(true)
-  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
 
   // Delete confirmation dialog state
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
@@ -70,327 +107,303 @@ function GroupsTableContent() {
 
   // Ref to track if component is mounted
   const isMounted = useRef(true)
-  const dataFetchedRef = useRef(false)
-  const yearsFetchedRef = useRef(false)
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
-
-  // Filters
-  const [yearFilter, setYearFilter] = useState("")
-  const [degreeFilter, setDegreeFilter] = useState("")
-
-  const { toast } = useToast()
-  const { getCachedData, setCachedData } = useDataCache()
-
-  // Set up cleanup when component unmounts
   useEffect(() => {
     return () => {
       isMounted.current = false
-
-      // Force cleanup of any lingering dialog effects
-      document.body.style.removeProperty("overflow")
-      document.body.style.removeProperty("padding-right")
-
-      // Remove any aria-hidden attributes from the body
-      document.body.removeAttribute("aria-hidden")
-
-      // Remove any data-radix-* attributes from the body
-      const attributes = [...document.body.attributes]
-      attributes.forEach((attr) => {
-        if (attr.name.startsWith("data-radix-")) {
-          document.body.removeAttribute(attr.name)
-        }
-      })
+      cleanupDialogEffects()
     }
   }, [])
 
-  // Fetch groups from Supabase with caching
+  // Load cached data on initial render
   useEffect(() => {
-    const fetchGroups = async () => {
-      if (dataFetchedRef.current) return
-
+    const loadCachedData = () => {
       try {
-        setIsLoading(true)
-
-        // Try to get data from cache first
-        const cachedGroups = getCachedData<any[]>("groups")
-
-        if (cachedGroups && cachedGroups.length > 0) {
-          console.log("Using cached groups data")
-          setGroups(cachedGroups)
-          setFilteredGroups(cachedGroups)
-          setIsLoading(false)
-          dataFetchedRef.current = true
-          return
+        // Load cached groups
+        const cachedGroups = localStorage.getItem(GROUPS_CACHE_KEY)
+        if (cachedGroups) {
+          const { data, timestamp } = JSON.parse(cachedGroups)
+          if (Date.now() - timestamp < CACHE_EXPIRY) {
+            setGroups(data)
+            setIsLoadingGroups(false)
+          }
         }
 
-        // First, fetch the groups
+        // Load cached degrees
+        const cachedDegrees = localStorage.getItem(DEGREES_CACHE_KEY)
+        if (cachedDegrees) {
+          const { data, timestamp } = JSON.parse(cachedDegrees)
+          if (Date.now() - timestamp < CACHE_EXPIRY) {
+            setDegrees(data)
+            setIsLoadingDegrees(false)
+          }
+        }
+
+        // Load cached academic years
+        const cachedYears = localStorage.getItem(ACADEMIC_YEARS_CACHE_KEY)
+        if (cachedYears) {
+          const { data, timestamp } = JSON.parse(cachedYears)
+          if (Date.now() - timestamp < CACHE_EXPIRY) {
+            setAcademicYears(data)
+            setIsLoadingYears(false)
+          }
+        }
+      } catch (error) {
+        console.error("Error loading cached data:", error)
+      }
+    }
+
+    loadCachedData()
+  }, [])
+
+  // Fetch groups from Supabase
+  useEffect(() => {
+    const fetchGroups = async () => {
+      if (!isLoadingGroups) {
+        return
+      }
+
+      try {
+        // Fetch groups with relationships
         const { data: groupsData, error: groupsError } = await supabase
           .from("groups")
-          .select("*")
+          .select(`
+            id,
+            name,
+            display_name,
+            status,
+            academic_year_id,
+            academic_years(
+              id,
+              year
+            ),
+            programs(
+              id,
+              degree_id,
+              degrees(id, name, name_ru)
+            )
+          `)
           .order("name")
 
         if (groupsError) throw groupsError
 
         if (!groupsData) {
           setGroups([])
-          setFilteredGroups([])
-          setIsLoading(false)
-          dataFetchedRef.current = true
+          setIsLoadingGroups(false)
           return
         }
 
-        // Fetch degree information separately
-        const degreeIds = [...new Set(groupsData.map((g) => g.degree_id).filter(Boolean))]
-
-        // Fetch degrees
-        const { data: degreesData, error: degreesError } = await supabase
-          .from("degrees")
-          .select("id, name")
-          .in("id", degreeIds)
-
-        if (degreesError) throw degreesError
-
-        // Create maps for quick lookups
-        const degreeMap = new Map()
-        if (degreesData) {
-          degreesData.forEach((degree) => {
-            degreeMap.set(degree.id, degree.name)
-          })
-        }
-
-        // Count students in each group using a different approach
-        const studentCountMap = new Map()
-        for (const group of groupsData) {
-          const { count, error: countError } = await supabase
-            .from("profiles")
+        // Count students in each group
+        const studentCountPromises = groupsData.map((group) =>
+          supabase
+            .from("student_profiles")
             .select("*", { count: "exact", head: true })
-            .eq("group_id", group.id)
-            .eq("role", "student")
+            .eq("group_id", group.id),
+        )
 
-          if (countError) {
-            console.error("Error counting students for group", group.id, countError)
-            studentCountMap.set(group.id, 0)
-          } else {
-            studentCountMap.set(group.id, count || 0)
-          }
-        }
+        const studentCountResults = await Promise.all(studentCountPromises)
+
+        // Create a map of group ID to student count
+        const studentCountMap = new Map()
+        studentCountResults.forEach((result, index) => {
+          const groupId = groupsData[index].id
+          studentCountMap.set(groupId, result.count || 0)
+        })
 
         // Format the groups data
-        const formattedGroups = groupsData.map((group) => ({
-          id: group.id.toString(),
-          name: group.name,
-          displayName: group.display_name,
-          degree: degreeMap.get(group.degree_id) || "Unknown",
-          degreeId: group.degree_id,
-          academicYear: group.academic_year,
-          students: studentCountMap.get(group.id) || 0,
-          status: group.status,
-        }))
+        const formattedGroups: Group[] = groupsData.map((group) => {
+          const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
+          const degree = program?.degrees
+            ? Array.isArray(program.degrees)
+              ? program.degrees[0]
+              : program.degrees
+            : null
+          const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
 
-        // Save to cache
-        setCachedData("groups", formattedGroups)
+          return {
+            id: group.id.toString(),
+            name: group.name,
+            displayName: group.display_name || "",
+            degree: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Unknown",
+            degreeId: program?.degree_id || "",
+            academicYear: academicYear?.year || "",
+            students: studentCountMap.get(group.id) || 0,
+            status: group.status,
+          }
+        })
 
-        if (isMounted.current) {
-          setGroups(formattedGroups)
-          setFilteredGroups(formattedGroups)
-          dataFetchedRef.current = true
-        }
-      } catch (error) {
-        console.error("Failed to fetch groups:", error)
+        setGroups(formattedGroups)
+
+        // Cache the groups data
+        localStorage.setItem(
+          GROUPS_CACHE_KEY,
+          JSON.stringify({
+            data: formattedGroups,
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (error: any) {
+        console.error("Error fetching groups:", error)
         toast({
           title: t("admin.groups.error"),
-          description: t("admin.groups.errorFetching"),
+          description: t("admin.groups.errorFetching") + ": " + error.message,
           variant: "destructive",
         })
       } finally {
-        if (isMounted.current) {
-          setIsLoading(false)
-        }
+        setIsLoadingGroups(false)
       }
     }
 
     fetchGroups()
-  }, [t, toast, getCachedData, setCachedData])
+  }, [supabase, toast, t, isLoadingGroups, language])
 
-  // Fetch reference data (degrees and years) with caching
+  // Fetch degrees from Supabase
   useEffect(() => {
-    const fetchReferenceData = async () => {
+    const fetchDegrees = async () => {
+      if (!isLoadingDegrees) {
+        return
+      }
+
       try {
-        // Try to get degrees from cache
-        const cachedDegrees = getCachedData<any[]>("degrees", "all")
-        if (cachedDegrees && cachedDegrees.length > 0 && cachedDegrees[0].name_ru !== undefined) {
-          setDegrees(cachedDegrees)
-          setIsLoadingDegrees(false)
-        } else {
-          // Fetch degrees
-          const { data: degreesData, error: degreesError } = await supabase
-            .from("degrees")
-            .select("id, name, name_ru")
-            .order("name")
+        const { data, error } = await supabase
+          .from("degrees")
+          .select("id, name, name_ru")
+          .order("name", { ascending: true })
 
-          if (degreesError) throw degreesError
+        if (error) throw error
 
-          if (degreesData && isMounted.current) {
-            setDegrees(degreesData)
-            // Cache the degrees data
-            setCachedData("degrees", "all", degreesData)
-          }
-          setIsLoadingDegrees(false)
-        }
+        setDegrees(data || [])
 
-        // Only fetch years if not already fetched
-        if (!yearsFetchedRef.current) {
-          // Try to get years from cache
-          const cachedYears = getCachedData<any[]>("academic_years", "global")
-          if (cachedYears && cachedYears.length > 0) {
-            setYears(cachedYears)
-            setIsLoadingYears(false)
-            yearsFetchedRef.current = true
-          } else {
-            // Fetch academic years from the academic_years table
-            const { data: yearsData, error: yearsError } = await supabase
-              .from("academic_years")
-              .select("id, year")
-              .eq("is_active", true)
-              .order("year", { ascending: false })
-
-            if (yearsError) throw yearsError
-
-            if (yearsData && isMounted.current) {
-              setYears(yearsData)
-              // Cache the years data
-              setCachedData("academic_years", "global", yearsData)
-              yearsFetchedRef.current = true
-            }
-            setIsLoadingYears(false)
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch reference data:", error)
+        // Cache the degrees data
+        localStorage.setItem(
+          DEGREES_CACHE_KEY,
+          JSON.stringify({
+            data: data || [],
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (error: any) {
+        console.error("Error fetching degrees:", error)
         toast({
           title: t("admin.groups.error"),
-          description: t("admin.groups.errorFetchingReferenceData"),
+          description: t("admin.groups.errorFetchingReferenceData") + ": " + error.message,
           variant: "destructive",
         })
+      } finally {
         setIsLoadingDegrees(false)
+      }
+    }
+
+    fetchDegrees()
+  }, [supabase, toast, t, isLoadingDegrees])
+
+  // Fetch academic years from Supabase
+  useEffect(() => {
+    const fetchAcademicYears = async () => {
+      if (!isLoadingYears) {
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("academic_years")
+          .select("id, year")
+          .eq("is_active", true)
+          .order("year", { ascending: false })
+
+        if (error) throw error
+
+        setAcademicYears(data || [])
+
+        // Cache the academic years data
+        localStorage.setItem(
+          ACADEMIC_YEARS_CACHE_KEY,
+          JSON.stringify({
+            data: data || [],
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (error: any) {
+        console.error("Error fetching academic years:", error)
+        toast({
+          title: t("admin.groups.error"),
+          description: t("admin.groups.errorFetchingReferenceData") + ": " + error.message,
+          variant: "destructive",
+        })
+      } finally {
         setIsLoadingYears(false)
       }
     }
 
-    fetchReferenceData()
-  }, [t, toast, getCachedData, setCachedData, language])
+    fetchAcademicYears()
+  }, [supabase, toast, t, isLoadingYears])
 
-  // Add this after the other useEffect hooks
+  // Filter groups based on search term and filters
   useEffect(() => {
-    // Force re-render when language changes to update degree names in the UI
-    if (isDialogOpen) {
-      // If dialog is open, we need to ensure degrees are displayed in the correct language
-      const updatedDegrees = [...degrees]
-      setDegrees(updatedDegrees)
+    let result = [...groups]
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      result = result.filter(
+        (group) =>
+          group.name.toLowerCase().includes(term) ||
+          (group.displayName && group.displayName.toLowerCase().includes(term)),
+      )
     }
-  }, [language, isDialogOpen])
+
+    if (yearFilter !== "all") {
+      result = result.filter((group) => group.academicYear === yearFilter)
+    }
+
+    if (degreeFilter !== "all") {
+      result = result.filter((group) => group.degree === degreeFilter)
+    }
+
+    setFilteredGroups(result)
+    setCurrentPage(1) // Reset to first page when filters change
+  }, [searchTerm, yearFilter, degreeFilter, groups])
 
   // Get unique values for filters
   const groupYears = [...new Set(groups.map((group) => group.academicYear))].sort((a, b) => b.localeCompare(a))
   const degreesList = [...new Set(groups.map((group) => group.degree))]
 
-  // Apply filters and search
-  useEffect(() => {
-    let result = groups
-
-    // Apply year filter
-    if (yearFilter && yearFilter !== "all") {
-      result = result.filter((group) => group.academicYear === yearFilter)
-    }
-
-    // Apply degree filter
-    if (degreeFilter && degreeFilter !== "all") {
-      result = result.filter((group) => group.degree === degreeFilter)
-    }
-
-    // Apply search
-    if (searchTerm) {
-      result = result.filter(
-        (group) =>
-          group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (group.displayName && group.displayName.toLowerCase().includes(searchTerm.toLowerCase())),
-      )
-    }
-
-    setFilteredGroups(result)
-    setCurrentPage(1) // Reset to first page when filters change
-  }, [groups, searchTerm, yearFilter, degreeFilter])
-
-  // Get current page items
+  // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
   const currentItems = filteredGroups.slice(indexOfFirstItem, indexOfLastItem)
   const totalPages = Math.ceil(filteredGroups.length / itemsPerPage)
 
-  // Find the current year in the years array
-  const getCurrentYearOption = () => {
-    const currentYear = new Date().getFullYear().toString()
-    const yearOption = years.find((y) => y.year === currentYear)
-    return yearOption ? yearOption.year : years.length > 0 ? years[0].year : ""
-  }
-
-  // Safe dialog open handler
-  const handleOpenDialog = (group?: (typeof groups)[0]) => {
+  // Dialog handlers
+  const handleOpenDialog = (group?: Group) => {
     if (group) {
+      // Find academic year ID from year string
+      const academicYear = academicYears.find((y) => y.year === group.academicYear)
       setCurrentGroup({
         id: group.id,
         name: group.name,
-        degreeId: group.degreeId?.toString() || "",
-        academicYear: group.academicYear,
+        degreeId: group.degreeId,
+        academicYearId: academicYear?.id || "",
         status: group.status,
       })
       setIsEditing(true)
     } else {
+      const defaultYear = academicYears.length > 0 ? academicYears[0].id : ""
       setCurrentGroup({
         name: "",
-        degreeId: degrees.length > 0 ? degrees[0].id.toString() : "",
-        academicYear: getCurrentYearOption(),
+        degreeId: degrees.length > 0 ? degrees[0].id : "",
+        academicYearId: defaultYear,
         status: "active",
       })
       setIsEditing(false)
     }
-
-    // Ensure body is in a clean state before opening dialog
-    document.body.style.removeProperty("overflow")
-    document.body.removeAttribute("aria-hidden")
-
-    // Set timeout to ensure DOM is ready
-    setTimeout(() => {
-      if (isMounted.current) {
-        setIsDialogOpen(true)
-      }
-    }, 0)
+    setIsDialogOpen(true)
   }
 
-  // Safe dialog close handler
   const handleCloseDialog = () => {
     setIsDialogOpen(false)
-
-    // Ensure cleanup after dialog closes
     setTimeout(() => {
-      if (isMounted.current) {
-        // Reset body styles
-        document.body.style.removeProperty("overflow")
-        document.body.style.removeProperty("padding-right")
-        document.body.removeAttribute("aria-hidden")
-
-        // Remove any data-radix-* attributes from the body
-        const attributes = [...document.body.attributes]
-        attributes.forEach((attr) => {
-          if (attr.name.startsWith("data-radix-")) {
-            document.body.removeAttribute(attr.name)
-          }
-        })
-      }
-    }, 300) // Wait for animation to complete
+      cleanupDialogEffects()
+    }, 300)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -412,83 +425,38 @@ function GroupsTableContent() {
           .update({
             name: currentGroup.name,
             degree_id: currentGroup.degreeId,
-            academic_year: currentGroup.academicYear,
+            academic_year_id: currentGroup.academicYearId,
             status: currentGroup.status,
           })
           .eq("id", currentGroup.id)
 
         if (error) throw error
 
-        // Refresh the groups list to get updated data
-        const { data, error: fetchError } = await supabase.from("groups").select("*").eq("id", currentGroup.id).single()
-
-        if (fetchError) throw fetchError
-
-        // Get degree name
-        const degree = degrees.find((d) => d.id === currentGroup.degreeId)
-
-        if (data) {
-          const updatedGroup = {
-            ...groups.find((g) => g.id === currentGroup.id),
-            id: data.id.toString(),
-            name: data.name,
-            degree: degree?.name || "Unknown",
-            degreeId: data.degree_id,
-            academicYear: data.academic_year,
-            status: data.status,
-          }
-
-          const updatedGroups = groups.map((group) => (group.id === currentGroup.id ? updatedGroup : group))
-          setGroups(updatedGroups)
-
-          // Update cache
-          setCachedData("groups", "all", updatedGroups)
-
-          toast({
-            title: t("admin.groups.success"),
-            description: t("admin.groups.groupUpdated"),
-          })
-        }
+        // Invalidate cache
+        localStorage.removeItem(GROUPS_CACHE_KEY)
+        setIsLoadingGroups(true)
       } else {
         // Add new group
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from("groups")
           .insert({
             name: currentGroup.name,
             degree_id: currentGroup.degreeId,
-            academic_year: currentGroup.academicYear,
+            academic_year_id: currentGroup.academicYearId,
             status: currentGroup.status,
           })
-          .select()
 
         if (error) throw error
 
-        if (data && data[0]) {
-          // Get degree name
-          const degree = degrees.find((d) => d.id === currentGroup.degreeId)
-
-          const newGroup = {
-            id: data[0].id.toString(),
-            name: data[0].name,
-            degree: degree?.name || "Unknown",
-            degreeId: data[0].degree_id,
-            academicYear: data[0].academic_year,
-            students: 0,
-            status: data[0].status,
-          }
-
-          const updatedGroups = [...groups, newGroup]
-          setGroups(updatedGroups)
-
-          // Update cache
-          setCachedData("groups", "all", updatedGroups)
-
-          toast({
-            title: t("admin.groups.success"),
-            description: t("admin.groups.groupCreated"),
-          })
-        }
+        // Invalidate cache
+        localStorage.removeItem(GROUPS_CACHE_KEY)
+        setIsLoadingGroups(true)
       }
+
+      toast({
+        title: t("admin.groups.success"),
+        description: isEditing ? t("admin.groups.groupUpdated") : t("admin.groups.groupCreated"),
+      })
 
       handleCloseDialog()
     } catch (error: any) {
@@ -501,26 +469,19 @@ function GroupsTableContent() {
     }
   }
 
-  // Handle opening delete confirmation dialog
   const handleDelete = (id: string) => {
     setGroupToDelete(id)
     openDeleteDialog()
   }
 
-  // Handle closing delete confirmation dialog
   const handleCloseDeleteDialog = () => {
     closeDeleteDialog()
-
-    // Ensure cleanup after dialog closes
     setTimeout(() => {
-      if (isMounted.current) {
-        setGroupToDelete(null)
-        cleanupDialogEffects()
-      }
-    }, 300) // Wait for animation to complete
+      setGroupToDelete(null)
+      cleanupDialogEffects()
+    }, 300)
   }
 
-  // Confirm delete action
   const confirmDelete = async () => {
     if (!groupToDelete) return
 
@@ -529,19 +490,15 @@ function GroupsTableContent() {
 
       if (error) throw error
 
-      const updatedGroups = groups.filter((group) => group.id !== groupToDelete)
-      setGroups(updatedGroups)
-      setFilteredGroups(filteredGroups.filter((group) => group.id !== groupToDelete))
-
-      // Update cache
-      setCachedData("groups", "all", updatedGroups)
+      // Invalidate cache
+      localStorage.removeItem(GROUPS_CACHE_KEY)
+      setIsLoadingGroups(true)
 
       toast({
         title: t("admin.groups.success"),
         description: t("admin.groups.groupDeleted"),
       })
 
-      // Close dialog and clean up
       handleCloseDeleteDialog()
     } catch (error: any) {
       console.error("Error deleting group:", error)
@@ -565,20 +522,9 @@ function GroupsTableContent() {
 
       if (error) throw error
 
-      const updatedGroups = groups.map((group) => {
-        if (group.id === id) {
-          return {
-            ...group,
-            status: newStatus,
-          }
-        }
-        return group
-      })
-
-      setGroups(updatedGroups)
-
-      // Update cache
-      setCachedData("groups", "all", updatedGroups)
+      // Invalidate cache
+      localStorage.removeItem(GROUPS_CACHE_KEY)
+      setIsLoadingGroups(true)
 
       toast({
         title: t("admin.groups.success"),
@@ -594,29 +540,7 @@ function GroupsTableContent() {
     }
   }
 
-  // Helper function to get degree badge
-  const getDegreeBadge = (degree: string) => {
-    // Map the English degree names to translation keys
-    const degreeKey = degree === "Bachelor's" ? "degree.bachelor" : degree === "Master's" ? "degree.master" : ""
-
-    // Get the translated degree name
-    const translatedDegree = degreeKey ? t(degreeKey) : degree
-
-    switch (degree) {
-      case "Bachelor's":
-        return (
-          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 border-purple-200">
-            {translatedDegree}
-          </Badge>
-        )
-      case "Master's":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">{translatedDegree}</Badge>
-      default:
-        return <Badge>{translatedDegree}</Badge>
-    }
-  }
-
-  // Helper function to get status badge
+  // Helper functions
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
@@ -636,14 +560,6 @@ function GroupsTableContent() {
     }
   }
 
-  // Get the group name for the delete confirmation dialog
-  const getGroupToDeleteName = () => {
-    if (!groupToDelete) return ""
-    const group = groups.find((g) => g.id === groupToDelete)
-    return group ? group.name : ""
-  }
-
-  // Get the student count for the delete confirmation dialog
   const getGroupToDeleteStudentCount = () => {
     if (!groupToDelete) return 0
     const group = groups.find((g) => g.id === groupToDelete)
@@ -651,7 +567,7 @@ function GroupsTableContent() {
   }
 
   return (
-    <>
+    <DashboardLayout>
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
           <div>
@@ -667,49 +583,47 @@ function GroupsTableContent() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder={t("admin.groups.searchGroups")}
-                      className="pl-8"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                    <Select value={yearFilter || "all"} onValueChange={setYearFilter}>
-                      <SelectTrigger className="w-[130px]">
-                        <Filter className="mr-2 h-4 w-4" />
-                        <SelectValue placeholder={t("admin.groups.year")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.groups.allYears")}</SelectItem>
-                        {groupYears.map((year) => (
-                          <SelectItem key={year} value={year}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder={t("admin.groups.searchGroups")}
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                  <Select value={yearFilter} onValueChange={setYearFilter}>
+                    <SelectTrigger className="w-[130px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder={t("admin.groups.year")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("admin.groups.allYears")}</SelectItem>
+                      {groupYears.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                    <Select value={degreeFilter || "all"} onValueChange={setDegreeFilter}>
-                      <SelectTrigger className="w-[150px]">
-                        <Filter className="mr-2 h-4 w-4" />
-                        <SelectValue placeholder={t("admin.groups.degree")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t("admin.groups.allDegrees")}</SelectItem>
-                        {degreesList.map((degree) => (
-                          <SelectItem key={degree} value={degree}>
-                            {degree}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select value={degreeFilter} onValueChange={setDegreeFilter}>
+                    <SelectTrigger className="w-[150px]">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder={t("admin.groups.degree")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("admin.groups.allDegrees")}</SelectItem>
+                      {degreesList.map((degree) => (
+                        <SelectItem key={degree} value={degree}>
+                          {degree}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -726,30 +640,8 @@ function GroupsTableContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoading ? (
-                      // Skeleton loader only in the table rows
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <TableRow key={`skeleton-${index}`}>
-                          <TableCell>
-                            <Skeleton className="h-6 w-24" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-16" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-6 w-20" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-8 w-8 rounded-full" />
-                          </TableCell>
-                        </TableRow>
-                      ))
+                    {isLoadingGroups ? (
+                      <TableSkeleton columns={6} rows={itemsPerPage} />
                     ) : currentItems.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
@@ -760,7 +652,7 @@ function GroupsTableContent() {
                       currentItems.map((group) => (
                         <TableRow key={group.id}>
                           <TableCell className="font-medium">{group.name}</TableCell>
-                          <TableCell>{getDegreeBadge(group.degree)}</TableCell>
+                          <TableCell>{group.degree}</TableCell>
                           <TableCell>{group.academicYear}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
@@ -800,7 +692,6 @@ function GroupsTableContent() {
                 </Table>
               </div>
 
-              {/* Pagination */}
               {filteredGroups.length > itemsPerPage && (
                 <div className="flex items-center justify-end space-x-2 py-4">
                   <Button
@@ -808,7 +699,6 @@ function GroupsTableContent() {
                     size="sm"
                     onClick={() => setCurrentPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    aria-label={t("pagination.previous")}
                   >
                     <ChevronLeft className="h-4 w-4 mr-2" />
                     {t("pagination.previous")}
@@ -823,7 +713,6 @@ function GroupsTableContent() {
                     size="sm"
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    aria-label={t("pagination.next")}
                   >
                     {t("pagination.next")}
                     <ChevronRight className="h-4 w-4 ml-2" />
@@ -835,143 +724,96 @@ function GroupsTableContent() {
         </Card>
       </div>
 
-      {/* Use forceMount to ensure proper cleanup */}
-      {isDialogOpen && (
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            if (!open) handleCloseDialog()
-          }}
-        >
-          <DialogContent
-            className="sm:max-w-[500px]"
-            onEscapeKeyDown={(e) => {
-              // Prevent escape key from propagating
-              e.stopPropagation()
-              handleCloseDialog()
-            }}
-            onPointerDownOutside={(e) => {
-              // Prevent clicks outside from propagating
-              e.preventDefault()
-              handleCloseDialog()
-            }}
-            onInteractOutside={(e) => {
-              // Prevent any interaction outside from propagating
-              e.preventDefault()
-            }}
-          >
-            <DialogHeader>
-              <DialogTitle>{isEditing ? t("admin.groups.editGroup") : t("admin.groups.addNewGroup")}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t("admin.groups.groupCodeLabel")}</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={currentGroup.name}
-                  onChange={handleInputChange}
-                  placeholder={t("admin.groups.groupCodePlaceholder")}
-                  required
-                />
-              </div>
+      {/* Edit/Create Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && handleCloseDialog()}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? t("admin.groups.editGroup") : t("admin.groups.addNewGroup")}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">{t("admin.groups.groupCodeLabel")}</Label>
+              <Input
+                id="name"
+                name="name"
+                value={currentGroup.name}
+                onChange={handleInputChange}
+                placeholder={t("admin.groups.groupCodePlaceholder")}
+                required
+              />
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="degreeId">{t("admin.groups.degree")}</Label>
-                  {isLoadingDegrees ? (
-                    <Skeleton className="h-10 w-full" />
-                  ) : (
-                    <select
-                      id="degreeId"
-                      name="degreeId"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      value={currentGroup.degreeId}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">{t("admin.groups.selectDegree")}</option>
-                      {degrees.map((degree) => {
-                        const displayName = language === "ru" && degree.name_ru ? degree.name_ru : degree.name
-                        return (
-                          <option key={degree.id} value={degree.id}>
-                            {displayName}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="academicYear">{t("admin.groups.year")}</Label>
-                  {isLoadingYears ? (
-                    <Skeleton className="h-10 w-full" />
-                  ) : (
-                    <select
-                      id="academicYear"
-                      name="academicYear"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      value={currentGroup.academicYear}
-                      onChange={handleInputChange}
-                      required
-                    >
-                      <option value="">{t("admin.groups.selectYear")}</option>
-                      {years.map((year) => (
-                        <option key={year.id} value={year.year}>
-                          {year.year}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="status">{t("admin.groups.status")}</Label>
+                <Label htmlFor="degreeId">{t("admin.groups.degree")}</Label>
                 <select
-                  id="status"
-                  name="status"
+                  id="degreeId"
+                  name="degreeId"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  value={currentGroup.status}
+                  value={currentGroup.degreeId}
                   onChange={handleInputChange}
+                  required
+                  disabled={isLoadingDegrees}
                 >
-                  <option value="active">{t("admin.groups.active")}</option>
-                  <option value="inactive">{t("admin.groups.inactive")}</option>
+                  <option value="">{t("admin.groups.selectDegree")}</option>
+                  {degrees.map((degree) => {
+                    const displayName = language === "ru" && degree.name_ru ? degree.name_ru : degree.name
+                    return (
+                      <option key={degree.id} value={degree.id}>
+                        {displayName}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleCloseDialog}>
-                  {t("admin.groups.cancel")}
-                </Button>
-                <Button type="submit">{isEditing ? t("admin.groups.update") : t("admin.groups.create")}</Button>
+              <div className="space-y-2">
+                <Label htmlFor="academicYearId">{t("admin.groups.year")}</Label>
+                <select
+                  id="academicYearId"
+                  name="academicYearId"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                  value={currentGroup.academicYearId}
+                  onChange={handleInputChange}
+                  required
+                  disabled={isLoadingYears}
+                >
+                  <option value="">{t("admin.groups.selectYear")}</option>
+                  {academicYears.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.year}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">{t("admin.groups.status")}</Label>
+              <select
+                id="status"
+                name="status"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                value={currentGroup.status}
+                onChange={handleInputChange}
+              >
+                <option value="active">{t("admin.groups.active")}</option>
+                <option value="inactive">{t("admin.groups.inactive")}</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                {t("admin.groups.cancel")}
+              </Button>
+              <Button type="submit">{isEditing ? t("admin.groups.update") : t("admin.groups.create")}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) handleCloseDeleteDialog()
-        }}
-      >
-        <DialogContent
-          className="sm:max-w-[425px]"
-          onEscapeKeyDown={(e) => {
-            e.stopPropagation()
-            handleCloseDeleteDialog()
-          }}
-          onPointerDownOutside={(e) => {
-            e.preventDefault()
-            handleCloseDeleteDialog()
-          }}
-          onInteractOutside={(e) => {
-            e.preventDefault()
-          }}
-        >
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => !open && handleCloseDeleteDialog()}>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
@@ -996,18 +838,6 @@ function GroupsTableContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
-  )
-}
-
-// Main page component
-export default function GroupsPage() {
-  return (
-    <DashboardLayout>
-      {/* Remove the Suspense boundary that's causing the blinking */}
-      <GroupsTableContent />
     </DashboardLayout>
   )
 }
-
-// Remove the GroupsPageSkeleton function since we're not using it anymore

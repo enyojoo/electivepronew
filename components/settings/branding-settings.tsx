@@ -33,7 +33,7 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 export function BrandingSettings() {
   const { t } = useLanguage()
   const { toast } = useToast()
-  const { invalidateCache } = useDataCache()
+  const { invalidateCache, setCachedData } = useDataCache()
   const { settings, isLoading } = useCachedSettings()
   const [isSaving, setIsSaving] = useState(false)
   const [isLogoUploading, setIsLogoUploading] = useState(false)
@@ -49,16 +49,17 @@ export function BrandingSettings() {
   // Update state when settings are loaded
   useEffect(() => {
     if (settings) {
-      setFaviconUrl(settings.favicon_url || null)
-      setLogoUrl(settings.logo_url || null)
+      // Only set URLs if they are valid, otherwise keep as null (will show default without fetching)
+      setFaviconUrl(isValidUrl(settings.favicon_url) ? settings.favicon_url : null)
+      setLogoUrl(isValidUrl(settings.logo_url) ? settings.logo_url : null)
       const color = settings.primary_color || DEFAULT_PRIMARY_COLOR
       const name = settings.name || ""
       setPrimaryColor(color)
       setInstitutionName(name)
       setOriginalPrimaryColor(color)
       setOriginalInstitutionName(name)
-    } else {
-      // Initialize with defaults if settings not loaded yet
+    } else if (!isLoading) {
+      // Only initialize with defaults if we're done loading and there's no settings
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setInstitutionName("")
       setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
@@ -66,7 +67,7 @@ export function BrandingSettings() {
       setFaviconUrl(null)
       setLogoUrl(null)
     }
-  }, [settings])
+  }, [settings, isLoading])
 
   const handleCancelEdit = () => {
     setPrimaryColor(originalPrimaryColor)
@@ -115,8 +116,15 @@ export function BrandingSettings() {
         throw error
       }
 
-      // Invalidate the cache
-      invalidateCache("settings", SETTINGS_ID)
+      // Update cache with new settings immediately
+      const updatedSettings = {
+        ...settings,
+        favicon_url: newFaviconUrl,
+      }
+      setCachedData("settings", SETTINGS_ID, updatedSettings)
+      
+      // Update local state immediately so it shows without refetch
+      setFaviconUrl(newFaviconUrl)
 
       toast({
         title: t("settings.toast.faviconUploaded"),
@@ -172,8 +180,15 @@ export function BrandingSettings() {
         throw error
       }
 
-      // Invalidate the cache
-      invalidateCache("settings", SETTINGS_ID)
+      // Update cache with new settings immediately
+      const updatedSettings = {
+        ...settings,
+        logo_url: newLogoUrl,
+      }
+      setCachedData("settings", SETTINGS_ID, updatedSettings)
+      
+      // Update local state immediately so it shows without refetch
+      setLogoUrl(newLogoUrl)
 
       toast({
         title: t("settings.toast.logoUploaded"),
@@ -206,8 +221,13 @@ export function BrandingSettings() {
         throw error
       }
 
-      // Invalidate the cache
-      invalidateCache("settings", SETTINGS_ID)
+      // Update cache with new settings immediately
+      const updatedSettings = {
+        ...settings,
+        name: institutionName,
+        primary_color: primaryColor,
+      }
+      setCachedData("settings", SETTINGS_ID, updatedSettings)
 
       // Update original values and exit edit mode
       setOriginalPrimaryColor(primaryColor)
@@ -279,23 +299,20 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-16" />
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {isValidUrl(logoUrl) ? (
-                      <img
-                        src={logoUrl!}
-                        alt="Logo"
-                        className="h-full w-full object-contain"
-                        onError={(e) => {
-                          // Fallback to default if custom logo fails to load
+                    <img
+                      src={isValidUrl(logoUrl) ? logoUrl! : DEFAULT_LOGO_URL}
+                      alt="Logo"
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                      onError={(e) => {
+                        // If both custom and default fail, hide the image
+                        if (logoUrl && e.currentTarget.src !== DEFAULT_LOGO_URL) {
                           e.currentTarget.src = DEFAULT_LOGO_URL
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={DEFAULT_LOGO_URL}
-                        alt="Logo"
-                        className="h-full w-full object-contain"
-                      />
-                    )}
+                        } else {
+                          e.currentTarget.style.display = "none"
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="logo-upload" className="cursor-pointer">
@@ -336,23 +353,20 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-10" />
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {isValidUrl(faviconUrl) ? (
-                      <img
-                        src={faviconUrl!}
-                        alt="Favicon"
-                        className="h-full w-full object-contain"
-                        onError={(e) => {
-                          // Fallback to default if custom favicon fails to load
+                    <img
+                      src={isValidUrl(faviconUrl) ? faviconUrl! : DEFAULT_FAVICON_URL}
+                      alt="Favicon"
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                      onError={(e) => {
+                        // If both custom and default fail, hide the image
+                        if (faviconUrl && e.currentTarget.src !== DEFAULT_FAVICON_URL) {
                           e.currentTarget.src = DEFAULT_FAVICON_URL
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={DEFAULT_FAVICON_URL}
-                        alt="Favicon"
-                        className="h-full w-full object-contain"
-                      />
-                    )}
+                        } else {
+                          e.currentTarget.style.display = "none"
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="favicon-upload" className="cursor-pointer">
