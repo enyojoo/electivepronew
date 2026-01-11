@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Search, MoreHorizontal, Filter, AlertCircle, Trash2, Save, Plus } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useCachedUsers } from "@/hooks/use-cached-users"
@@ -65,7 +65,7 @@ export function UsersSettings() {
   const [filteredGroups, setFilteredGroups] = useState<any[]>([])
   const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString())
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabase = getSupabaseBrowserClient()
 
   // Initialize filteredUsers with users data when it becomes available
   useEffect(() => {

@@ -2,18 +2,43 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/lib/language-context"
 
 // Helper function to transform user data based on language
 const transformUserData = (data: any[], currentLanguage: string) => {
   return data.map((profile) => {
-    // Get degree name based on language
+    // Extract degree and group info based on role
+    let degreeId = ""
     let degreeName = ""
-    if (profile.degrees) {
-      degreeName =
-        currentLanguage === "ru" && profile.degrees.name_ru ? profile.degrees.name_ru : profile.degrees.name || ""
+    let groupId = ""
+    let groupName = ""
+    let year = ""
+
+    if (profile.role === "student" && profile.student_profiles && profile.student_profiles.length > 0) {
+      const studentProfile = profile.student_profiles[0]
+      groupId = studentProfile.group_id || ""
+      year = studentProfile.enrollment_year || ""
+      
+      if (studentProfile.groups) {
+        groupName = studentProfile.groups.name || ""
+        
+        // Get degree from program
+        if (studentProfile.groups.programs && studentProfile.groups.programs.degrees) {
+          const degree = studentProfile.groups.programs.degrees
+          degreeId = studentProfile.groups.programs.degree_id || ""
+          degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
+        }
+      }
+    } else if (profile.role === "program_manager" && profile.manager_profiles && profile.manager_profiles.length > 0) {
+      const managerProfile = profile.manager_profiles[0]
+      if (managerProfile.degrees) {
+        degreeId = managerProfile.degree_id || ""
+        degreeName = currentLanguage === "ru" && managerProfile.degrees.name_ru 
+          ? managerProfile.degrees.name_ru 
+          : managerProfile.degrees.name || ""
+      }
     }
 
     return {
@@ -22,11 +47,11 @@ const transformUserData = (data: any[], currentLanguage: string) => {
       email: profile.email || "",
       role: profile.role || "",
       status: profile.is_active ? "active" : "inactive",
-      degreeId: profile.degree_id || "",
-      degreeName: degreeName,
-      groupId: profile.group_id || "",
-      groupName: profile.groups ? profile.groups.name : "",
-      year: profile.academic_year || "",
+      degreeId,
+      degreeName,
+      groupId,
+      groupName,
+      year,
     }
   })
 }
@@ -72,9 +97,11 @@ export function useCachedUsers() {
 
       try {
         console.log("Fetching users data from API")
-        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        const supabase = getSupabaseBrowserClient()
 
         // Fetch profiles with degree, group, and year information
+        // Note: degree_id, group_id, and academic_year are in student_profiles/manager_profiles tables
+        // We need to fetch these separately due to Supabase relationship limitations
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select(`
@@ -82,24 +109,68 @@ export function useCachedUsers() {
           full_name, 
           email, 
           role, 
-          is_active, 
-          degree_id, 
-          group_id, 
-          academic_year,
-          degrees(id, name, name_ru),
-          groups(id, name)
+          is_active
         `)
+          .order("full_name")
+
+        if (profilesError) throw profilesError
+
+        // Fetch student profiles with groups and degrees
+        const { data: studentProfilesData } = await supabase
+          .from("student_profiles")
+          .select(`
+            profile_id,
+            group_id,
+            enrollment_year,
+            groups!inner(
+              id,
+              name,
+              programs!inner(
+                degree_id,
+                degrees!inner(id, name, name_ru)
+              )
+            )
+          `)
+
+        // Fetch manager profiles with degrees
+        const { data: managerProfilesData } = await supabase
+          .from("manager_profiles")
+          .select(`
+            profile_id,
+            degree_id,
+            degrees(id, name, name_ru)
+          `)
+
+        // Combine the data
+        const profilesWithDetails = (profilesData || []).map((profile) => {
+          if (profile.role === "student") {
+            const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+            return {
+              ...profile,
+              student_profiles: studentProfile ? [studentProfile] : [],
+            }
+          } else if (profile.role === "program_manager") {
+            const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+            return {
+              ...profile,
+              manager_profiles: managerProfile ? [managerProfile] : [],
+            }
+          }
+          return profile
+        })
+
+        const profilesData = profilesWithDetails
 
         if (profilesError) throw profilesError
 
         // Store the raw data for future language switches
-        rawDataRef.current = profilesData || []
+        rawDataRef.current = finalProfilesData || []
 
         // Cache the data
-        setCachedData("users", "all", profilesData)
+        setCachedData("users", "all", finalProfilesData)
 
         // Transform the data based on current language
-        const transformedUsers = transformUserData(profilesData || [], language)
+        const transformedUsers = transformUserData(finalProfilesData || [], language)
 
         // Update state
         setUsers(transformedUsers)

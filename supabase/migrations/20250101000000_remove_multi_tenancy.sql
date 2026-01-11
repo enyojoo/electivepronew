@@ -285,16 +285,8 @@ CREATE TABLE IF NOT EXISTS settings (
   CONSTRAINT settings_single_row CHECK (id = '00000000-0000-0000-0000-000000000000'::uuid)
 );
 
--- Insert default settings row
-INSERT INTO settings (id, name, primary_color, logo_url, favicon_url)
-VALUES (
-  '00000000-0000-0000-0000-000000000000'::uuid,
-  'ElectivePRO',
-  '#027659',
-  'https://cldup.com/cE5TTe0PeC.svg',
-  'https://cldup.com/aRNSwxLaVk.png'
-)
-ON CONFLICT (id) DO NOTHING;
+-- Note: Default settings are hardcoded in the application code (lib/constants.ts)
+-- No default row is inserted - settings are only created when admin updates branding
 
 -- ====================================================
 -- STEP 6: CREATE INDEXES
