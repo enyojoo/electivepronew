@@ -159,9 +159,7 @@ export function useCachedUsers() {
           return profile
         })
 
-        const profilesData = profilesWithDetails
-
-        if (profilesError) throw profilesError
+        const finalProfilesData = profilesWithDetails
 
         // Store the raw data for future language switches
         rawDataRef.current = finalProfilesData || []
