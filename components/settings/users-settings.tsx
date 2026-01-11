@@ -15,7 +15,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
-import { Search, MoreHorizontal, Filter, AlertCircle, Trash2, Save, Plus } from "lucide-react"
+import { Search, MoreHorizontal, Filter, AlertCircle, Trash2, Save, Plus, Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -654,179 +654,202 @@ export function UsersSettings() {
         }}
       >
         <DialogContent 
-          className="sm:max-w-md max-h-[90vh] flex flex-col" 
+          className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 gap-0" 
           onPointerDownOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle>{editingUser?.id ? t("admin.users.edit") : (t("admin.users.createUser") || "Create User")}</DialogTitle>
-            <DialogDescription>
+          <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="text-xl">{editingUser?.id ? t("admin.users.edit") : (t("admin.users.createUser") || "Create User")}</DialogTitle>
+            <DialogDescription className="mt-1.5">
               {editingUser?.id ? t("admin.settings.subtitle") : "Create a new user account. A temporary password will be generated."}
             </DialogDescription>
           </DialogHeader>
 
           {editingUser && (
-            <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">{t("admin.users.name")}</Label>
-                <Input
-                  id="edit-name"
-                  value={editingUser.name}
-                  onChange={(e) => handleEditInputChange("name", e.target.value)}
-                />
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-5">
+                {/* Basic Information Section */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-foreground">{t("admin.users.basicInfo") || "Basic Information"}</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-name" className="text-sm font-medium">{t("admin.users.name")}</Label>
+                      <Input
+                        id="edit-name"
+                        value={editingUser.name}
+                        onChange={(e) => handleEditInputChange("name", e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-email" className="text-sm font-medium">{t("admin.users.email")}</Label>
+                      <Input
+                        id="edit-email"
+                        type="email"
+                        value={editingUser.email}
+                        onChange={(e) => handleEditInputChange("email", e.target.value)}
+                        className="h-10"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-role" className="text-sm font-medium">{t("admin.users.role")}</Label>
+                        <Select value={editingUser.role} onValueChange={(value) => handleEditInputChange("role", value)}>
+                          <SelectTrigger id="edit-role" className="h-10">
+                            <SelectValue placeholder={t("admin.users.role")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={UserRole.STUDENT}>{t("admin.users.student")}</SelectItem>
+                            <SelectItem value={UserRole.PROGRAM_MANAGER}>{t("admin.users.program_manager")}</SelectItem>
+                            <SelectItem value={UserRole.ADMIN}>{t("admin.users.admin")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-status" className="text-sm font-medium">{t("admin.users.status")}</Label>
+                        <Select value={editingUser.status} onValueChange={(value) => handleEditInputChange("status", value)}>
+                          <SelectTrigger id="edit-status" className="h-10">
+                            <SelectValue placeholder={t("admin.users.selectStatus")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">{t("admin.users.active")}</SelectItem>
+                            <SelectItem value="inactive">{t("admin.users.inactive")}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Student-specific fields */}
+                {editingUser.role === UserRole.STUDENT && (
+                  <div className="space-y-4 pt-2 border-t">
+                    <h3 className="text-sm font-semibold text-foreground">{t("admin.users.studentDetails") || "Student Details"}</h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-degree" className="text-sm font-medium">{t("admin.users.degree")}</Label>
+                        <Select
+                          value={editingUser.degreeId || undefined}
+                          onValueChange={(value) => handleEditInputChange("degreeId", value)}
+                        >
+                          <SelectTrigger id="edit-degree" className="h-10">
+                            <SelectValue placeholder={t("admin.users.selectDegree")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {degrees.map((degree) => (
+                              <SelectItem key={degree.id} value={degree.id.toString()}>
+                                {degree.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-year" className="text-sm font-medium">{t("admin.users.year")}</Label>
+                          <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
+                            <SelectTrigger id="edit-year" className="h-10">
+                              <SelectValue placeholder={t("admin.users.selectYear")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {years.map((year) => (
+                                <SelectItem key={year} value={year}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-group" className="text-sm font-medium">{t("admin.users.group")}</Label>
+                          <Select
+                            value={editingUser.groupId || undefined}
+                            onValueChange={(value) => handleEditInputChange("groupId", value)}
+                            disabled={!editingUser.degreeId || filteredGroups.length === 0}
+                          >
+                            <SelectTrigger id="edit-group" className="h-10">
+                              <SelectValue placeholder={t("admin.users.group")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredGroups.length > 0 ? (
+                                filteredGroups.map((group) => (
+                                  <SelectItem key={group.id} value={group.id.toString()}>
+                                    {group.name || group.displayName}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  {t("admin.groups.noGroups")}
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Program Manager specific fields */}
+                {editingUser.role === UserRole.PROGRAM_MANAGER && (
+                  <div className="space-y-4 pt-2 border-t">
+                    <h3 className="text-sm font-semibold text-foreground">{t("admin.users.managerDetails") || "Manager Details"}</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-manager-degree" className="text-sm font-medium">{t("admin.users.degree")}</Label>
+                        <Select
+                          value={editingUser.degreeId || undefined}
+                          onValueChange={(value) => handleEditInputChange("degreeId", value)}
+                        >
+                          <SelectTrigger id="edit-manager-degree" className="h-10">
+                            <SelectValue placeholder={t("admin.users.selectDegree")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {degrees.map((degree) => (
+                              <SelectItem key={degree.id} value={degree.id.toString()}>
+                                {degree.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-manager-year" className="text-sm font-medium">{t("admin.users.year")}</Label>
+                        <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
+                          <SelectTrigger id="edit-manager-year" className="h-10">
+                            <SelectValue placeholder={t("admin.users.selectYear")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {years.map((year) => (
+                              <SelectItem key={year} value={year}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">{t("admin.users.email")}</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editingUser.email}
-                  onChange={(e) => handleEditInputChange("email", e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-role">{t("admin.users.role")}</Label>
-                <Select value={editingUser.role} onValueChange={(value) => handleEditInputChange("role", value)}>
-                  <SelectTrigger id="edit-role">
-                    <SelectValue placeholder={t("admin.users.role")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UserRole.STUDENT}>{t("admin.users.student")}</SelectItem>
-                    <SelectItem value={UserRole.PROGRAM_MANAGER}>{t("admin.users.program_manager")}</SelectItem>
-                    <SelectItem value={UserRole.ADMIN}>{t("admin.users.admin")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">{t("admin.users.status")}</Label>
-                <Select value={editingUser.status} onValueChange={(value) => handleEditInputChange("status", value)}>
-                  <SelectTrigger id="edit-status">
-                    <SelectValue placeholder={t("admin.users.selectStatus")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">{t("admin.users.active")}</SelectItem>
-                    <SelectItem value="inactive">{t("admin.users.inactive")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Student-specific fields */}
-              {editingUser.role === UserRole.STUDENT && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-degree">{t("admin.users.degree")}</Label>
-                    <Select
-                      value={editingUser.degreeId || undefined}
-                      onValueChange={(value) => handleEditInputChange("degreeId", value)}
-                    >
-                      <SelectTrigger id="edit-degree">
-                        <SelectValue placeholder={t("admin.users.selectDegree")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {degrees.map((degree) => (
-                          <SelectItem key={degree.id} value={degree.id.toString()}>
-                            {degree.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-group">{t("admin.users.group")}</Label>
-                    <Select
-                      value={editingUser.groupId || undefined}
-                      onValueChange={(value) => handleEditInputChange("groupId", value)}
-                      disabled={!editingUser.degreeId || filteredGroups.length === 0}
-                    >
-                      <SelectTrigger id="edit-group">
-                        <SelectValue placeholder={t("admin.users.group")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredGroups.length > 0 ? (
-                          filteredGroups.map((group) => (
-                            <SelectItem key={group.id} value={group.id.toString()}>
-                              {group.name || group.displayName}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            {t("admin.groups.noGroups")}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-year">{t("admin.users.year")}</Label>
-                    <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
-                      <SelectTrigger id="edit-year">
-                        <SelectValue placeholder={t("admin.users.selectYear")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-
-              {/* Program Manager specific fields */}
-              {editingUser.role === UserRole.PROGRAM_MANAGER && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-manager-degree">{t("admin.users.degree")}</Label>
-                    <Select
-                      value={editingUser.degreeId || undefined}
-                      onValueChange={(value) => handleEditInputChange("degreeId", value)}
-                    >
-                      <SelectTrigger id="edit-manager-degree">
-                        <SelectValue placeholder={t("admin.users.selectDegree")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {degrees.map((degree) => (
-                          <SelectItem key={degree.id} value={degree.id.toString()}>
-                            {degree.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-manager-year">{t("admin.users.year")}</Label>
-                    <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
-                      <SelectTrigger id="edit-manager-year">
-                        <SelectValue placeholder={t("admin.users.selectYear")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((year) => (
-                          <SelectItem key={year} value={year}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
             </div>
           )}
 
-          <DialogFooter className="flex flex-row justify-end gap-2 sm:justify-end flex-shrink-0 border-t pt-4 mt-4">
-            <Button type="button" variant="outline" onClick={handleCloseEditDialog} disabled={isSaving}>
+          <DialogFooter className="flex flex-row justify-end gap-3 sm:justify-end flex-shrink-0 border-t px-6 py-4 bg-muted/50">
+            <Button type="button" variant="outline" onClick={handleCloseEditDialog} disabled={isSaving} className="h-10">
               {t("admin.users.cancel")}
             </Button>
-            <Button type="button" onClick={handleSaveUser} disabled={isSaving}>
+            <Button type="button" onClick={handleSaveUser} disabled={isSaving} className="h-10">
               {isSaving ? (
-                <span className="mr-2">{t("settings.branding.saving")}</span>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("settings.branding.saving")}
+                </>
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />

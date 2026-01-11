@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export function useCachedCourses() {
@@ -30,19 +30,65 @@ export function useCachedCourses() {
       // If not in cache, fetch from API
       console.log("Fetching courses data from API")
       try {
-        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        const supabase = getSupabaseBrowserClient()
 
-        const { data, error } = await supabase
+        // Fetch courses without degree relationship (courses table doesn't have degree_id)
+        const { data: coursesData, error: coursesError } = await supabase
           .from("courses")
-          .select("*, degree:degree_id(id, name, name_ru)")
+          .select("*")
 
-        if (error) throw error
+        if (coursesError) throw coursesError
+
+        // Fetch degrees through elective_packs -> programs -> degrees relationship
+        const electivePackIds = [...new Set((coursesData || []).map((c: any) => c.elective_pack_id).filter(Boolean))]
+        
+        let electivePacksData: any[] = []
+        if (electivePackIds.length > 0) {
+          const { data: packsData } = await supabase
+            .from("elective_packs")
+            .select("id, program_electives(program_id, programs(degree_id, degrees(id, name, name_ru, code)))")
+            .in("id", electivePackIds)
+          
+          electivePacksData = packsData || []
+        }
+
+        // Create a map of elective_pack_id to degree
+        const packToDegreeMap = new Map()
+        if (electivePacksData) {
+          electivePacksData.forEach((pack: any) => {
+            if (pack.program_electives && Array.isArray(pack.program_electives) && pack.program_electives.length > 0) {
+              const programElective = pack.program_electives[0]
+              if (programElective.programs) {
+                const program = Array.isArray(programElective.programs) ? programElective.programs[0] : programElective.programs
+                if (program.degrees) {
+                  const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
+                  packToDegreeMap.set(pack.id, degree)
+                }
+              }
+            }
+          })
+        }
+
+        // Map courses with degree information
+        const coursesWithDegrees = (coursesData || []).map((course: any) => {
+          const degree = course.elective_pack_id ? packToDegreeMap.get(course.elective_pack_id) : null
+          
+          return {
+            ...course,
+            degree: degree ? {
+              id: degree.id,
+              name: degree.name || "",
+              name_ru: degree.name_ru || "",
+              code: degree.code || "",
+            } : null,
+          }
+        })
 
         // Save to cache
-        setCachedData("courses", "all", data)
+        setCachedData("courses", "all", coursesWithDegrees)
 
         // Update state
-        setCourses(data)
+        setCourses(coursesWithDegrees)
       } catch (error: any) {
         console.error("Error fetching courses:", error)
         setError(error.message)

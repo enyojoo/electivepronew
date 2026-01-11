@@ -177,15 +177,17 @@ export default function CoursesPage() {
   useEffect(() => {
     async function fetchCourses() {
       try {
+        // First, fetch courses without degree relationship (since courses table doesn't have degree_id)
         // Build query
         let query = supabase
           .from("courses")
-          .select("*, degree:degree_id(*)", { count: "exact" })
+          .select("*", { count: "exact" })
 
         // Apply filters
         if (searchTerm) {
+          // Note: courses table has 'name' and 'name_ru', not 'name_en' and 'instructor_en'
           query = query.or(
-            `name_en.ilike.%${searchTerm}%,name_ru.ilike.%${searchTerm}%,instructor_en.ilike.%${searchTerm}%,instructor_ru.ilike.%${searchTerm}%`,
+            `name.ilike.%${searchTerm}%,name_ru.ilike.%${searchTerm}%`,
           )
         }
 
@@ -193,9 +195,8 @@ export default function CoursesPage() {
           query = query.eq("status", statusFilter)
         }
 
-        if (degreeFilter !== "all") {
-          query = query.eq("degree_id", degreeFilter)
-        }
+        // Note: We can't filter by degree_id directly since courses table doesn't have it
+        // We'll filter in JavaScript after fetching
 
         // Apply pagination
         const from = (currentPage - 1) * itemsPerPage
@@ -203,13 +204,73 @@ export default function CoursesPage() {
         query = query.range(from, to)
 
         // Execute query
-        const { data, error, count } = await query
+        const { data: coursesData, error, count } = await query
 
         if (error) {
           throw error
         }
 
-        setCourses(data || [])
+        // Since courses don't have degree_id directly, we need to fetch degrees through elective_packs -> programs -> degrees
+        // Fetch elective_packs for these courses (only if they have elective_pack_id)
+        const electivePackIds = [...new Set((coursesData || []).map((c: any) => c.elective_pack_id).filter(Boolean))]
+        
+        let electivePacksData: any[] = []
+        if (electivePackIds.length > 0) {
+          const { data: packsData } = await supabase
+            .from("elective_packs")
+            .select("id, program_electives(program_id, programs(degree_id, degrees(id, name, name_ru, code)))")
+            .in("id", electivePackIds)
+          
+          electivePacksData = packsData || []
+        }
+
+        // Create a map of elective_pack_id to degree
+        const packToDegreeMap = new Map()
+        if (electivePacksData) {
+          electivePacksData.forEach((pack: any) => {
+            if (pack.program_electives && Array.isArray(pack.program_electives) && pack.program_electives.length > 0) {
+              const programElective = pack.program_electives[0]
+              if (programElective.programs) {
+                const program = Array.isArray(programElective.programs) ? programElective.programs[0] : programElective.programs
+                if (program.degrees) {
+                  const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
+                  packToDegreeMap.set(pack.id, degree)
+                }
+              }
+            }
+          })
+        }
+
+        // Map the course data to match the expected interface
+        const coursesWithDegrees = (coursesData || []).map((course: any) => {
+          const degree = course.elective_pack_id ? packToDegreeMap.get(course.elective_pack_id) : null
+          
+          return {
+            id: course.id,
+            name_en: course.name || "", // Map 'name' to 'name_en' for interface compatibility
+            name_ru: course.name_ru || "",
+            instructor_en: "", // Not in schema - would need to be added
+            instructor_ru: "", // Not in schema - would need to be added
+            code: course.code || "",
+            status: course.status || "active",
+            degree_id: degree?.id || "",
+            max_students: course.max_students || 0,
+            degree: degree ? {
+              id: degree.id,
+              name: degree.name || "",
+              name_ru: degree.name_ru || "",
+              code: degree.code || "",
+            } : null,
+          }
+        })
+
+        // Filter by degree if needed
+        let filteredCourses = coursesWithDegrees
+        if (degreeFilter !== "all") {
+          filteredCourses = coursesWithDegrees.filter((course) => course.degree_id === degreeFilter)
+        }
+
+        setCourses(filteredCourses)
         setTotalCourses(count || 0)
 
         // Cache the courses data

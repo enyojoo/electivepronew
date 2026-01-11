@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useDataCache } from "@/lib/data-cache-context"
+import { useCachedDegrees } from "@/hooks/use-cached-degrees"
 
 interface DegreeFormData {
   id?: string
@@ -29,7 +30,8 @@ interface DegreeFormData {
 
 export function DegreesSettings() {
   const { t } = useLanguage()
-  const { getCachedData, setCachedData, invalidateCache } = useDataCache()
+  const { invalidateCache } = useDataCache()
+  const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
   const [degrees, setDegrees] = useState<any[]>([])
   const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
   const { toast } = useToast()
@@ -42,10 +44,8 @@ export function DegreesSettings() {
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const isMounted = useRef(true)
   const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const dataFetchedRef = useRef(false)
 
   // First, add a new state variable for the delete confirmation dialog after the other state declarations (around line 50)
 
@@ -55,7 +55,6 @@ export function DegreesSettings() {
   // Component lifecycle management
   useEffect(() => {
     isMounted.current = true
-    dataFetchedRef.current = false
 
     return () => {
       isMounted.current = false
@@ -70,77 +69,25 @@ export function DegreesSettings() {
     }
   }, [])
 
-  // Fetch degrees from cache or Supabase
+  // Format and set degrees from cached data
   useEffect(() => {
-    if (dataFetchedRef.current) return
+    if (cachedDegrees && cachedDegrees.length > 0) {
+      const formattedDegrees = cachedDegrees.map((degree) => ({
+        id: degree.id.toString(),
+        name: degree.name,
+        nameRu: degree.name_ru || "",
+        code: degree.code,
+        status: degree.status,
+      }))
 
-    const fetchDegrees = async () => {
-      try {
-        setIsLoading(true)
-
-        // Try to get data from cache first
-        const cachedDegrees = getCachedData<any[]>("degrees", "all")
-
-        if (cachedDegrees && cachedDegrees.length > 0) {
-          console.log("Using cached degrees data")
-          const formattedDegrees = cachedDegrees.map((degree) => ({
-            id: degree.id.toString(),
-            name: degree.name,
-            nameRu: degree.name_ru || "",
-            code: degree.code,
-            status: degree.status,
-          }))
-
-          setDegrees(formattedDegrees)
-          setFilteredDegrees(formattedDegrees)
-          setIsLoading(false)
-          dataFetchedRef.current = true
-          return
-        }
-
-        // If not in cache, fetch from API
-        console.log("Fetching degrees data from API")
-        const { data, error } = await supabase
-          .from("degrees")
-          .select("*")
-          .order("name")
-
-        if (error) throw error
-
-        if (data && isMounted.current) {
-          const formattedDegrees = data.map((degree) => ({
-            id: degree.id.toString(),
-            name: degree.name,
-            nameRu: degree.name_ru || "",
-            code: degree.code,
-            status: degree.status,
-          }))
-
-          // Save to cache
-          setCachedData("degrees", "all", data)
-
-          setDegrees(formattedDegrees)
-          setFilteredDegrees(formattedDegrees)
-          dataFetchedRef.current = true
-        }
-      } catch (error: any) {
-        console.error("Failed to fetch degrees:", error)
-        if (isMounted.current) {
-          toast({
-            title: t("admin.degrees.error"),
-            description: t("admin.degrees.errorFetching"),
-            variant: "destructive",
-          })
-        }
-      } finally {
-        if (isMounted.current) {
-          setIsLoading(false)
-        }
-      }
+      setDegrees(formattedDegrees)
+      setFilteredDegrees(formattedDegrees)
+    } else if (!isLoadingDegrees) {
+      // Only clear if we're done loading and there's no data
+      setDegrees([])
+      setFilteredDegrees([])
     }
-
-    fetchDegrees()
-  }, [getCachedData, setCachedData, t, toast])
+  }, [cachedDegrees, isLoadingDegrees])
 
   // Filter degrees based on search term
   useEffect(() => {
@@ -248,23 +195,9 @@ export function DegreesSettings() {
 
         if (error) throw error
 
-        // Update local state
+        // Invalidate cache to trigger refetch
         if (isMounted.current) {
-          const updatedDegrees = degrees.map((degree) =>
-            degree.id === currentDegree.id ? { ...currentDegree } : degree,
-          )
-
-          setDegrees(updatedDegrees)
-
-          // Update cache with the new data
-          const rawDegrees = await supabase
-            .from("degrees")
-            .select("*")
-            .order("name")
-
-          if (!rawDegrees.error && rawDegrees.data) {
-            setCachedData("degrees", "all", rawDegrees.data)
-          }
+          invalidateCache("degrees", "all")
 
           toast({
             title: t("admin.degrees.success"),
@@ -286,26 +219,8 @@ export function DegreesSettings() {
         if (error) throw error
 
         if (data && data[0] && isMounted.current) {
-          const newDegree = {
-            id: data[0].id.toString(),
-            name: data[0].name,
-            nameRu: data[0].name_ru || "",
-            code: data[0].code,
-            status: data[0].status,
-          }
-
-          const updatedDegrees = [...degrees, newDegree]
-          setDegrees(updatedDegrees)
-
-          // Update cache with the new data
-          const rawDegrees = await supabase
-            .from("degrees")
-            .select("*")
-            .order("name")
-
-          if (!rawDegrees.error && rawDegrees.data) {
-            setCachedData("degrees", "all", rawDegrees.data)
-          }
+          // Invalidate cache to trigger refetch
+          invalidateCache("degrees", "all")
 
           toast({
             title: t("admin.degrees.success"),
@@ -344,19 +259,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        const updatedDegrees = degrees.filter((degree) => degree.id !== degreeToDelete)
-        setDegrees(updatedDegrees)
-        setFilteredDegrees(updatedDegrees)
-
-        // Update cache with the new data
-        const rawDegrees = await supabase
-          .from("degrees")
-          .select("*")
-          .order("name")
-
-        if (!rawDegrees.error && rawDegrees.data) {
-          setCachedData("degrees", "all", rawDegrees.data)
-        }
+        // Invalidate cache to trigger refetch
+        invalidateCache("degrees", "all")
 
         toast({
           title: t("admin.degrees.success"),
@@ -390,27 +294,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        const updatedDegrees = degrees.map((degree) => {
-          if (degree.id === id) {
-            return {
-              ...degree,
-              status: newStatus,
-            }
-          }
-          return degree
-        })
-
-        setDegrees(updatedDegrees)
-
-        // Update cache with the new data
-        const rawDegrees = await supabase
-          .from("degrees")
-          .select("*")
-          .order("name")
-
-        if (!rawDegrees.error && rawDegrees.data) {
-          setCachedData("degrees", "all", rawDegrees.data)
-        }
+        // Invalidate cache to trigger refetch
+        invalidateCache("degrees", "all")
 
         toast({
           title: t("admin.degrees.success"),
@@ -487,7 +372,7 @@ export function DegreesSettings() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {isLoadingDegrees ? (
                     <>
                       <TableRow>
                         <TableCell colSpan={5}>

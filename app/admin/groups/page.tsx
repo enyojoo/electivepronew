@@ -244,16 +244,17 @@ function GroupsTableContent() {
         // Only fetch years if not already fetched
         if (!yearsFetchedRef.current) {
           // Try to get years from cache
-          const cachedYears = getCachedData<any[]>("years", "global")
+          const cachedYears = getCachedData<any[]>("academic_years", "global")
           if (cachedYears && cachedYears.length > 0) {
             setYears(cachedYears)
             setIsLoadingYears(false)
             yearsFetchedRef.current = true
           } else {
-            // Fetch years from the years table
+            // Fetch academic years from the academic_years table
             const { data: yearsData, error: yearsError } = await supabase
-              .from("years")
+              .from("academic_years")
               .select("id, year")
+              .eq("is_active", true)
               .order("year", { ascending: false })
 
             if (yearsError) throw yearsError
@@ -261,7 +262,7 @@ function GroupsTableContent() {
             if (yearsData && isMounted.current) {
               setYears(yearsData)
               // Cache the years data
-              setCachedData("years", "global", yearsData)
+              setCachedData("academic_years", "global", yearsData)
               yearsFetchedRef.current = true
             }
             setIsLoadingYears(false)

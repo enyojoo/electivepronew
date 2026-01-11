@@ -130,10 +130,7 @@ export default function ExchangeElectivesPage() {
         // Fetch elective exchange programs
         const { data: packs, error } = await supabase
           .from("elective_exchange")
-          .select(`
-            *,
-            creator:profiles(full_name)
-          `)
+          .select("*")
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -141,18 +138,15 @@ export default function ExchangeElectivesPage() {
           throw error
         }
 
-        // Process the data to include university count and creator name
+        // Process the data to include university count
         const processedPacks = (packs || []).map((pack) => {
-          // Get university count from the universities array
-          const universityCount = pack.universities ? pack.universities.length : 0
-
-          // Get creator name from the joined profiles data
-          const creatorName = pack.creator?.full_name || "Unknown"
+          // Get university count from the universities array (TEXT[])
+          const universityCount = Array.isArray(pack.universities) ? pack.universities.length : 0
 
           return {
             ...pack,
             university_count: universityCount,
-            creator_name: creatorName,
+            creator_name: "Admin", // elective_exchange table doesn't have created_by field
           }
         })
 

@@ -144,7 +144,7 @@ export default function AdminDashboard() {
               )}
               <p className="text-xs text-muted-foreground">{t("admin.dashboard.totalCourseElectives")}</p>
               <Button asChild className="w-full mt-4" size="sm">
-                <Link href="/admin/electives?tab=courses">{t("admin.dashboard.manage")}</Link>
+                <Link href="/admin/electives/course">{t("admin.dashboard.manage")}</Link>
               </Button>
             </CardContent>
           </Card>
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
               )}
               <p className="text-xs text-muted-foreground">{t("admin.dashboard.totalExchangePrograms")}</p>
               <Button asChild className="w-full mt-4" size="sm">
-                <Link href="/admin/electives?tab=exchange">{t("admin.dashboard.manage")}</Link>
+                <Link href="/admin/electives/exchange">{t("admin.dashboard.manage")}</Link>
               </Button>
             </CardContent>
           </Card>
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
               )}
               <p className="text-xs text-muted-foreground">{t("admin.dashboard.totalUsers")}</p>
               <Button asChild className="w-full mt-4" size="sm">
-                <Link href="/admin/users">{t("admin.dashboard.manage")}</Link>
+                <Link href="/admin/settings?tab=users">{t("admin.dashboard.manage")}</Link>
               </Button>
             </CardContent>
           </Card>
