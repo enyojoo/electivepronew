@@ -54,20 +54,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create user account" }, { status: 500 })
     }
 
-    // Create profile
+    // Create profile (without degree_id, group_id, academic_year - those go in student_profiles/manager_profiles)
     const profileData: any = {
       id: authData.user.id,
       full_name: name,
       email: email,
       role: role,
       is_active: true,
-    }
-
-    // Add role-specific fields
-    if (role === "student" || role === "program_manager") {
-      profileData.degree_id = degreeId || null
-      profileData.academic_year = year || null
-      profileData.group_id = groupId || null
     }
 
     const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
