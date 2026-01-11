@@ -113,7 +113,7 @@ export function DocumentUpload({
 
   const handleDelete = async (path: string, name: string) => {
     try {
-      await deleteFile(path)
+      await deleteFile(bucketName, path)
 
       if (onDeleteComplete) {
         onDeleteComplete(path)

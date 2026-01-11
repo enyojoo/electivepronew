@@ -1,13 +1,6 @@
--- Migration: Fresh Schema Setup for Single-Tenant ElectivePRO
--- Description: Creates complete database schema for single-tenant ElectivePRO application
---              All tables are created WITHOUT institution_id columns (single-tenant setup)
---              Includes RLS policies, helper functions, and settings table
---
--- This is a self-hosted, open-source application. To set up:
--- 1. Create a new Supabase project
--- 2. Run this migration file in Supabase SQL Editor
--- 3. Add Supabase environment variables to your .env.local
--- 4. Deploy the application
+-- ElectivePRO Initial Database Schema
+-- This migration creates all necessary tables for the ElectivePRO application
+-- Based on the actual Supabase schema
 
 BEGIN;
 
@@ -274,7 +267,6 @@ CREATE TABLE IF NOT EXISTS selection_universities (
 -- ====================================================
 
 -- Settings table for single-institution branding and settings
--- Note: Default values are hardcoded in application code (lib/constants.ts), not in database
 CREATE TABLE IF NOT EXISTS settings (
   id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
   name TEXT,
@@ -285,9 +277,6 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT settings_single_row CHECK (id = '00000000-0000-0000-0000-000000000000'::uuid)
 );
-
--- Note: Default settings are hardcoded in the application code (lib/constants.ts)
--- No default row is inserted - settings are only created when admin updates branding
 
 -- ====================================================
 -- STEP 6: CREATE INDEXES
@@ -343,9 +332,11 @@ CREATE INDEX IF NOT EXISTS idx_exchange_selections_status ON exchange_selections
 
 -- Manager Profiles indexes
 CREATE INDEX IF NOT EXISTS idx_manager_profiles_program_id ON manager_profiles(program_id);
+CREATE INDEX IF NOT EXISTS idx_manager_profiles_profile_id ON manager_profiles(profile_id);
 
 -- Student Profiles indexes
 CREATE INDEX IF NOT EXISTS idx_student_profiles_group_id ON student_profiles(group_id);
+CREATE INDEX IF NOT EXISTS idx_student_profiles_profile_id ON student_profiles(profile_id);
 
 -- ====================================================
 -- STEP 7: CREATE TRIGGERS FOR updated_at
@@ -361,26 +352,47 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for all tables with updated_at
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_degrees_updated_at ON degrees;
 CREATE TRIGGER update_degrees_updated_at BEFORE UPDATE ON degrees FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_programs_updated_at ON programs;
 CREATE TRIGGER update_programs_updated_at BEFORE UPDATE ON programs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_academic_years_updated_at ON academic_years;
 CREATE TRIGGER update_academic_years_updated_at BEFORE UPDATE ON academic_years FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_groups_updated_at ON groups;
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_countries_updated_at ON countries;
 CREATE TRIGGER update_countries_updated_at BEFORE UPDATE ON countries FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_elective_packs_updated_at ON elective_packs;
 CREATE TRIGGER update_elective_packs_updated_at BEFORE UPDATE ON elective_packs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_courses_updated_at ON courses;
 CREATE TRIGGER update_courses_updated_at BEFORE UPDATE ON courses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_elective_courses_updated_at ON elective_courses;
 CREATE TRIGGER update_elective_courses_updated_at BEFORE UPDATE ON elective_courses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_elective_exchange_updated_at ON elective_exchange;
 CREATE TRIGGER update_elective_exchange_updated_at BEFORE UPDATE ON elective_exchange FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_exchange_universities_updated_at ON exchange_universities;
 CREATE TRIGGER update_exchange_universities_updated_at BEFORE UPDATE ON exchange_universities FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_universities_updated_at ON universities;
 CREATE TRIGGER update_universities_updated_at BEFORE UPDATE ON universities FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_manager_profiles_updated_at ON manager_profiles;
 CREATE TRIGGER update_manager_profiles_updated_at BEFORE UPDATE ON manager_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_student_profiles_updated_at ON student_profiles;
 CREATE TRIGGER update_student_profiles_updated_at BEFORE UPDATE ON student_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_program_electives_updated_at ON program_electives;
 CREATE TRIGGER update_program_electives_updated_at BEFORE UPDATE ON program_electives FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_student_selections_updated_at ON student_selections;
 CREATE TRIGGER update_student_selections_updated_at BEFORE UPDATE ON student_selections FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_selection_courses_updated_at ON selection_courses;
 CREATE TRIGGER update_selection_courses_updated_at BEFORE UPDATE ON selection_courses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_course_selections_updated_at ON course_selections;
 CREATE TRIGGER update_course_selections_updated_at BEFORE UPDATE ON course_selections FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_exchange_selections_updated_at ON exchange_selections;
 CREATE TRIGGER update_exchange_selections_updated_at BEFORE UPDATE ON exchange_selections FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_selection_universities_updated_at ON selection_universities;
 CREATE TRIGGER update_selection_universities_updated_at BEFORE UPDATE ON selection_universities FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
 CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ====================================================
@@ -448,22 +460,68 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ====================================================
--- STEP 9: ENABLE RLS AND CREATE POLICIES
+-- STEP 9: ENSURE FOREIGN KEY CONSTRAINTS
+-- ====================================================
+
+-- Verify that student_profiles has proper foreign key to groups
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'student_profiles_group_id_fkey'
+  ) THEN
+    ALTER TABLE student_profiles
+    ADD CONSTRAINT student_profiles_group_id_fkey
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Verify that manager_profiles has proper foreign key to degrees
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'manager_profiles_degree_id_fkey'
+  ) THEN
+    ALTER TABLE manager_profiles
+    ADD CONSTRAINT manager_profiles_degree_id_fkey
+    FOREIGN KEY (degree_id) REFERENCES degrees(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Verify that manager_profiles has proper foreign key to programs
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'manager_profiles_program_id_fkey'
+  ) THEN
+    ALTER TABLE manager_profiles
+    ADD CONSTRAINT manager_profiles_program_id_fkey
+    FOREIGN KEY (program_id) REFERENCES programs(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- ====================================================
+-- STEP 10: ENABLE RLS AND CREATE POLICIES
 -- ====================================================
 
 -- PROFILES TABLE
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile"
   ON profiles FOR SELECT
   TO authenticated
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
 CREATE POLICY "Admins can view all profiles"
   ON profiles FOR SELECT
   TO authenticated
   USING (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Managers can view profiles in their programs" ON profiles;
 CREATE POLICY "Managers can view profiles in their programs"
   ON profiles FOR SELECT
   TO authenticated
@@ -478,12 +536,14 @@ CREATE POLICY "Managers can view profiles in their programs"
     )
   );
 
+DROP POLICY IF EXISTS "Admins can manage all profiles" ON profiles;
 CREATE POLICY "Admins can manage all profiles"
   ON profiles FOR ALL
   TO authenticated
   USING (public.user_role() = 'admin')
   WITH CHECK (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   TO authenticated
@@ -493,11 +553,13 @@ CREATE POLICY "Users can update own profile"
 -- DEGREES TABLE
 ALTER TABLE degrees ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read degrees" ON degrees;
 CREATE POLICY "Authenticated users can read degrees"
   ON degrees FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage degrees" ON degrees;
 CREATE POLICY "Admins can manage degrees"
   ON degrees FOR ALL
   TO authenticated
@@ -507,11 +569,13 @@ CREATE POLICY "Admins can manage degrees"
 -- PROGRAMS TABLE
 ALTER TABLE programs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read programs" ON programs;
 CREATE POLICY "Authenticated users can read programs"
   ON programs FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage programs" ON programs;
 CREATE POLICY "Admins can manage programs"
   ON programs FOR ALL
   TO authenticated
@@ -521,11 +585,13 @@ CREATE POLICY "Admins can manage programs"
 -- ACADEMIC_YEARS TABLE
 ALTER TABLE academic_years ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read academic years" ON academic_years;
 CREATE POLICY "Authenticated users can read academic years"
   ON academic_years FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage academic years" ON academic_years;
 CREATE POLICY "Admins can manage academic years"
   ON academic_years FOR ALL
   TO authenticated
@@ -535,11 +601,13 @@ CREATE POLICY "Admins can manage academic years"
 -- GROUPS TABLE
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read groups" ON groups;
 CREATE POLICY "Authenticated users can read groups"
   ON groups FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage groups" ON groups;
 CREATE POLICY "Admins can manage groups"
   ON groups FOR ALL
   TO authenticated
@@ -549,11 +617,13 @@ CREATE POLICY "Admins can manage groups"
 -- COURSES TABLE
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read courses" ON courses;
 CREATE POLICY "Authenticated users can read courses"
   ON courses FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and managers can manage courses" ON courses;
 CREATE POLICY "Admins and managers can manage courses"
   ON courses FOR ALL
   TO authenticated
@@ -563,11 +633,13 @@ CREATE POLICY "Admins and managers can manage courses"
 -- ELECTIVE_COURSES TABLE
 ALTER TABLE elective_courses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read elective courses" ON elective_courses;
 CREATE POLICY "Authenticated users can read elective courses"
   ON elective_courses FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Students can view their group's elective courses" ON elective_courses;
 CREATE POLICY "Students can view their group's elective courses"
   ON elective_courses FOR SELECT
   TO authenticated
@@ -576,6 +648,7 @@ CREATE POLICY "Students can view their group's elective courses"
     group_id = public.get_student_group_id()
   );
 
+DROP POLICY IF EXISTS "Admins and managers can manage elective courses" ON elective_courses;
 CREATE POLICY "Admins and managers can manage elective courses"
   ON elective_courses FOR ALL
   TO authenticated
@@ -585,11 +658,13 @@ CREATE POLICY "Admins and managers can manage elective courses"
 -- ELECTIVE_EXCHANGE TABLE
 ALTER TABLE elective_exchange ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read exchange programs" ON elective_exchange;
 CREATE POLICY "Authenticated users can read exchange programs"
   ON elective_exchange FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Students can view their group's exchange programs" ON elective_exchange;
 CREATE POLICY "Students can view their group's exchange programs"
   ON elective_exchange FOR SELECT
   TO authenticated
@@ -603,6 +678,7 @@ CREATE POLICY "Students can view their group's exchange programs"
     )
   );
 
+DROP POLICY IF EXISTS "Admins and managers can manage exchange programs" ON elective_exchange;
 CREATE POLICY "Admins and managers can manage exchange programs"
   ON elective_exchange FOR ALL
   TO authenticated
@@ -612,11 +688,13 @@ CREATE POLICY "Admins and managers can manage exchange programs"
 -- ELECTIVE_PACKS TABLE
 ALTER TABLE elective_packs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read elective packs" ON elective_packs;
 CREATE POLICY "Authenticated users can read elective packs"
   ON elective_packs FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and managers can manage elective packs" ON elective_packs;
 CREATE POLICY "Admins and managers can manage elective packs"
   ON elective_packs FOR ALL
   TO authenticated
@@ -626,11 +704,13 @@ CREATE POLICY "Admins and managers can manage elective packs"
 -- UNIVERSITIES TABLE
 ALTER TABLE universities ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read universities" ON universities;
 CREATE POLICY "Authenticated users can read universities"
   ON universities FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and managers can manage universities" ON universities;
 CREATE POLICY "Admins and managers can manage universities"
   ON universities FOR ALL
   TO authenticated
@@ -640,11 +720,13 @@ CREATE POLICY "Admins and managers can manage universities"
 -- EXCHANGE_UNIVERSITIES TABLE
 ALTER TABLE exchange_universities ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read exchange universities" ON exchange_universities;
 CREATE POLICY "Authenticated users can read exchange universities"
   ON exchange_universities FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins and managers can manage exchange universities" ON exchange_universities;
 CREATE POLICY "Admins and managers can manage exchange universities"
   ON exchange_universities FOR ALL
   TO authenticated
@@ -654,6 +736,7 @@ CREATE POLICY "Admins and managers can manage exchange universities"
 -- COURSE_SELECTIONS TABLE
 ALTER TABLE course_selections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own course selections" ON course_selections;
 CREATE POLICY "Students can view own course selections"
   ON course_selections FOR SELECT
   TO authenticated
@@ -662,6 +745,7 @@ CREATE POLICY "Students can view own course selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can create own course selections" ON course_selections;
 CREATE POLICY "Students can create own course selections"
   ON course_selections FOR INSERT
   TO authenticated
@@ -670,6 +754,7 @@ CREATE POLICY "Students can create own course selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can update own pending course selections" ON course_selections;
 CREATE POLICY "Students can update own pending course selections"
   ON course_selections FOR UPDATE
   TO authenticated
@@ -683,6 +768,7 @@ CREATE POLICY "Students can update own pending course selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can delete own pending course selections" ON course_selections;
 CREATE POLICY "Students can delete own pending course selections"
   ON course_selections FOR DELETE
   TO authenticated
@@ -692,11 +778,13 @@ CREATE POLICY "Students can delete own pending course selections"
     status = 'pending'
   );
 
+DROP POLICY IF EXISTS "Admins and managers can view all course selections" ON course_selections;
 CREATE POLICY "Admins and managers can view all course selections"
   ON course_selections FOR SELECT
   TO authenticated
   USING (public.user_role() IN ('admin', 'program_manager'));
 
+DROP POLICY IF EXISTS "Admins and managers can update course selections" ON course_selections;
 CREATE POLICY "Admins and managers can update course selections"
   ON course_selections FOR UPDATE
   TO authenticated
@@ -706,6 +794,7 @@ CREATE POLICY "Admins and managers can update course selections"
 -- EXCHANGE_SELECTIONS TABLE
 ALTER TABLE exchange_selections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own exchange selections" ON exchange_selections;
 CREATE POLICY "Students can view own exchange selections"
   ON exchange_selections FOR SELECT
   TO authenticated
@@ -714,6 +803,7 @@ CREATE POLICY "Students can view own exchange selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can create own exchange selections" ON exchange_selections;
 CREATE POLICY "Students can create own exchange selections"
   ON exchange_selections FOR INSERT
   TO authenticated
@@ -722,6 +812,7 @@ CREATE POLICY "Students can create own exchange selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can update own pending exchange selections" ON exchange_selections;
 CREATE POLICY "Students can update own pending exchange selections"
   ON exchange_selections FOR UPDATE
   TO authenticated
@@ -735,6 +826,7 @@ CREATE POLICY "Students can update own pending exchange selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can delete own pending exchange selections" ON exchange_selections;
 CREATE POLICY "Students can delete own pending exchange selections"
   ON exchange_selections FOR DELETE
   TO authenticated
@@ -744,11 +836,13 @@ CREATE POLICY "Students can delete own pending exchange selections"
     status = 'pending'
   );
 
+DROP POLICY IF EXISTS "Admins and managers can view all exchange selections" ON exchange_selections;
 CREATE POLICY "Admins and managers can view all exchange selections"
   ON exchange_selections FOR SELECT
   TO authenticated
   USING (public.user_role() IN ('admin', 'program_manager'));
 
+DROP POLICY IF EXISTS "Admins and managers can update exchange selections" ON exchange_selections;
 CREATE POLICY "Admins and managers can update exchange selections"
   ON exchange_selections FOR UPDATE
   TO authenticated
@@ -758,6 +852,7 @@ CREATE POLICY "Admins and managers can update exchange selections"
 -- MANAGER_PROFILES TABLE
 ALTER TABLE manager_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Managers can view own profile" ON manager_profiles;
 CREATE POLICY "Managers can view own profile"
   ON manager_profiles FOR SELECT
   TO authenticated
@@ -766,11 +861,13 @@ CREATE POLICY "Managers can view own profile"
     profile_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Admins can view all manager profiles" ON manager_profiles;
 CREATE POLICY "Admins can view all manager profiles"
   ON manager_profiles FOR SELECT
   TO authenticated
   USING (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Admins can manage manager profiles" ON manager_profiles;
 CREATE POLICY "Admins can manage manager profiles"
   ON manager_profiles FOR ALL
   TO authenticated
@@ -780,6 +877,7 @@ CREATE POLICY "Admins can manage manager profiles"
 -- STUDENT_PROFILES TABLE
 ALTER TABLE student_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own profile" ON student_profiles;
 CREATE POLICY "Students can view own profile"
   ON student_profiles FOR SELECT
   TO authenticated
@@ -788,11 +886,13 @@ CREATE POLICY "Students can view own profile"
     profile_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Admins can view all student profiles" ON student_profiles;
 CREATE POLICY "Admins can view all student profiles"
   ON student_profiles FOR SELECT
   TO authenticated
   USING (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Managers can view students in their programs" ON student_profiles;
 CREATE POLICY "Managers can view students in their programs"
   ON student_profiles FOR SELECT
   TO authenticated
@@ -805,6 +905,7 @@ CREATE POLICY "Managers can view students in their programs"
     )
   );
 
+DROP POLICY IF EXISTS "Admins can manage student profiles" ON student_profiles;
 CREATE POLICY "Admins can manage student profiles"
   ON student_profiles FOR ALL
   TO authenticated
@@ -814,11 +915,13 @@ CREATE POLICY "Admins can manage student profiles"
 -- COUNTRIES TABLE
 ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read access to countries" ON countries;
 CREATE POLICY "Public read access to countries"
   ON countries FOR SELECT
   TO authenticated, anon
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage countries" ON countries;
 CREATE POLICY "Admins can manage countries"
   ON countries FOR ALL
   TO authenticated
@@ -828,11 +931,13 @@ CREATE POLICY "Admins can manage countries"
 -- PROGRAM_ELECTIVES TABLE
 ALTER TABLE program_electives ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Authenticated users can read program electives" ON program_electives;
 CREATE POLICY "Authenticated users can read program electives"
   ON program_electives FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Admins can manage program electives" ON program_electives;
 CREATE POLICY "Admins can manage program electives"
   ON program_electives FOR ALL
   TO authenticated
@@ -842,6 +947,7 @@ CREATE POLICY "Admins can manage program electives"
 -- STUDENT_SELECTIONS TABLE
 ALTER TABLE student_selections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own student selections" ON student_selections;
 CREATE POLICY "Students can view own student selections"
   ON student_selections FOR SELECT
   TO authenticated
@@ -850,6 +956,7 @@ CREATE POLICY "Students can view own student selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can create own student selections" ON student_selections;
 CREATE POLICY "Students can create own student selections"
   ON student_selections FOR INSERT
   TO authenticated
@@ -858,6 +965,7 @@ CREATE POLICY "Students can create own student selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can update own pending student selections" ON student_selections;
 CREATE POLICY "Students can update own pending student selections"
   ON student_selections FOR UPDATE
   TO authenticated
@@ -871,6 +979,7 @@ CREATE POLICY "Students can update own pending student selections"
     student_id = auth.uid()
   );
 
+DROP POLICY IF EXISTS "Students can delete own pending student selections" ON student_selections;
 CREATE POLICY "Students can delete own pending student selections"
   ON student_selections FOR DELETE
   TO authenticated
@@ -880,11 +989,13 @@ CREATE POLICY "Students can delete own pending student selections"
     status = 'pending'
   );
 
+DROP POLICY IF EXISTS "Admins and managers can view all student selections" ON student_selections;
 CREATE POLICY "Admins and managers can view all student selections"
   ON student_selections FOR SELECT
   TO authenticated
   USING (public.user_role() IN ('admin', 'program_manager'));
 
+DROP POLICY IF EXISTS "Admins and managers can update student selections" ON student_selections;
 CREATE POLICY "Admins and managers can update student selections"
   ON student_selections FOR UPDATE
   TO authenticated
@@ -894,6 +1005,7 @@ CREATE POLICY "Admins and managers can update student selections"
 -- SELECTION_COURSES TABLE
 ALTER TABLE selection_courses ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own selection courses" ON selection_courses;
 CREATE POLICY "Students can view own selection courses"
   ON selection_courses FOR SELECT
   TO authenticated
@@ -906,6 +1018,7 @@ CREATE POLICY "Students can view own selection courses"
     )
   );
 
+DROP POLICY IF EXISTS "Students can create own selection courses" ON selection_courses;
 CREATE POLICY "Students can create own selection courses"
   ON selection_courses FOR INSERT
   TO authenticated
@@ -919,6 +1032,7 @@ CREATE POLICY "Students can create own selection courses"
     )
   );
 
+DROP POLICY IF EXISTS "Students can delete own selection courses" ON selection_courses;
 CREATE POLICY "Students can delete own selection courses"
   ON selection_courses FOR DELETE
   TO authenticated
@@ -932,11 +1046,13 @@ CREATE POLICY "Students can delete own selection courses"
     )
   );
 
+DROP POLICY IF EXISTS "Admins and managers can view all selection courses" ON selection_courses;
 CREATE POLICY "Admins and managers can view all selection courses"
   ON selection_courses FOR SELECT
   TO authenticated
   USING (public.user_role() IN ('admin', 'program_manager'));
 
+DROP POLICY IF EXISTS "Admins and managers can manage selection courses" ON selection_courses;
 CREATE POLICY "Admins and managers can manage selection courses"
   ON selection_courses FOR ALL
   TO authenticated
@@ -946,6 +1062,7 @@ CREATE POLICY "Admins and managers can manage selection courses"
 -- SELECTION_UNIVERSITIES TABLE
 ALTER TABLE selection_universities ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Students can view own selection universities" ON selection_universities;
 CREATE POLICY "Students can view own selection universities"
   ON selection_universities FOR SELECT
   TO authenticated
@@ -958,6 +1075,7 @@ CREATE POLICY "Students can view own selection universities"
     )
   );
 
+DROP POLICY IF EXISTS "Students can create own selection universities" ON selection_universities;
 CREATE POLICY "Students can create own selection universities"
   ON selection_universities FOR INSERT
   TO authenticated
@@ -971,6 +1089,7 @@ CREATE POLICY "Students can create own selection universities"
     )
   );
 
+DROP POLICY IF EXISTS "Students can delete own selection universities" ON selection_universities;
 CREATE POLICY "Students can delete own selection universities"
   ON selection_universities FOR DELETE
   TO authenticated
@@ -984,11 +1103,13 @@ CREATE POLICY "Students can delete own selection universities"
     )
   );
 
+DROP POLICY IF EXISTS "Admins and managers can view all selection universities" ON selection_universities;
 CREATE POLICY "Admins and managers can view all selection universities"
   ON selection_universities FOR SELECT
   TO authenticated
   USING (public.user_role() IN ('admin', 'program_manager'));
 
+DROP POLICY IF EXISTS "Admins and managers can manage selection universities" ON selection_universities;
 CREATE POLICY "Admins and managers can manage selection universities"
   ON selection_universities FOR ALL
   TO authenticated
@@ -998,11 +1119,13 @@ CREATE POLICY "Admins and managers can manage selection universities"
 -- SETTINGS TABLE
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read access to settings" ON settings;
 CREATE POLICY "Allow public read access to settings"
   ON settings FOR SELECT
   TO authenticated, anon
   USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated users to update settings" ON settings;
 CREATE POLICY "Allow authenticated users to update settings"
   ON settings FOR UPDATE
   TO authenticated
@@ -1010,19 +1133,264 @@ CREATE POLICY "Allow authenticated users to update settings"
   WITH CHECK (true);
 
 -- ====================================================
--- STEP 10: GRANT PERMISSIONS
+-- STEP 11: GRANT PERMISSIONS
 -- ====================================================
 
 GRANT SELECT ON settings TO authenticated;
 GRANT SELECT ON settings TO anon;
 GRANT UPDATE ON settings TO authenticated;
 
+-- ====================================================
+-- STEP 12: CREATE STORAGE BUCKETS
+-- ====================================================
+
+-- Logos bucket (for admin logo uploads)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'logos',
+  'logos',
+  true, -- Public bucket for logo access
+  2097152, -- 2MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/svg+xml']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Favicons bucket (for admin favicon uploads)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'favicons',
+  'favicons',
+  true, -- Public bucket for favicon access
+  1048576, -- 1MB limit
+  ARRAY['image/png', 'image/x-icon', 'image/svg+xml']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Statements bucket (for student statement PDF uploads)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'statements',
+  'statements',
+  false, -- Private bucket
+  5242880, -- 5MB limit
+  ARRAY['application/pdf']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Documents bucket (for manager document uploads - syllabus templates, statement templates, etc.)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'documents',
+  'documents',
+  false, -- Private bucket
+  10485760, -- 10MB limit
+  ARRAY['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ====================================================
+-- STEP 13: CREATE RLS POLICIES FOR STORAGE BUCKETS
+-- ====================================================
+
+-- ====================================================
+-- LOGOS BUCKET POLICIES
+-- ====================================================
+
+-- Allow authenticated users to upload logos (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can upload logos" ON storage.objects;
+CREATE POLICY "Authenticated users can upload logos"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'logos');
+
+-- Allow public read access to logos
+DROP POLICY IF EXISTS "Public can read logos" ON storage.objects;
+CREATE POLICY "Public can read logos"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'logos');
+
+-- Allow authenticated users to update logos (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can update logos" ON storage.objects;
+CREATE POLICY "Authenticated users can update logos"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'logos')
+  WITH CHECK (bucket_id = 'logos');
+
+-- Allow authenticated users to delete logos (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can delete logos" ON storage.objects;
+CREATE POLICY "Authenticated users can delete logos"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'logos');
+
+-- ====================================================
+-- FAVICONS BUCKET POLICIES
+-- ====================================================
+
+-- Allow authenticated users to upload favicons (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can upload favicons" ON storage.objects;
+CREATE POLICY "Authenticated users can upload favicons"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'favicons');
+
+-- Allow public read access to favicons
+DROP POLICY IF EXISTS "Public can read favicons" ON storage.objects;
+CREATE POLICY "Public can read favicons"
+  ON storage.objects FOR SELECT
+  TO public
+  USING (bucket_id = 'favicons');
+
+-- Allow authenticated users to update favicons (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can update favicons" ON storage.objects;
+CREATE POLICY "Authenticated users can update favicons"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'favicons')
+  WITH CHECK (bucket_id = 'favicons');
+
+-- Allow authenticated users to delete favicons (admin only in practice)
+DROP POLICY IF EXISTS "Authenticated users can delete favicons" ON storage.objects;
+CREATE POLICY "Authenticated users can delete favicons"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'favicons');
+
+-- ====================================================
+-- STATEMENTS BUCKET POLICIES
+-- ====================================================
+
+-- Allow authenticated users to upload statements (students upload their own)
+DROP POLICY IF EXISTS "Authenticated users can upload statements" ON storage.objects;
+CREATE POLICY "Authenticated users can upload statements"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'statements');
+
+-- Allow users to read their own statements
+DROP POLICY IF EXISTS "Users can read own statements" ON storage.objects;
+CREATE POLICY "Users can read own statements"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    -- File name format: userId_packId_timestamp.ext
+    name LIKE auth.uid()::text || '%'
+  );
+
+-- Allow admins to read all statements
+DROP POLICY IF EXISTS "Admins can read all statements" ON storage.objects;
+CREATE POLICY "Admins can read all statements"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    public.user_role() = 'admin'
+  );
+
+-- Allow managers to read statements for students in their programs
+DROP POLICY IF EXISTS "Managers can read statements for their students" ON storage.objects;
+CREATE POLICY "Managers can read statements for their students"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    public.user_role() = 'program_manager' AND
+    EXISTS (
+      SELECT 1 FROM manager_profiles mp
+      JOIN student_profiles sp ON sp.group_id IN (
+        SELECT id FROM groups WHERE program_id = mp.program_id
+      )
+      WHERE mp.profile_id = auth.uid() 
+      -- File name format: userId_packId_timestamp.ext
+      AND name LIKE sp.profile_id::text || '%'
+    )
+  );
+
+-- Allow users to update their own statements
+DROP POLICY IF EXISTS "Users can update own statements" ON storage.objects;
+CREATE POLICY "Users can update own statements"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    (name LIKE auth.uid()::text || '%')
+  )
+  WITH CHECK (
+    bucket_id = 'statements' AND
+    (name LIKE auth.uid()::text || '%')
+  );
+
+-- Allow users to delete their own statements
+DROP POLICY IF EXISTS "Users can delete own statements" ON storage.objects;
+CREATE POLICY "Users can delete own statements"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    (name LIKE auth.uid()::text || '%')
+  );
+
+-- Allow admins to delete any statement
+DROP POLICY IF EXISTS "Admins can delete any statement" ON storage.objects;
+CREATE POLICY "Admins can delete any statement"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'statements' AND
+    public.user_role() = 'admin'
+  );
+
+-- ====================================================
+-- DOCUMENTS BUCKET POLICIES
+-- ====================================================
+
+-- Allow authenticated users to upload documents (managers upload course/exchange documents)
+DROP POLICY IF EXISTS "Authenticated users can upload documents" ON storage.objects;
+CREATE POLICY "Authenticated users can upload documents"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'documents');
+
+-- Allow authenticated users to read documents
+DROP POLICY IF EXISTS "Authenticated users can read documents" ON storage.objects;
+CREATE POLICY "Authenticated users can read documents"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'documents');
+
+-- Allow authenticated users to update documents
+DROP POLICY IF EXISTS "Authenticated users can update documents" ON storage.objects;
+CREATE POLICY "Authenticated users can update documents"
+  ON storage.objects FOR UPDATE
+  TO authenticated
+  USING (bucket_id = 'documents')
+  WITH CHECK (bucket_id = 'documents');
+
+-- Allow authenticated users to delete documents
+DROP POLICY IF EXISTS "Authenticated users can delete documents" ON storage.objects;
+CREATE POLICY "Authenticated users can delete documents"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (bucket_id = 'documents');
+
 COMMIT;
 
--- Post-migration notes:
+-- ====================================================
+-- POST-MIGRATION NOTES
+-- ====================================================
 -- 1. This migration creates a complete fresh schema for single-tenant ElectivePRO
--- 2. All tables are created WITHOUT institution_id columns
--- 3. RLS policies are enabled for all tables
+-- 2. All tables are created WITHOUT institution_id columns (single-tenant setup)
+-- 3. RLS policies are enabled for all tables and storage buckets
 -- 4. Helper functions are created for role-based access control
--- 5. Create your first admin user directly in Supabase Dashboard
--- 6. Regenerate TypeScript types: npx supabase gen types typescript --local > types/supabase.ts
+-- 5. Storage buckets are created with appropriate size limits and MIME type restrictions
+-- 6. Logos and favicons are public buckets (anyone can read)
+-- 7. Statements and documents are private buckets (authenticated access only)
+-- 8. Students can only access their own statements
+-- 9. Managers can access statements for students in their programs
+-- 10. Admins have full access to all buckets and tables
+-- 11. Create your first admin user directly in Supabase Dashboard
+-- 12. Regenerate TypeScript types: npx supabase gen types typescript --local > types/supabase.ts
+-- ====================================================
