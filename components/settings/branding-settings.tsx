@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { uploadLogo, uploadFavicon } from "@/lib/file-utils"
-import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR } from "@/lib/constants"
+import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 import { Loader2, Copy, Check } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
@@ -160,7 +160,7 @@ export function BrandingSettings() {
       setFaviconUrl(validFavicon)
       setLogoUrl(validLogo)
       const color = settings.primary_color || DEFAULT_PRIMARY_COLOR
-      const name = settings.name || ""
+      const name = settings.name || DEFAULT_PLATFORM_NAME
       setPrimaryColor(color)
       setInstitutionName(name)
       setOriginalPrimaryColor(color)
@@ -168,9 +168,9 @@ export function BrandingSettings() {
     } else if (!isLoading) {
       // Only initialize with defaults if we're done loading and there's no settings
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
-      setInstitutionName("")
+      setInstitutionName(DEFAULT_PLATFORM_NAME)
       setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
-      setOriginalInstitutionName("")
+      setOriginalInstitutionName(DEFAULT_PLATFORM_NAME)
       setFaviconUrl(null)
       setLogoUrl(null)
     }

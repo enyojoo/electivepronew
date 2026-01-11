@@ -33,15 +33,42 @@ export function useCachedSettings() {
       try {
         const supabase = getSupabaseBrowserClient()
 
-        const { data, error } = await supabase.from("settings").select("*").eq("id", SETTINGS_ID).single()
+        const { data, error } = await supabase.from("settings").select("*").eq("id", SETTINGS_ID).maybeSingle()
 
-        if (error) throw error
+        // If settings don't exist, create a default row
+        if (error) {
+          throw error
+        } else if (!data) {
+          // No rows returned - create default settings
+          console.log("Settings row not found, creating default settings")
+          const defaultSettings = {
+            id: SETTINGS_ID,
+            name: null,
+            primary_color: null,
+            logo_url: null,
+            favicon_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
 
-        // Save to cache
-        setCachedData("settings", SETTINGS_ID, data)
+          const { error: insertError } = await supabase.from("settings").insert(defaultSettings)
 
-        // Update state
-        setSettings(data)
+          if (insertError) {
+            console.error("Error creating default settings:", insertError)
+            // Even if insert fails, use defaults
+            setSettings(defaultSettings)
+            setCachedData("settings", SETTINGS_ID, defaultSettings)
+          } else {
+            setSettings(defaultSettings)
+            setCachedData("settings", SETTINGS_ID, defaultSettings)
+          }
+        } else {
+          // Save to cache
+          setCachedData("settings", SETTINGS_ID, data)
+
+          // Update state
+          setSettings(data)
+        }
       } catch (error: any) {
         console.error("Error fetching settings:", error)
         setError(error.message)
@@ -50,6 +77,17 @@ export function useCachedSettings() {
           description: "Failed to load settings",
           variant: "destructive",
         })
+        // Set default settings on error
+        const defaultSettings = {
+          id: SETTINGS_ID,
+          name: null,
+          primary_color: null,
+          logo_url: null,
+          favicon_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        setSettings(defaultSettings)
       } finally {
         setIsLoading(false)
       }
