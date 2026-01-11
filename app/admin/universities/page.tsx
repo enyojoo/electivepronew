@@ -206,6 +206,56 @@ export default function UniversitiesPage() {
     fetchUniversities()
   }, [supabase, toast, t, isLoadingUniversities])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("universities-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "universities" },
+        async () => {
+          // Invalidate cache
+          localStorage.removeItem(UNIVERSITIES_CACHE_KEY)
+          setIsLoadingUniversities(true)
+
+          // Refetch universities
+          try {
+            const { data, error } = await supabase
+              .from("universities")
+              .select("*")
+              .order("name", { ascending: true })
+
+            if (error) throw error
+
+            setUniversities(data || [])
+
+            // Update cache
+            localStorage.setItem(
+              UNIVERSITIES_CACHE_KEY,
+              JSON.stringify({
+                data: data || [],
+                timestamp: Date.now(),
+              }),
+            )
+          } catch (error: any) {
+            console.error("Error refetching universities after real-time update:", error)
+            toast({
+              title: t("admin.universities.error", "Error"),
+              description: t("admin.universities.errorFetching", "Failed to fetch universities") + ": " + error.message,
+              variant: "destructive",
+            })
+          } finally {
+            setIsLoadingUniversities(false)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, toast, t])
+
   // Filter universities based on search term and filters
   useEffect(() => {
     let result = [...universities]

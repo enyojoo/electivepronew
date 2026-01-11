@@ -87,6 +87,44 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
     loadData()
   }, [params.id])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`course-selections-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "course_selections",
+          filter: `elective_courses_id=eq.${params.id}`,
+        },
+        async () => {
+          // Refetch student selections when they change
+          const { data: selections, error: selectionsError } = await supabase
+            .from("course_selections")
+            .select(`
+              *,
+              profiles!student_id(
+                id,
+                full_name,
+                email
+              )
+            `)
+            .eq("elective_courses_id", params.id)
+
+          if (!selectionsError && selections) {
+            setStudentSelections(selections)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, params.id])
+
   const loadData = async () => {
     try {
       setLoading(true)

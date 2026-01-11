@@ -305,6 +305,27 @@ export default function CoursesPage() {
     fetchCourses()
   }, [supabase, searchTerm, statusFilter, degreeFilter, currentPage, toast, t])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("courses-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "courses" },
+        () => {
+          // Invalidate cache to trigger refetch
+          localStorage.removeItem(COURSES_CACHE_KEY)
+          setIsLoadingCourses(true)
+          // The fetchCourses effect will handle the refetch
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
+
   // Get status badge based on status
   const getStatusBadge = (status: string) => {
     switch (status) {

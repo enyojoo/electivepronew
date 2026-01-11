@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
-import { supabase } from "@/lib/supabase"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export function useCachedDegrees() {
@@ -31,6 +31,7 @@ export function useCachedDegrees() {
       // If not in cache, fetch from API
       console.log("Fetching degrees data from API")
       try {
+        const supabase = getSupabaseBrowserClient()
         const { data, error } = await supabase.from("degrees").select("*").order("name")
 
         if (error) throw error
@@ -58,6 +59,47 @@ export function useCachedDegrees() {
     }
 
     fetchDegrees()
+  }, [getCachedData, setCachedData, toast])
+
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+
+    const channel = supabase
+      .channel("degrees-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "degrees" },
+        async () => {
+          // Invalidate cache and refetch
+          setCachedData("degrees", "all", null) // Clear cache
+          setIsLoading(true)
+
+          try {
+            const { data, error } = await supabase.from("degrees").select("*").order("name")
+
+            if (error) throw error
+
+            const degreesData = data || []
+            setCachedData("degrees", "all", degreesData)
+            setDegrees(degreesData)
+          } catch (error: any) {
+            console.error("Error refetching degrees after real-time update:", error)
+            toast({
+              title: "Error",
+              description: "Failed to load degrees data",
+              variant: "destructive",
+            })
+          } finally {
+            setIsLoading(false)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [getCachedData, setCachedData, toast])
 
   return { degrees, isLoading, error }

@@ -338,6 +338,143 @@ export default function GroupsPage() {
     fetchAcademicYears()
   }, [supabase, toast, t, isLoadingYears])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("groups-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "groups" },
+        async () => {
+          // Invalidate cache
+          localStorage.removeItem(GROUPS_CACHE_KEY)
+          setIsLoadingGroups(true)
+
+          // Refetch groups
+          try {
+            const { data: groupsData, error: groupsError } = await supabase
+              .from("groups")
+              .select(`
+                id,
+                name,
+                display_name,
+                status,
+                academic_year_id,
+                academic_years(
+                  id,
+                  year
+                ),
+                programs(
+                  id,
+                  degree_id,
+                  degrees(id, name, name_ru)
+                )
+              `)
+              .order("name")
+
+            if (groupsError) throw groupsError
+
+            if (!groupsData) {
+              setGroups([])
+              setIsLoadingGroups(false)
+              return
+            }
+
+            // Count students in each group
+            const studentCountPromises = groupsData.map((group) =>
+              supabase
+                .from("student_profiles")
+                .select("*", { count: "exact", head: true })
+                .eq("group_id", group.id),
+            )
+
+            const studentCountResults = await Promise.all(studentCountPromises)
+
+            const studentCountMap = new Map()
+            studentCountResults.forEach((result, index) => {
+              const groupId = groupsData[index].id
+              studentCountMap.set(groupId, result.count || 0)
+            })
+
+            // Format the groups data
+            const formattedGroups: Group[] = groupsData.map((group) => {
+              const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
+              const degree = program?.degrees
+                ? Array.isArray(program.degrees)
+                  ? program.degrees[0]
+                  : program.degrees
+                : null
+              const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
+
+              return {
+                id: group.id.toString(),
+                name: group.name,
+                displayName: group.display_name || "",
+                degree: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Unknown",
+                degreeId: program?.degree_id || "",
+                academicYear: academicYear?.year || "",
+                students: studentCountMap.get(group.id) || 0,
+                status: group.status,
+              }
+            })
+
+            setGroups(formattedGroups)
+
+            // Update cache
+            localStorage.setItem(
+              GROUPS_CACHE_KEY,
+              JSON.stringify({
+                data: formattedGroups,
+                timestamp: Date.now(),
+              }),
+            )
+          } catch (error: any) {
+            console.error("Error refetching groups after real-time update:", error)
+          } finally {
+            setIsLoadingGroups(false)
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "student_profiles" },
+        async () => {
+          // When student profiles change, update student counts
+          if (groups.length > 0) {
+            const studentCountPromises = groups.map((group) =>
+              supabase
+                .from("student_profiles")
+                .select("*", { count: "exact", head: true })
+                .eq("group_id", group.id),
+            )
+
+            const studentCountResults = await Promise.all(studentCountPromises)
+
+            const updatedGroups = groups.map((group, index) => ({
+              ...group,
+              students: studentCountResults[index].count || 0,
+            }))
+
+            setGroups(updatedGroups)
+
+            // Update cache
+            localStorage.setItem(
+              GROUPS_CACHE_KEY,
+              JSON.stringify({
+                data: updatedGroups,
+                timestamp: Date.now(),
+              }),
+            )
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, groups, language])
+
   // Filter groups based on search term and filters
   useEffect(() => {
     let result = [...groups]

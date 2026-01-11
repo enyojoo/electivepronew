@@ -28,6 +28,7 @@ import { useState, useEffect } from "react"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import {
   getExchangeProgram,
   getUniversitiesFromIds,
@@ -102,10 +103,40 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
 
   const { t, language } = useLanguage()
   const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
     loadData()
   }, [params.id])
+
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`exchange-selections-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "exchange_selections",
+          filter: `elective_exchange_id=eq.${params.id}`,
+        },
+        async () => {
+          // Refetch student selections when they change
+          try {
+            const selections = await getExchangeSelections(params.id)
+            setStudentSelections(selections)
+          } catch (error) {
+            console.error("Error refetching exchange selections after real-time update:", error)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, params.id])
 
   const loadData = async () => {
     try {

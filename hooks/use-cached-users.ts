@@ -197,6 +197,220 @@ export function useCachedUsers() {
     fetchUsers()
   }, [language, toast, getCachedData, setCachedData])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+
+    const channel = supabase
+      .channel("users-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        async () => {
+          // Invalidate cache and refetch
+          setCachedData("users", "all", null) // Clear cache
+          setIsLoading(true)
+
+          try {
+            // Refetch profiles
+            const { data: profilesData, error: profilesError } = await supabase
+              .from("profiles")
+              .select(`
+                id, 
+                full_name, 
+                email, 
+                role, 
+                is_active
+              `)
+              .order("full_name")
+
+            if (profilesError) throw profilesError
+
+            // Refetch student and manager profiles
+            const { data: studentProfilesData } = await supabase
+              .from("student_profiles")
+              .select(`
+                profile_id,
+                group_id,
+                enrollment_year,
+                groups(
+                  id,
+                  name,
+                  programs(
+                    degree_id,
+                    degrees(id, name, name_ru)
+                  )
+                )
+              `)
+
+            const { data: managerProfilesData } = await supabase
+              .from("manager_profiles")
+              .select(`
+                profile_id,
+                degree_id,
+                degrees(id, name, name_ru)
+              `)
+
+            // Combine the data
+            const profilesWithDetails = (profilesData || []).map((profile) => {
+              if (profile.role === "student") {
+                const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  student_profiles: studentProfile ? [studentProfile] : [],
+                }
+              } else if (profile.role === "program_manager") {
+                const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  manager_profiles: managerProfile ? [managerProfile] : [],
+                }
+              }
+              return profile
+            })
+
+            rawDataRef.current = profilesWithDetails
+            setCachedData("users", "all", profilesWithDetails)
+            const transformedUsers = transformUserData(profilesWithDetails, language)
+            setUsers(transformedUsers)
+          } catch (error: any) {
+            console.error("Error refetching users after real-time update:", error)
+          } finally {
+            setIsLoading(false)
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "student_profiles" },
+        async () => {
+          // Invalidate cache and refetch when student profiles change
+          setCachedData("users", "all", null)
+          setIsLoading(true)
+
+          try {
+            const { data: profilesData } = await supabase
+              .from("profiles")
+              .select(`id, full_name, email, role, is_active`)
+              .order("full_name")
+
+            const { data: studentProfilesData } = await supabase
+              .from("student_profiles")
+              .select(`
+                profile_id,
+                group_id,
+                enrollment_year,
+                groups(
+                  id,
+                  name,
+                  programs(
+                    degree_id,
+                    degrees(id, name, name_ru)
+                  )
+                )
+              `)
+
+            const { data: managerProfilesData } = await supabase
+              .from("manager_profiles")
+              .select(`profile_id, degree_id, degrees(id, name, name_ru)`)
+
+            const profilesWithDetails = (profilesData || []).map((profile) => {
+              if (profile.role === "student") {
+                const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  student_profiles: studentProfile ? [studentProfile] : [],
+                }
+              } else if (profile.role === "program_manager") {
+                const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  manager_profiles: managerProfile ? [managerProfile] : [],
+                }
+              }
+              return profile
+            })
+
+            rawDataRef.current = profilesWithDetails
+            setCachedData("users", "all", profilesWithDetails)
+            const transformedUsers = transformUserData(profilesWithDetails, language)
+            setUsers(transformedUsers)
+          } catch (error: any) {
+            console.error("Error refetching users after student profile update:", error)
+          } finally {
+            setIsLoading(false)
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manager_profiles" },
+        async () => {
+          // Invalidate cache and refetch when manager profiles change
+          setCachedData("users", "all", null)
+          setIsLoading(true)
+
+          try {
+            const { data: profilesData } = await supabase
+              .from("profiles")
+              .select(`id, full_name, email, role, is_active`)
+              .order("full_name")
+
+            const { data: studentProfilesData } = await supabase
+              .from("student_profiles")
+              .select(`
+                profile_id,
+                group_id,
+                enrollment_year,
+                groups(
+                  id,
+                  name,
+                  programs(
+                    degree_id,
+                    degrees(id, name, name_ru)
+                  )
+                )
+              `)
+
+            const { data: managerProfilesData } = await supabase
+              .from("manager_profiles")
+              .select(`profile_id, degree_id, degrees(id, name, name_ru)`)
+
+            const profilesWithDetails = (profilesData || []).map((profile) => {
+              if (profile.role === "student") {
+                const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  student_profiles: studentProfile ? [studentProfile] : [],
+                }
+              } else if (profile.role === "program_manager") {
+                const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+                return {
+                  ...profile,
+                  manager_profiles: managerProfile ? [managerProfile] : [],
+                }
+              }
+              return profile
+            })
+
+            rawDataRef.current = profilesWithDetails
+            setCachedData("users", "all", profilesWithDetails)
+            const transformedUsers = transformUserData(profilesWithDetails, language)
+            setUsers(transformedUsers)
+          } catch (error: any) {
+            console.error("Error refetching users after manager profile update:", error)
+          } finally {
+            setIsLoading(false)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [language, getCachedData, setCachedData])
+
   return {
     users,
     isLoading,

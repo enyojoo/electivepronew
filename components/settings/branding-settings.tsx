@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,13 +45,47 @@ export function BrandingSettings() {
   const [originalInstitutionName, setOriginalInstitutionName] = useState("")
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  
+  // Use state for image sources, but only update when URL actually changes
+  const [logoSrc, setLogoSrc] = useState<string>(DEFAULT_LOGO_URL)
+  const [faviconSrc, setFaviconSrc] = useState<string>(DEFAULT_FAVICON_URL)
+  const hasInitializedRef = useRef(false)
+
+  // Determine the final image sources - only update when URL actually changes
+  useEffect(() => {
+    if (!isLoading) {
+      if (isValidUrl(logoUrl)) {
+        // Only update if it's different from current
+        if (logoSrc !== logoUrl) {
+          setLogoSrc(logoUrl)
+        }
+      } else if (!hasInitializedRef.current) {
+        // Only set default once on first load
+        setLogoSrc(DEFAULT_LOGO_URL)
+      }
+      
+      if (isValidUrl(faviconUrl)) {
+        // Only update if it's different from current
+        if (faviconSrc !== faviconUrl) {
+          setFaviconSrc(faviconUrl)
+        }
+      } else if (!hasInitializedRef.current) {
+        // Only set default once on first load
+        setFaviconSrc(DEFAULT_FAVICON_URL)
+      }
+      
+      hasInitializedRef.current = true
+    }
+  }, [logoUrl, faviconUrl, isLoading, logoSrc, faviconSrc])
 
   // Update state when settings are loaded
   useEffect(() => {
     if (settings) {
       // Only set URLs if they are valid, otherwise keep as null (will show default without fetching)
-      setFaviconUrl(isValidUrl(settings.favicon_url) ? settings.favicon_url : null)
-      setLogoUrl(isValidUrl(settings.logo_url) ? settings.logo_url : null)
+      const validFavicon = isValidUrl(settings.favicon_url) ? settings.favicon_url : null
+      const validLogo = isValidUrl(settings.logo_url) ? settings.logo_url : null
+      setFaviconUrl(validFavicon)
+      setLogoUrl(validLogo)
       const color = settings.primary_color || DEFAULT_PRIMARY_COLOR
       const name = settings.name || ""
       setPrimaryColor(color)
@@ -300,7 +334,8 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      src={isValidUrl(logoUrl) ? logoUrl! : DEFAULT_LOGO_URL}
+                      key={logoSrc}
+                      src={logoSrc}
                       alt="Logo"
                       className="h-full w-full object-contain"
                       loading="lazy"
@@ -354,7 +389,8 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      src={isValidUrl(faviconUrl) ? faviconUrl! : DEFAULT_FAVICON_URL}
+                      key={faviconSrc}
+                      src={faviconSrc}
                       alt="Favicon"
                       className="h-full w-full object-contain"
                       loading="lazy"

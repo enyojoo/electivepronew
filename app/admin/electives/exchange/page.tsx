@@ -169,6 +169,27 @@ export default function ExchangeElectivesPage() {
     fetchElectivePacks()
   }, [supabase, toast, t])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("elective-exchange-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_exchange" },
+        () => {
+          // Invalidate cache to trigger refetch
+          clearCache()
+          setIsLoading(true)
+          // The fetchElectivePacks effect will handle the refetch
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
+
   // Filter elective packs based on search term and status filter
   useEffect(() => {
     let result = [...electivePacks]

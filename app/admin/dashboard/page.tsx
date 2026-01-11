@@ -8,15 +8,31 @@ import { Users, BookOpen, Globe, Layers, Building } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { Skeleton } from "@/components/ui/skeleton"
-import { supabase } from "@/lib/supabase"
-import { useDataCache } from "@/lib/data-cache-context"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+
+// Cache keys
+const DASHBOARD_STATS_CACHE_KEY = "admin_dashboard_stats_cache"
+
+// Cache expiry time (1 hour)
+const CACHE_EXPIRY = 60 * 60 * 1000
+
+interface DashboardStats {
+  users: { count: number; isLoading: boolean }
+  programs: { count: number; isLoading: boolean }
+  courses: { count: number; isLoading: boolean }
+  groups: { count: number; isLoading: boolean }
+  courseElectives: { count: number; isLoading: boolean }
+  exchangePrograms: { count: number; isLoading: boolean }
+  universities: { count: number; isLoading: boolean }
+}
+
 export default function AdminDashboard() {
   const { t } = useLanguage()
   const { toast } = useToast()
-  const { getCachedData, setCachedData } = useDataCache()
+  const supabase = getSupabaseBrowserClient()
 
-  const [dashboardStats, setDashboardStats] = useState({
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     users: { count: 0, isLoading: true },
     programs: { count: 0, isLoading: true },
     courses: { count: 0, isLoading: true },
@@ -26,81 +42,99 @@ export default function AdminDashboard() {
     universities: { count: 0, isLoading: true },
   })
 
+  // Load cached data on initial render
+  useEffect(() => {
+    const loadCachedData = () => {
+      try {
+        const cachedStats = localStorage.getItem(DASHBOARD_STATS_CACHE_KEY)
+        if (cachedStats) {
+          const { data, timestamp } = JSON.parse(cachedStats)
+          if (Date.now() - timestamp < CACHE_EXPIRY) {
+            setDashboardStats(data)
+            return
+          }
+        }
+      } catch (error) {
+        console.error("Error loading cached dashboard stats:", error)
+      }
+    }
+
+    loadCachedData()
+  }, [])
+
+  // Fetch dashboard stats from Supabase
   useEffect(() => {
     const fetchDashboardStats = async () => {
-      try {
-        // Try to get stats from cache
-        const cachedStats = getCachedData<typeof dashboardStats>("dashboardStats")
-
-        if (cachedStats) {
-          setDashboardStats(cachedStats)
+      // Check if we already have valid cached data
+      const cachedStats = localStorage.getItem(DASHBOARD_STATS_CACHE_KEY)
+      if (cachedStats) {
+        const { data, timestamp } = JSON.parse(cachedStats)
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          // Already loaded from cache in previous effect
           return
         }
+      }
 
-        // Fetch users count
-        const { count: usersCount, error: usersError } = await supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true })
+      // Set loading state
+      setDashboardStats((prev) => ({
+        users: { ...prev.users, isLoading: true },
+        programs: { ...prev.programs, isLoading: true },
+        courses: { ...prev.courses, isLoading: true },
+        groups: { ...prev.groups, isLoading: true },
+        courseElectives: { ...prev.courseElectives, isLoading: true },
+        exchangePrograms: { ...prev.exchangePrograms, isLoading: true },
+        universities: { ...prev.universities, isLoading: true },
+      }))
 
-        if (usersError) throw usersError
+      try {
+        // Fetch all counts in parallel
+        const [
+          usersResult,
+          programsResult,
+          coursesResult,
+          groupsResult,
+          electivesResult,
+          exchangeResult,
+          universitiesResult,
+        ] = await Promise.all([
+          supabase.from("profiles").select("*", { count: "exact", head: true }),
+          supabase.from("programs").select("*", { count: "exact", head: true }),
+          supabase.from("courses").select("*", { count: "exact", head: true }),
+          supabase.from("groups").select("*", { count: "exact", head: true }),
+          supabase.from("elective_courses").select("*", { count: "exact", head: true }),
+          supabase.from("elective_exchange").select("*", { count: "exact", head: true }),
+          supabase.from("universities").select("*", { count: "exact", head: true }),
+        ])
 
-        // Fetch programs count
-        const { count: programsCount, error: programsError } = await supabase
-          .from("programs")
-          .select("*", { count: "exact", head: true })
+        if (usersResult.error) throw usersResult.error
+        if (programsResult.error) throw programsResult.error
+        if (coursesResult.error) throw coursesResult.error
+        if (groupsResult.error) throw groupsResult.error
+        if (electivesResult.error) throw electivesResult.error
+        if (exchangeResult.error) throw exchangeResult.error
+        if (universitiesResult.error) throw universitiesResult.error
 
-        if (programsError) throw programsError
-
-        // Fetch courses count
-        const { count: coursesCount, error: coursesError } = await supabase
-          .from("courses")
-          .select("*", { count: "exact", head: true })
-
-        if (coursesError) throw coursesError
-
-        // Fetch groups count
-        const { count: groupsCount, error: groupsError } = await supabase
-          .from("groups")
-          .select("*", { count: "exact", head: true })
-
-        if (groupsError) throw groupsError
-
-        // Fetch course electives count from elective_courses table
-        const { count: electivesCount, error: electivesError } = await supabase
-          .from("elective_courses")
-          .select("*", { count: "exact", head: true })
-
-        if (electivesError) throw electivesError
-
-        // Fetch exchange programs count from elective_exchange table
-        const { count: exchangeCount, error: exchangeError } = await supabase
-          .from("elective_exchange")
-          .select("*", { count: "exact", head: true })
-
-        if (exchangeError) throw exchangeError
-
-        // Fetch universities count
-        const { count: universitiesCount, error: universitiesError } = await supabase
-          .from("universities")
-          .select("*", { count: "exact", head: true })
-
-        if (universitiesError) throw universitiesError
-
-        const newStats = {
-          users: { count: usersCount || 0, isLoading: false },
-          programs: { count: programsCount || 0, isLoading: false },
-          courses: { count: coursesCount || 0, isLoading: false },
-          groups: { count: groupsCount || 0, isLoading: false },
-          courseElectives: { count: electivesCount || 0, isLoading: false },
-          exchangePrograms: { count: exchangeCount || 0, isLoading: false },
-          universities: { count: universitiesCount || 0, isLoading: false },
+        const newStats: DashboardStats = {
+          users: { count: usersResult.count || 0, isLoading: false },
+          programs: { count: programsResult.count || 0, isLoading: false },
+          courses: { count: coursesResult.count || 0, isLoading: false },
+          groups: { count: groupsResult.count || 0, isLoading: false },
+          courseElectives: { count: electivesResult.count || 0, isLoading: false },
+          exchangePrograms: { count: exchangeResult.count || 0, isLoading: false },
+          universities: { count: universitiesResult.count || 0, isLoading: false },
         }
 
         setDashboardStats(newStats)
 
         // Cache the stats
-        setCachedData("dashboardStats", newStats)
-      } catch (error) {
+        localStorage.setItem(
+          DASHBOARD_STATS_CACHE_KEY,
+          JSON.stringify({
+            data: newStats,
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (error: any) {
         console.error("Error fetching dashboard stats:", error)
         toast({
           title: "Error",
@@ -109,18 +143,149 @@ export default function AdminDashboard() {
         })
 
         // Set all loading states to false even on error
-        setDashboardStats((prev) => {
-          const updated = { ...prev }
-          Object.keys(updated).forEach((key) => {
-            updated[key as keyof typeof updated].isLoading = false
-          })
-          return updated
-        })
+        setDashboardStats((prev) => ({
+          users: { ...prev.users, isLoading: false },
+          programs: { ...prev.programs, isLoading: false },
+          courses: { ...prev.courses, isLoading: false },
+          groups: { ...prev.groups, isLoading: false },
+          courseElectives: { ...prev.courseElectives, isLoading: false },
+          exchangePrograms: { ...prev.exchangePrograms, isLoading: false },
+          universities: { ...prev.universities, isLoading: false },
+        }))
       }
     }
 
     fetchDashboardStats()
-  }, [getCachedData, setCachedData, toast])
+  }, [supabase, toast])
+
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channels = [
+      supabase
+        .channel("profiles-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+          // Invalidate cache and refetch
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            users: { ...prev.users, isLoading: true },
+          }))
+          // Refetch users count
+          supabase
+            .from("profiles")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                users: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+      supabase
+        .channel("groups-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            groups: { ...prev.groups, isLoading: true },
+          }))
+          supabase
+            .from("groups")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                groups: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+      supabase
+        .channel("courses-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, () => {
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            courses: { ...prev.courses, isLoading: true },
+          }))
+          supabase
+            .from("courses")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                courses: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+      supabase
+        .channel("elective-courses-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, () => {
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            courseElectives: { ...prev.courseElectives, isLoading: true },
+          }))
+          supabase
+            .from("elective_courses")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                courseElectives: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+      supabase
+        .channel("elective-exchange-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, () => {
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            exchangePrograms: { ...prev.exchangePrograms, isLoading: true },
+          }))
+          supabase
+            .from("elective_exchange")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                exchangePrograms: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+      supabase
+        .channel("universities-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, () => {
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            universities: { ...prev.universities, isLoading: true },
+          }))
+          supabase
+            .from("universities")
+            .select("*", { count: "exact", head: true })
+            .then(({ count }) => {
+              setDashboardStats((prev) => ({
+                ...prev,
+                universities: { count: count || 0, isLoading: false },
+              }))
+            })
+        })
+        .subscribe(),
+    ]
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel)
+      })
+    }
+  }, [supabase])
 
   return (
     <DashboardLayout userRole="admin">
