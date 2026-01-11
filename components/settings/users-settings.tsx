@@ -15,6 +15,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { Search, MoreHorizontal, Filter, AlertCircle, Trash2, Save, Plus, Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
@@ -537,36 +538,45 @@ export function UsersSettings() {
         </Alert>
       )}
 
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={t("admin.users.searchUsers")}
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => {
-                setEditingUser({
-                  id: "",
-                  name: "",
-                  email: "",
-                  role: UserRole.STUDENT,
-                  status: "active",
-                  degreeId: "",
-                  groupId: "",
-                  year: "",
-                })
-                openEditDialog()
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {t("admin.users.createUser") || "Create User"}
-            </Button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold">{t("admin.users.title")}</h2>
+          <p className="text-muted-foreground mt-1">{t("admin.users.subtitle")}</p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditingUser({
+              id: "",
+              name: "",
+              email: "",
+              role: UserRole.STUDENT,
+              status: "active",
+              degreeId: "",
+              groupId: "",
+              year: "",
+            })
+            openEditDialog()
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          {t("admin.users.createUser") || "Create User"}
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t("admin.users.searchUsers")}
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-[130px]">
                 <Filter className="mr-2 h-4 w-4" />
@@ -705,7 +715,9 @@ export function UsersSettings() {
             </PaginationContent>
           </Pagination>
         )}
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Delete Confirmation Dialog */}
       <Dialog
