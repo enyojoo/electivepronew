@@ -30,6 +30,14 @@ const isValidUrl = (url: string | null | undefined): boolean => {
   }
 }
 
+// Preload default images to prevent flashing
+if (typeof window !== "undefined") {
+  const preloadLogo = new Image()
+  preloadLogo.src = DEFAULT_LOGO_URL
+  const preloadFavicon = new Image()
+  preloadFavicon.src = DEFAULT_FAVICON_URL
+}
+
 export function BrandingSettings() {
   const { t } = useLanguage()
   const { toast } = useToast()
@@ -46,37 +54,52 @@ export function BrandingSettings() {
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   
-  // Use state for image sources, but only update when URL actually changes
-  const [logoSrc, setLogoSrc] = useState<string>(DEFAULT_LOGO_URL)
-  const [faviconSrc, setFaviconSrc] = useState<string>(DEFAULT_FAVICON_URL)
-  const hasInitializedRef = useRef(false)
+  // Use refs to directly manipulate image elements without causing re-renders
+  const logoImgRef = useRef<HTMLImageElement>(null)
+  const faviconImgRef = useRef<HTMLImageElement>(null)
+  const logoSrcRef = useRef<string>(DEFAULT_LOGO_URL)
+  const faviconSrcRef = useRef<string>(DEFAULT_FAVICON_URL)
+  const hasSetInitialSrcRef = useRef(false)
 
-  // Determine the final image sources - only update when URL actually changes
+  // Set initial image sources once on mount, then only update when URL changes
   useEffect(() => {
-    if (!isLoading) {
-      if (isValidUrl(logoUrl)) {
-        // Only update if it's different from current
-        if (logoSrc !== logoUrl) {
-          setLogoSrc(logoUrl)
-        }
-      } else if (!hasInitializedRef.current) {
-        // Only set default once on first load
-        setLogoSrc(DEFAULT_LOGO_URL)
+    if (!hasSetInitialSrcRef.current && !isLoading) {
+      // Set initial sources
+      const finalLogoSrc = isValidUrl(logoUrl) ? logoUrl : DEFAULT_LOGO_URL
+      const finalFaviconSrc = isValidUrl(faviconUrl) ? faviconUrl : DEFAULT_FAVICON_URL
+      
+      logoSrcRef.current = finalLogoSrc
+      faviconSrcRef.current = finalFaviconSrc
+      
+      // Directly set img src to avoid React re-render
+      if (logoImgRef.current) {
+        logoImgRef.current.src = finalLogoSrc
+      }
+      if (faviconImgRef.current) {
+        faviconImgRef.current.src = finalFaviconSrc
       }
       
-      if (isValidUrl(faviconUrl)) {
-        // Only update if it's different from current
-        if (faviconSrc !== faviconUrl) {
-          setFaviconSrc(faviconUrl)
-        }
-      } else if (!hasInitializedRef.current) {
-        // Only set default once on first load
-        setFaviconSrc(DEFAULT_FAVICON_URL)
+      hasSetInitialSrcRef.current = true
+    } else if (hasSetInitialSrcRef.current && !isLoading) {
+      // Update only when URL actually changes
+      const finalLogoSrc = isValidUrl(logoUrl) ? logoUrl : DEFAULT_LOGO_URL
+      const finalFaviconSrc = isValidUrl(faviconUrl) ? faviconUrl : DEFAULT_FAVICON_URL
+      
+      if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
+        logoSrcRef.current = finalLogoSrc
+        logoImgRef.current.src = finalLogoSrc
       }
       
-      hasInitializedRef.current = true
+      if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
+        faviconSrcRef.current = finalFaviconSrc
+        faviconImgRef.current.src = finalFaviconSrc
+      }
     }
-  }, [logoUrl, faviconUrl, isLoading, logoSrc, faviconSrc])
+  }, [logoUrl, faviconUrl, isLoading])
+
+  // Use ref values for initial render - these won't change on re-renders
+  const logoSrc = logoSrcRef.current
+  const faviconSrc = faviconSrcRef.current
 
   // Update state when settings are loaded
   useEffect(() => {
@@ -334,11 +357,11 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      key={logoSrc}
+                      ref={logoImgRef}
                       src={logoSrc}
                       alt="Logo"
                       className="h-full w-full object-contain"
-                      loading="lazy"
+                      loading="eager"
                       onError={(e) => {
                         // If both custom and default fail, hide the image
                         if (logoUrl && e.currentTarget.src !== DEFAULT_LOGO_URL) {
@@ -389,11 +412,11 @@ export function BrandingSettings() {
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
                     <img
-                      key={faviconSrc}
+                      ref={faviconImgRef}
                       src={faviconSrc}
                       alt="Favicon"
                       className="h-full w-full object-contain"
-                      loading="lazy"
+                      loading="eager"
                       onError={(e) => {
                         // If both custom and default fail, hide the image
                         if (faviconUrl && e.currentTarget.src !== DEFAULT_FAVICON_URL) {
