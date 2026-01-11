@@ -39,6 +39,12 @@ export function BrandingSettings() {
       setLogoUrl(settings.logo_url || null)
       setPrimaryColor(settings.primary_color || DEFAULT_PRIMARY_COLOR)
       setInstitutionName(settings.name || "")
+    } else {
+      // Initialize with defaults if settings not loaded yet
+      setPrimaryColor(DEFAULT_PRIMARY_COLOR)
+      setInstitutionName("")
+      setFaviconUrl(null)
+      setLogoUrl(null)
     }
   }, [settings])
 
@@ -241,15 +247,17 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-16" />
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {logoUrl ? (
-                      <img src={logoUrl || DEFAULT_LOGO_URL} alt="Logo" className="h-full w-full object-contain" />
-                    ) : (
-                      <img
-                        src={DEFAULT_LOGO_URL || "/placeholder.svg"}
-                        alt="Default Logo"
-                        className="h-full w-full object-contain"
-                      />
-                    )}
+                    <img
+                      src={logoUrl || DEFAULT_LOGO_URL}
+                      alt="Logo"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        // Fallback to default if custom logo fails to load
+                        if (logoUrl) {
+                          e.currentTarget.src = DEFAULT_LOGO_URL
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="logo-upload" className="cursor-pointer">
@@ -290,19 +298,17 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-10" />
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {faviconUrl ? (
-                      <img
-                        src={faviconUrl || DEFAULT_FAVICON_URL}
-                        alt="Favicon"
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <img
-                        src={DEFAULT_FAVICON_URL || "/placeholder.svg"}
-                        alt="Default Favicon"
-                        className="h-full w-full object-contain"
-                      />
-                    )}
+                    <img
+                      src={faviconUrl || DEFAULT_FAVICON_URL}
+                      alt="Favicon"
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        // Fallback to default if custom favicon fails to load
+                        if (faviconUrl) {
+                          e.currentTarget.src = DEFAULT_FAVICON_URL
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="favicon-upload" className="cursor-pointer">

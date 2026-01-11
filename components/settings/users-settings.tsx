@@ -715,7 +715,7 @@ export function UsersSettings() {
                   <div className="space-y-2">
                     <Label htmlFor="edit-degree">{t("admin.users.degree")}</Label>
                     <Select
-                      value={editingUser.degreeId}
+                      value={editingUser.degreeId || undefined}
                       onValueChange={(value) => handleEditInputChange("degreeId", value)}
                     >
                       <SelectTrigger id="edit-degree">
@@ -734,7 +734,7 @@ export function UsersSettings() {
                   <div className="space-y-2">
                     <Label htmlFor="edit-group">{t("admin.users.group")}</Label>
                     <Select
-                      value={editingUser.groupId}
+                      value={editingUser.groupId || undefined}
                       onValueChange={(value) => handleEditInputChange("groupId", value)}
                       disabled={!editingUser.degreeId || filteredGroups.length === 0}
                     >
@@ -749,9 +749,9 @@ export function UsersSettings() {
                             </SelectItem>
                           ))
                         ) : (
-                          <SelectItem value="" disabled>
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
                             {t("admin.groups.noGroups")}
-                          </SelectItem>
+                          </div>
                         )}
                       </SelectContent>
                     </Select>
@@ -759,7 +759,7 @@ export function UsersSettings() {
 
                   <div className="space-y-2">
                     <Label htmlFor="edit-year">{t("admin.users.year")}</Label>
-                    <Select value={editingUser.year} onValueChange={(value) => handleEditInputChange("year", value)}>
+                    <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
                       <SelectTrigger id="edit-year">
                         <SelectValue placeholder={t("admin.users.selectYear")} />
                       </SelectTrigger>
@@ -781,7 +781,7 @@ export function UsersSettings() {
                   <div className="space-y-2">
                     <Label htmlFor="edit-manager-degree">{t("admin.users.degree")}</Label>
                     <Select
-                      value={editingUser.degreeId}
+                      value={editingUser.degreeId || undefined}
                       onValueChange={(value) => handleEditInputChange("degreeId", value)}
                     >
                       <SelectTrigger id="edit-manager-degree">
@@ -799,7 +799,7 @@ export function UsersSettings() {
 
                   <div className="space-y-2">
                     <Label htmlFor="edit-manager-year">{t("admin.users.year")}</Label>
-                    <Select value={editingUser.year} onValueChange={(value) => handleEditInputChange("year", value)}>
+                    <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
                       <SelectTrigger id="edit-manager-year">
                         <SelectValue placeholder={t("admin.users.selectYear")} />
                       </SelectTrigger>

@@ -18,8 +18,11 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
   const { invalidateCache } = useDataCache()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [originalName, setOriginalName] = useState("")
+  const [originalEmail, setOriginalEmail] = useState("")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -27,10 +30,20 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
   // Set form values when profile is loaded
   useEffect(() => {
     if (adminProfile) {
-      setName(adminProfile.full_name || "")
-      setEmail(adminProfile.email || "")
+      const profileName = adminProfile.full_name || ""
+      const profileEmail = adminProfile.email || ""
+      setName(profileName)
+      setEmail(profileEmail)
+      setOriginalName(profileName)
+      setOriginalEmail(profileEmail)
     }
   }, [adminProfile])
+
+  const handleCancelEdit = () => {
+    setName(originalName)
+    setEmail(originalEmail)
+    setIsEditing(false)
+  }
 
   const handleUpdateInfo = async () => {
     if (!adminProfile?.id) return
@@ -63,6 +76,11 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
 
       // Invalidate the cache
       invalidateCache("adminProfile", adminProfile.id)
+
+      // Update original values and exit edit mode
+      setOriginalName(name)
+      setOriginalEmail(email)
+      setIsEditing(false)
 
       toast({
         title: t("settings.account.updateSuccess"),
@@ -135,7 +153,12 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input 
+                id="name" 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                disabled={!isEditing}
+              />
             )}
           </div>
 
@@ -144,21 +167,38 @@ export function AccountSettings({ adminProfile, isLoading = false }: { adminProf
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                disabled={!isEditing}
+              />
             )}
           </div>
 
-          <div className="flex justify-end">
-            <Button onClick={handleUpdateInfo} disabled={isUpdating || isLoading}>
-              {isUpdating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("settings.account.updating")}
-                </>
-              ) : (
-                t("settings.account.updateInfo")
-              )}
-            </Button>
+          <div className="flex justify-end gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={handleCancelEdit} disabled={isUpdating || isLoading}>
+                  {t("settings.account.cancel") || "Cancel"}
+                </Button>
+                <Button onClick={handleUpdateInfo} disabled={isUpdating || isLoading}>
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("settings.account.saving") || "Saving..."}
+                    </>
+                  ) : (
+                    t("settings.account.save") || "Save"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)} disabled={isLoading}>
+                {t("settings.account.edit") || "Edit"}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 export function useCachedGroups() {
@@ -37,12 +37,27 @@ export function useCachedGroups() {
       // If not in cache, fetch from API
       console.log("Fetching groups data from API")
       try {
-        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        const supabase = getSupabaseBrowserClient()
 
-        // First, fetch the groups with degrees in a single query
+        // Fetch groups with programs, degrees, and academic years through proper relationships
         const { data: groupsData, error: groupsError } = await supabase
           .from("groups")
-          .select("*, degrees(id, name)")
+          .select(`
+            id,
+            name,
+            display_name,
+            status,
+            academic_year_id,
+            academic_years(
+              id,
+              year
+            ),
+            programs(
+              id,
+              degree_id,
+              degrees(id, name, name_ru)
+            )
+          `)
           .order("name")
 
         if (groupsError) throw groupsError
@@ -54,13 +69,12 @@ export function useCachedGroups() {
           return
         }
 
-        // Count students in each group
+        // Count students in each group using student_profiles
         const studentCountPromises = groupsData.map((group) =>
           supabase
-            .from("profiles")
+            .from("student_profiles")
             .select("*", { count: "exact", head: true })
-            .eq("group_id", group.id)
-            .eq("role", "student"),
+            .eq("group_id", group.id),
         )
 
         const studentCountResults = await Promise.all(studentCountPromises)
@@ -73,16 +87,25 @@ export function useCachedGroups() {
         })
 
         // Format the groups data
-        const formattedGroups = groupsData.map((group) => ({
-          id: group.id.toString(),
-          name: group.name,
-          displayName: group.display_name,
-          degree: group.degrees?.name || "Unknown",
-          degreeId: group.degree_id,
-          academicYear: group.academic_year,
-          students: studentCountMap.get(group.id) || 0,
-          status: group.status,
-        }))
+        const formattedGroups = groupsData.map((group) => {
+          // Extract degree info from programs relationship
+          const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
+          const degree = program?.degrees ? (Array.isArray(program.degrees) ? program.degrees[0] : program.degrees) : null
+          
+          // Extract academic year
+          const academicYear = Array.isArray(group.academic_years) ? group.academic_years[0] : group.academic_years
+          
+          return {
+            id: group.id.toString(),
+            name: group.name,
+            displayName: group.display_name,
+            degree: degree?.name || "Unknown",
+            degreeId: program?.degree_id || "",
+            academicYear: academicYear?.year || "",
+            students: studentCountMap.get(group.id) || 0,
+            status: group.status,
+          }
+        })
 
         // Save to cache
         setCachedData("groups", "all", formattedGroups)
