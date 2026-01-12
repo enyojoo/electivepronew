@@ -11,6 +11,17 @@ const inter = Inter({ subsets: ["latin"] })
 
 import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 
+export const metadata: Metadata = {
+  title: DEFAULT_PLATFORM_NAME,
+  description:
+    "The complete platform for managing the selection of elective courses, exchange programs, and academic pathways.",
+  icons: {
+    icon: DEFAULT_FAVICON_URL,
+    shortcut: DEFAULT_FAVICON_URL,
+    apple: DEFAULT_FAVICON_URL,
+  },
+  generator: 'v0.dev',
+}
 
 export default async function RootLayout({
   children,
@@ -22,17 +33,7 @@ export default async function RootLayout({
   const faviconUrl = DEFAULT_FAVICON_URL
   const pageTitle = DEFAULT_PLATFORM_NAME
 
-  // Create metadata for the current request
-  const metadata: Metadata = {
-    title: pageTitle,
-    description:
-      "The complete platform for managing the selection of elective courses, exchange programs, and academic pathways.",
-    icons: {
-      icon: faviconUrl,
-      shortcut: faviconUrl,
-      apple: faviconUrl,
-    },
-  }
+  // Metadata is exported below, not defined here
 
   return (
     <html lang="en" suppressHydrationWarning style={{ "--primary": primaryColor } as React.CSSProperties}>
@@ -41,7 +42,6 @@ export default async function RootLayout({
         <link rel="icon" href={faviconUrl} />
         <link rel="shortcut icon" href={faviconUrl} />
         <link rel="apple-touch-icon" href={faviconUrl} />
-        <title>{pageTitle}</title>
       </head>
       <body className={inter.className}>
         <Providers>
@@ -55,7 +55,3 @@ export default async function RootLayout({
     </html>
   )
 }
-
-export const metadata = {
-  generator: 'v0.dev'
-};
