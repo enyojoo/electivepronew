@@ -83,7 +83,6 @@ export function ExchangeUniversitiesList({ universities }: ExchangeUniversitiesL
               <TableHead>{t("name")}</TableHead>
               <TableHead>{t("country")}</TableHead>
               <TableHead>{t("city")}</TableHead>
-              <TableHead>{t("language")}</TableHead>
               <TableHead className="text-center">{t("max_students")}</TableHead>
               <TableHead className="text-right">{t("actions")}</TableHead>
             </TableRow>
@@ -91,7 +90,7 @@ export function ExchangeUniversitiesList({ universities }: ExchangeUniversitiesL
           <TableBody>
             {filteredUniversities.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={5} className="text-center">
                   {t("no_universities_found")}
                 </TableCell>
               </TableRow>
@@ -102,8 +101,7 @@ export function ExchangeUniversitiesList({ universities }: ExchangeUniversitiesL
                     {language === "ru" && university.name_ru ? university.name_ru : university.name}
                   </TableCell>
                   <TableCell>{university.country}</TableCell>
-                  <TableCell>{university.city}</TableCell>
-                  <TableCell>{university.language || "-"}</TableCell>
+                  <TableCell>{university.city || "-"}</TableCell>
                   <TableCell className="text-center">{university.max_students}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

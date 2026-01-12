@@ -43,7 +43,6 @@ interface University {
   name_ru: string | null
   country: string
   website: string | null
-  language: string | null
   status: string
   max_students: number
   created_at: string
@@ -120,7 +119,7 @@ export default function UniversitiesPage() {
 
       try {
         const { data, error } = await supabase
-          .from("exchange_universities")
+          .from("universities")
           .select("*")
           .order("name", { ascending: true })
 
@@ -159,7 +158,7 @@ export default function UniversitiesPage() {
       .channel("universities-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "exchange_universities" },
+        { event: "*", schema: "public", table: "universities" },
         async () => {
           // Invalidate cache
           localStorage.removeItem(UNIVERSITIES_CACHE_KEY)
@@ -168,7 +167,7 @@ export default function UniversitiesPage() {
           // Refetch universities
           try {
             const { data, error } = await supabase
-              .from("exchange_universities")
+              .from("universities")
               .select("*")
               .order("name", { ascending: true })
 
@@ -272,7 +271,7 @@ export default function UniversitiesPage() {
   const handleStatusChange = async (universityId: string, newStatus: string) => {
     try {
       const { error } = await supabase
-        .from("exchange_universities")
+          .from("universities")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", universityId)
 
@@ -324,7 +323,7 @@ export default function UniversitiesPage() {
     if (!universityToDelete) return
 
     try {
-      const { error } = await supabase.from("exchange_universities").delete().eq("id", universityToDelete)
+      const { error } = await supabase.from("universities").delete().eq("id", universityToDelete)
 
       if (error) {
         throw error

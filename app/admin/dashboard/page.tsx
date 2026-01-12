@@ -152,7 +152,7 @@ export default function AdminDashboard() {
           supabase.from("groups").select("*", { count: "exact", head: true }),
           supabase.from("elective_courses").select("*", { count: "exact", head: true }),
           supabase.from("elective_exchange").select("*", { count: "exact", head: true }),
-          supabase.from("exchange_universities").select("*", { count: "exact", head: true }),
+          supabase.from("universities").select("*", { count: "exact", head: true }),
         ])
 
         // Log errors for debugging
@@ -368,21 +368,21 @@ export default function AdminDashboard() {
           }
         }),
       supabase
-        .channel("exchange-universities-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "exchange_universities" }, (payload) => {
-          console.log("Exchange universities change detected:", payload)
+        .channel("universities-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, (payload) => {
+          console.log("Universities change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             universities: { ...prev.universities, isLoading: true },
           }))
-          refetchStat("exchange_universities", "universities")
+          refetchStat("universities", "universities")
         })
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to exchange_universities changes")
+            console.log("✓ Subscribed to universities changes")
           } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to exchange_universities changes")
+            console.error("✗ Error subscribing to universities changes")
           }
         }),
       supabase

@@ -179,11 +179,8 @@ export default function CourseElectivesPage() {
               }
             }
 
-            // Otherwise query the courses table
-            const { count, error: countError } = await supabase
-              .from("courses")
-              .select("*", { count: "exact", head: true })
-              .eq("elective_pack_id", pack.id)
+            // Courses are stored in elective_courses.courses array, so count the array length
+            // No need to query courses table - the count is already in pack.courses.length
 
             if (countError) {
               console.error("Error fetching course count:", countError)
@@ -344,11 +341,11 @@ export default function CourseElectivesPage() {
     try {
       setIsDeleting(true)
 
-      // First check if there are any courses associated with this pack
+      // First check if there are any student selections associated with this elective course
       const { count, error: countError } = await supabase
-        .from("courses")
+        .from("course_selections")
         .select("*", { count: "exact", head: true })
-        .eq("elective_pack_id", packToDelete)
+        .eq("elective_courses_id", packToDelete)
 
       if (countError) throw countError
 

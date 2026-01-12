@@ -39,7 +39,7 @@ interface ElectiveCourseDetailPageProps {
 
 interface Course {
   id: string
-  name_en: string
+  name: string
   name_ru?: string
   instructor_en: string
   instructor_ru?: string
@@ -150,7 +150,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
           .from("courses")
           .select(`
     id,
-    name_en,
+    name,
     name_ru,
     instructor_en,
     instructor_ru,
@@ -400,7 +400,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
           selection.selected_course_ids
             ?.map((id) => {
               const course = courses.find((c) => c.id === id)
-              return course ? (language === "ru" && course.name_ru ? course.name_ru : course.name_en) : "Unknown"
+              return course ? (language === "ru" && course.name_ru ? course.name_ru : course.name) : "Unknown"
             })
             .join("; ") || ""
 
@@ -691,7 +691,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
                           return (
                             <tr key={course.id} className="border-b">
                               <td className="py-3 px-4 text-sm">
-                                {language === "ru" && course.name_ru ? course.name_ru : course.name_en}
+                                {language === "ru" && course.name_ru ? course.name_ru : course.name}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {language === "ru" && course.instructor_ru

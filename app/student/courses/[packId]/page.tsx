@@ -66,11 +66,11 @@ type ElectivePack = {
 type Course = {
   id: string
   name: string
-  name_en: string
+  name: string
   name_ru: string
   instructor_en: string
   instructor_ru: string
-  description_en: string
+  description: string
   description_ru: string
   max_students: number | null | undefined
   current_students: number | null | undefined
@@ -186,7 +186,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       if (courseUuids.length > 0) {
         const { data: fetchedCourses, error: coursesError } = await supabase
           .from("courses")
-          .select("id, name_en, name_ru, instructor_en, instructor_ru, description_en, description_ru, max_students")
+          .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
           .in("id", courseUuids)
 
         if (coursesError) throw coursesError
@@ -252,7 +252,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         if (course && course.max_students && course.current_students >= course.max_students) {
           toast({
             title: t("student.courses.courseAtCapacity"),
-            description: t("student.courses.courseAtCapacityDesc", { courseName: course.name_en || course.name }),
+            description: t("student.courses.courseAtCapacityDesc", { courseName: course.name }),
             variant: "destructive",
           })
           return prevSelected
@@ -691,7 +691,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start gap-2">
                       <CardTitle className="text-lg leading-tight">
-                        {language === "ru" && course.name_ru ? course.name_ru : course.name_en || course.name}
+                        {language === "ru" && course.name_ru ? course.name_ru : course.name}
                       </CardTitle>
                       {course.max_students !== null && course.max_students !== undefined && (
                         <span className="text-xs whitespace-nowrap text-muted-foreground bg-muted px-2 py-1 rounded-full flex items-center gap-1">
@@ -895,7 +895,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
               <p className="whitespace-pre-wrap">
                 {language === "ru" && viewingCourse?.description_ru
                   ? viewingCourse.description_ru
-                  : viewingCourse?.description_en ||
+                  : viewingCourse?.description ||
                     viewingCourse?.description ||
                     t("student.courses.noDescriptionAvailable")}
               </p>

@@ -57,11 +57,16 @@ export function useCachedDegrees() {
 
       try {
         const supabase = getSupabaseBrowserClient()
-        const { data, error } = await supabase.from("degrees").select("*").order("name")
+        // Fetch all degrees - no filters, no limits
+        const { data, error, count } = await supabase
+          .from("degrees")
+          .select("*", { count: "exact" })
+          .order("name", { ascending: true })
 
         if (error) throw error
 
         const degreesData = data || []
+        console.log(`[Degrees Hook] Fetched ${degreesData.length} degrees (total in DB: ${count})`)
 
         // Cache the degrees data
         localStorage.setItem(
@@ -138,11 +143,16 @@ export function useCachedDegrees() {
           setIsLoading(true)
 
           try {
-            const { data, error } = await supabase.from("degrees").select("*").order("name")
+            // Fetch all degrees - no filters, no limits
+            const { data, error, count } = await supabase
+              .from("degrees")
+              .select("*", { count: "exact" })
+              .order("name", { ascending: true })
 
             if (error) throw error
 
             const degreesData = data || []
+            console.log(`[Degrees Hook] Real-time refetch: ${degreesData.length} degrees (total in DB: ${count})`)
             
             // Update cache
             localStorage.setItem(

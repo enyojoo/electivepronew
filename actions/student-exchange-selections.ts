@@ -5,32 +5,28 @@ import { revalidatePath } from "next/cache"
 import { getCurrentUser } from "@/lib/session"
 
 interface CreateStudentExchangeSelectionParams {
-  electivePackId: string
-  universities: {
-    universityId: string
-    preferenceOrder: number
-  }[]
-  motivationLetterUrl?: string
-  transcriptUrl?: string
+  electiveExchangeId: string
+  selectedUniversityIds: string[]
+  statementUrl?: string
 }
 
 export async function createStudentExchangeSelection({
-  electivePackId,
-  universities,
-  motivationLetterUrl,
-  transcriptUrl,
+  electiveExchangeId,
+  selectedUniversityIds,
+  statementUrl,
 }: CreateStudentExchangeSelectionParams) {
   const supabase = await createServerComponentClient()
   const user = await getCurrentUser()
 
-  // Create the selection
+  // Create the selection with selected_university_ids array
   const { data: selection, error: selectionError } = await supabase
-    .from("student_exchange_selections")
+    .from("exchange_selections")
     .insert({
       student_id: user.id,
-      elective_pack_id: electivePackId,
-      motivation_letter_url: motivationLetterUrl,
-      transcript_url: transcriptUrl,
+      elective_exchange_id: electiveExchangeId,
+      selected_university_ids: selectedUniversityIds,
+      statement_url: statementUrl,
+      status: "pending",
     })
     .select()
     .single()
@@ -40,27 +36,7 @@ export async function createStudentExchangeSelection({
     throw new Error("Failed to create student exchange selection")
   }
 
-  // Create the university preferences
-  const universitySelections = universities.map((university) => ({
-    selection_id: selection.id,
-    university_id: university.universityId,
-    preference_order: university.preferenceOrder,
-  }))
-
-  const { error: universitySelectionsError } = await supabase
-    .from("selection_universities")
-    .insert(universitySelections)
-
-  if (universitySelectionsError) {
-    console.error("Error creating university selections:", universitySelectionsError)
-
-    // Rollback the selection
-    await supabase.from("student_exchange_selections").delete().eq("id", selection.id)
-
-    throw new Error("Failed to create university selections")
-  }
-
-  revalidatePath("/student/electives/exchange")
+  revalidatePath("/student/exchange")
   return selection
 }
 
@@ -69,29 +45,19 @@ export async function getStudentExchangeSelections() {
   const user = await getCurrentUser()
 
   const { data, error } = await supabase
-    .from("student_exchange_selections")
+    .from("exchange_selections")
     .select(`
       id,
       status,
       created_at,
-      elective_pack_id,
-      elective_packs (
+      elective_exchange_id,
+      selected_university_ids,
+      statement_url,
+      elective_exchange (
         id,
-        title,
         name,
+        name_ru,
         deadline
-      ),
-      selection_universities (
-        id,
-        preference_order,
-        university_id,
-        exchange_universities (
-          id,
-          name,
-          name_ru,
-          country,
-          city
-        )
       )
     `)
     .eq("student_id", user.id)
@@ -109,33 +75,20 @@ export async function getStudentExchangeSelection(id: string) {
   const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
-    .from("student_exchange_selections")
+    .from("exchange_selections")
     .select(`
       id,
       status,
       created_at,
-      motivation_letter_url,
-      transcript_url,
+      statement_url,
       student_id,
-      elective_pack_id,
-      elective_packs (
+      elective_exchange_id,
+      selected_university_ids,
+      elective_exchange (
         id,
-        title,
         name,
+        name_ru,
         deadline
-      ),
-      selection_universities (
-        id,
-        preference_order,
-        university_id,
-        exchange_universities (
-          id,
-          name,
-          name_ru,
-          country,
-          city,
-          max_students
-        )
       )
     `)
     .eq("id", id)

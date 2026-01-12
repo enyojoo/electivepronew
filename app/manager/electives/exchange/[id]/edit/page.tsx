@@ -36,7 +36,6 @@ interface University {
   name: string
   name_ru: string | null
   country: string
-  language: string | null
   max_students: number
   status: string
 }
@@ -225,7 +224,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     try {
       console.log("Fetching universities...")
         const { data, error } = await supabase
-          .from("exchange_universities")
+          .from("universities")
           .select("*")
           .eq("status", "active")
           .order("name", { ascending: true })

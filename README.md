@@ -193,7 +193,7 @@ ElectivePRO is an open-source platform built with Next.js, TypeScript, and Supab
    
    d. **Verify the migration**
       - Go to Table Editor in Supabase
-      - You should see all the tables created: `profiles`, `degrees`, `programs`, `academic_years`, `groups`, `elective_packs`, `courses`, `elective_courses`, `elective_exchange`, `exchange_universities`, `student_profiles`, `manager_profiles`, `student_selections`, `exchange_selections`, and `settings`
+      - You should see all the tables created: `profiles`, `degrees`, `programs`, `academic_years`, `groups`, `courses`, `elective_courses`, `elective_exchange`, `universities`, `student_profiles`, `manager_profiles`, `course_selections`, `exchange_selections`, and `settings`
 
 5. **Start the development server**
    ```bash

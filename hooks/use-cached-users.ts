@@ -50,6 +50,13 @@ const transformUserData = (data: any[], currentLanguage: string) => {
           ? degree.name_ru 
           : degree.name || ""
       }
+      // Extract year from academic_years
+      const academicYear = Array.isArray(managerProfile.academic_years) 
+        ? managerProfile.academic_years[0] 
+        : managerProfile.academic_years
+      if (academicYear) {
+        year = academicYear.year || ""
+      }
     }
 
     return {
@@ -175,13 +182,15 @@ export function useCachedUsers() {
             )
           `)
 
-        // Fetch manager profiles with degrees
+        // Fetch manager profiles with degrees and academic years
         const { data: managerProfilesData } = await supabase
           .from("manager_profiles")
           .select(`
             profile_id,
             degree_id,
-            degrees(id, name, name_ru)
+            academic_year_id,
+            degrees(id, name, name_ru),
+            academic_years(id, year)
           `)
 
         // Combine the data
@@ -320,7 +329,9 @@ export function useCachedUsers() {
               .select(`
                 profile_id,
                 degree_id,
-                degrees(id, name, name_ru)
+                academic_year_id,
+                degrees(id, name, name_ru),
+                academic_years(id, year)
               `)
 
             // Combine the data
@@ -393,7 +404,13 @@ export function useCachedUsers() {
 
             const { data: managerProfilesData } = await supabase
               .from("manager_profiles")
-              .select(`profile_id, degree_id, degrees(id, name, name_ru)`)
+              .select(`
+                profile_id,
+                degree_id,
+                academic_year_id,
+                degrees(id, name, name_ru),
+                academic_years(id, year)
+              `)
 
             const profilesWithDetails = (profilesData || []).map((profile) => {
               if (profile.role === "student") {
@@ -464,7 +481,13 @@ export function useCachedUsers() {
 
             const { data: managerProfilesData } = await supabase
               .from("manager_profiles")
-              .select(`profile_id, degree_id, degrees(id, name, name_ru)`)
+              .select(`
+                profile_id,
+                degree_id,
+                academic_year_id,
+                degrees(id, name, name_ru),
+                academic_years(id, year)
+              `)
 
             const profilesWithDetails = (profilesData || []).map((profile) => {
               if (profile.role === "student") {

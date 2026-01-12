@@ -36,7 +36,7 @@ import { cleanupDialogEffects } from "@/lib/dialog-utils"
 
 interface Course {
   id: string
-  name_en: string
+  name: string
   name_ru: string
   instructor_en: string
   instructor_ru: string
@@ -238,7 +238,7 @@ export default function CoursesPage() {
           
           return {
             id: course.id,
-            name_en: course.name || "", // Map 'name' to 'name_en' for interface compatibility
+            name: course.name || "",
             name_ru: course.name_ru || "",
             instructor_en: course.instructor_en || "",
             instructor_ru: course.instructor_ru || "",
@@ -429,7 +429,7 @@ export default function CoursesPage() {
   const getCourseToDeleteName = () => {
     if (!courseToDelete) return ""
     const course = courses.find((c) => c.id === courseToDelete)
-    return course ? (language === "ru" && course.name_ru ? course.name_ru : course.name_en) : ""
+    return course ? (language === "ru" && course.name_ru ? course.name_ru : course.name) : ""
   }
 
   // Helper function to get localized degree name
@@ -542,7 +542,7 @@ export default function CoursesPage() {
                       courses.map((course) => (
                         <TableRow key={course.id}>
                           <TableCell className="font-medium">
-                            {language === "ru" && course.name_ru ? course.name_ru : course.name_en}
+                            {language === "ru" && course.name_ru ? course.name_ru : course.name}
                           </TableCell>
                           <TableCell>
                             {language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en}

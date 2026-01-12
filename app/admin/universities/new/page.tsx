@@ -39,7 +39,6 @@ export default function NewUniversityPage() {
     description: "",
     description_ru: "",
     country: "",
-    language: "",
     website: "",
     status: "active", // Default status
     max_students: 5, // Default max students
@@ -60,27 +59,26 @@ export default function NewUniversityPage() {
   }
 
 
-  // Update the handleSubmit function to save to exchange_universities table
+  // Update the handleSubmit function to save to universities table
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Prepare data for exchange_universities table
+      // Prepare data for universities table
       const universityData = {
         name: university.name,
         name_ru: university.name_ru || null,
         description: university.description || null,
         description_ru: university.description_ru || null,
         country: university.country,
-        language: null,
         website: university.website || null,
         max_students: university.max_students,
         status: university.status,
       }
 
-      // Make the API call to Supabase - save to exchange_universities table
-      const { error } = await supabase.from("exchange_universities").insert(universityData)
+      // Make the API call to Supabase - save to universities table
+      const { error } = await supabase.from("universities").insert(universityData)
 
       if (error) throw error
 

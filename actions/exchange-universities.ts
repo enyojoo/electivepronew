@@ -8,14 +8,10 @@ export async function getExchangeUniversities(electivePackId?: string) {
   const supabase = await createServerComponentClient()
 
   let query = supabase
-    .from("exchange_universities")
+    .from("universities")
     .select("*")
     .eq("status", "active")
     .order("name")
-
-  if (electivePackId) {
-    query = query.eq("elective_pack_id", electivePackId)
-  }
 
   const { data, error } = await query
 
@@ -31,7 +27,7 @@ export async function getExchangeUniversity(id: string) {
   const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
-    .from("exchange_universities")
+    .from("universities")
     .select("*")
     .eq("id", id)
     .single()
@@ -47,7 +43,7 @@ export async function getExchangeUniversity(id: string) {
 export async function createExchangeUniversity(formData: ExchangeUniversityFormData) {
   const supabase = await createServerComponentClient()
 
-  const { data, error } = await supabase.from("exchange_universities").insert(formData).select().single()
+  const { data, error } = await supabase.from("universities").insert(formData).select().single()
 
   if (error) {
     console.error("Error creating exchange university:", error)
@@ -62,7 +58,7 @@ export async function updateExchangeUniversity(id: string, formData: Partial<Exc
   const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
-    .from("exchange_universities")
+    .from("universities")
     .update({
       ...formData,
       updated_at: new Date().toISOString(),
@@ -86,7 +82,7 @@ export async function deleteExchangeUniversity(id: string) {
 
   // Instead of actually deleting, we'll set the status to inactive
   const { error } = await supabase
-    .from("exchange_universities")
+    .from("universities")
     .update({
       status: "inactive",
       updated_at: new Date().toISOString(),

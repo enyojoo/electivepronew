@@ -153,7 +153,7 @@ export async function sendExchangeSelectionSubmittedEmailNotification(
     // Fetch university details
     const universityIds = (selection.selected_university_ids || []) as string[]
     const { data: universities } = await supabaseAdmin
-      .from("exchange_universities")
+      .from("universities")
       .select("id, name, name_ru, country, city")
       .in("id", universityIds)
 

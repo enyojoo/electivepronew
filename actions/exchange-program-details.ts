@@ -29,7 +29,7 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
     const supabase = getSupabaseServerClient()
     // First get universities
     const { data: universities, error: univError } = await supabase
-      .from("exchange_universities")
+      .from("universities")
       .select("*")
       .in("id", universityIds)
       .order("name")
@@ -39,20 +39,8 @@ export async function getUniversitiesFromIds(universityIds: string[]) {
       return []
     }
 
-    // Parse languages from the language field (comma-separated string)
-    const universitiesWithLanguages = (universities || []).map((university) => {
-      let languages = []
-      if (university.language) {
-        languages = university.language.split(", ").filter(Boolean)
-      }
-
-      return {
-        ...university,
-        university_languages: languages,
-      }
-    })
-
-    return universitiesWithLanguages
+    // Return universities (language column removed from schema)
+    return universities || []
   } catch (error) {
     console.error("Error in getUniversitiesFromIds:", error)
     return []

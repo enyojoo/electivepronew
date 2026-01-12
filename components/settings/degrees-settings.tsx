@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 import { Skeleton } from "@/components/ui/skeleton"
+import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useCachedDegrees } from "@/hooks/use-cached-degrees"
 
 interface DegreeFormData {
@@ -71,7 +72,7 @@ export function DegreesSettings() {
   // Format and set degrees from cached data (matching groups page pattern)
   useEffect(() => {
     // Format degrees data
-    if (cachedDegrees && cachedDegrees.length > 0) {
+    if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length > 0) {
       const formattedDegrees = cachedDegrees.map((degree) => ({
         id: degree.id.toString(),
         name: degree.name,
@@ -80,12 +81,17 @@ export function DegreesSettings() {
         status: degree.status,
       }))
 
+      console.log(`[Degrees Settings] Displaying ${formattedDegrees.length} degrees`)
       setDegrees(formattedDegrees)
       setFilteredDegrees(formattedDegrees)
-    } else {
-      // Empty array - no degrees found
+    } else if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length === 0) {
+      // Empty array - no degrees found in database
+      console.log("[Degrees Settings] No degrees found in database")
       setDegrees([])
       setFilteredDegrees([])
+    } else {
+      // Data not loaded yet or invalid
+      console.log("[Degrees Settings] Waiting for degrees data...", { cachedDegrees })
     }
   }, [cachedDegrees])
 

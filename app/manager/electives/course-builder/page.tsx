@@ -25,7 +25,7 @@ import { useDataCache } from "@/lib/data-cache-context"
 
 interface Course {
   id: string
-  name_en: string
+  name: string
   name_ru: string | null
   instructor_en: string
   instructor_ru: string | null
@@ -198,7 +198,7 @@ export default function CourseBuilderPage() {
         .from("courses")
         .select("*")
         .eq("status", "active")
-        .order("name_en", { ascending: true })
+        .order("name", { ascending: true })
 
       if (error) throw error
 
@@ -239,7 +239,7 @@ export default function CourseBuilderPage() {
     if (language === "ru" && course.name_ru) {
       return course.name_ru
     }
-    return course.name_en
+    return course.name
   }
 
   // Get localized instructor based on current language

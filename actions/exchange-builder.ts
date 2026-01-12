@@ -42,13 +42,13 @@ export async function createExchangeProgram(data: {
 
     const packId = packData[0].id
 
-    // Step 2: Use raw SQL to insert into exchange_universities
+    // Step 2: Use raw SQL to insert into universities
     // This bypasses the schema cache issues
     for (const universityId of data.selectedUniversities) {
       try {
         // Get university details
         const { data: universityData, error: universityError } = await supabase
-          .from("exchange_universities")
+          .from("universities")
           .select("name, name_ru, country, city, max_students")
           .eq("id", universityId)
           .single()

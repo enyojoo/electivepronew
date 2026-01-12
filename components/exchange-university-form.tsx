@@ -32,17 +32,13 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const formSchema = z.object({
-    elective_pack_id: z.string().uuid(),
     name: z.string().min(1, t("name_required")),
     name_ru: z.string().optional(),
     country: z.string().min(1, t("country_required")),
-    city: z.string().min(1, t("city_required")),
     description: z.string().optional(),
     description_ru: z.string().optional(),
-    language: z.string().optional(),
     max_students: z.number().int().min(1, t("max_students_positive")),
-    website_url: z.string().url().optional().or(z.literal("")),
-    logo_url: z.string().url().optional().or(z.literal("")),
+    website: z.string().url().optional().or(z.literal("")),
     status: z.enum(["active", "inactive"]),
   })
 
@@ -54,17 +50,13 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
           max_students: university.max_students || 3,
         }
       : {
-          elective_pack_id: "",
           name: "",
           name_ru: "",
           country: "",
-          city: "",
           description: "",
           description_ru: "",
-          language: "",
           max_students: 3,
-          website_url: "",
-          logo_url: "",
+          website: "",
           status: "active",
         },
   })
@@ -105,31 +97,6 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="elective_pack_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("elective_pack")}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("select_elective_pack")} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {electivePacks.map((pack) => (
-                        <SelectItem key={pack.id} value={pack.id}>
-                          {pack.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -160,53 +127,22 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("country")}</FormLabel>
-                    <FormControl>
-                      <CountrySelect
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        countries={getSortedCountries(language)}
-                        language={language}
-                        placeholder={t("select_country")}
-                        disabled={isSubmitting}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("city")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={isSubmitting} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             <FormField
               control={form.control}
-              name="language"
+              name="country"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("language")}</FormLabel>
+                  <FormLabel>{t("country")}</FormLabel>
                   <FormControl>
-                    <Input {...field} disabled={isSubmitting} />
+                    <CountrySelect
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      countries={getSortedCountries(language)}
+                      language={language}
+                      placeholder={t("select_country")}
+                      disabled={isSubmitting}
+                    />
                   </FormControl>
-                  <FormDescription>{t("language_description")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -265,24 +201,10 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
 
             <FormField
               control={form.control}
-              name="website_url"
+              name="website"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("website_url")}</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={isSubmitting} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="logo_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("logo_url")}</FormLabel>
+                  <FormLabel>{t("website")}</FormLabel>
                   <FormControl>
                     <Input {...field} disabled={isSubmitting} />
                   </FormControl>

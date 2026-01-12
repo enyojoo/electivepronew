@@ -293,9 +293,9 @@ export default function ExchangeElectivesPage() {
 
       // First check if there are any student selections associated with this pack
       const { count, error: countError } = await supabase
-        .from("student_exchange_selections")
+        .from("exchange_selections")
         .select("*", { count: "exact", head: true })
-        .eq("exchange_pack_id", packToDelete)
+        .eq("elective_exchange_id", packToDelete)
 
       if (countError) throw countError
 

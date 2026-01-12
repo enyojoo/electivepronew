@@ -643,7 +643,7 @@ export function UsersSettings() {
                             {t("admin.users.edit")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className={user.status === "active" ? "text-destructive" : "text-green-600"}
+                            className={user.status === "active" ? "text-orange-600" : "text-green-600"}
                             onClick={() => handleStatusChange(user.id, user.status !== "active")}
                           >
                             {user.status === "active" ? t("admin.users.deactivate") : t("admin.users.activate")}

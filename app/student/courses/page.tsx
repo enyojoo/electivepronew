@@ -61,6 +61,7 @@ export default function ElectivesPage() {
       )
       try {
         // Fetch elective courses for the group
+        // elective_courses is the main table with name, deadline, max_selections, etc.
         console.log("ElectivesPage: Fetching elective_courses...")
         const { data: coursesData, error: coursesError } = await supabaseClient
           .from("elective_courses")
@@ -199,8 +200,12 @@ export default function ElectivesPage() {
             {electiveCourses.map((elective) => {
               const selectionStatus = getSelectionStatus(elective.id)
               const selectedCount = getSelectedCoursesCount(elective.id)
-              const deadlinePassed = isDeadlinePassed(elective.deadline)
-              const name = language === "ru" && elective.name_ru ? elective.name_ru : elective.name
+              // elective_courses has name, deadline, max_selections directly
+              const name = language === "ru" && elective.name_ru ? elective.name_ru : elective.name || ""
+              const status = elective.status || "draft"
+              const maxSelections = elective.max_selections
+              const deadline = elective.deadline
+              const deadlinePassed = deadline ? isDeadlinePassed(deadline) : false
 
               return (
                 <Card
@@ -235,8 +240,10 @@ export default function ElectivesPage() {
                           </Badge>
                         )}
                       </div>
-                      {elective.status === "draft" ? (
+                      {status === "draft" ? (
                         <Badge variant="outline">{t("student.courses.comingSoon")}</Badge>
+                      ) : status === "inactive" ? (
+                        <Badge variant="destructive">{t("student.courses.closed")}</Badge>
                       ) : deadlinePassed ? (
                         <Badge variant="destructive">{t("student.courses.closed")}</Badge>
                       ) : (
@@ -247,15 +254,19 @@ export default function ElectivesPage() {
                   <CardContent className="flex-grow"></CardContent>
                   <CardFooter className="flex flex-col pt-0 pb-4 gap-4">
                     <div className="flex flex-col gap-y-2 text-sm w-full">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">{t("student.courses.deadline")}:</span>
-                        <span className={deadlinePassed ? "text-red-600" : ""}>{formatDate(elective.deadline)}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
+                      {deadline && (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground">{t("student.courses.limit")}:</span>
-                          <span>{elective.max_selections}</span>
+                          <span className="text-muted-foreground">{t("student.courses.deadline")}:</span>
+                          <span className={deadlinePassed ? "text-red-600" : ""}>{formatDate(deadline)}</span>
                         </div>
+                      )}
+                      <div className="flex items-center gap-4">
+                        {maxSelections && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">{t("student.courses.limit")}:</span>
+                            <span>{maxSelections}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -269,13 +280,13 @@ export default function ElectivesPage() {
                       }`}
                     >
                       <span className="text-sm">
-                        {t("student.courses.selected")}: {selectedCount}/{elective.max_selections}
+                        {t("student.courses.selected")}: {selectedCount}{maxSelections ? `/${maxSelections}` : ""}
                       </span>
                       <Link href={`/student/courses/${elective.id}`}>
                         <Button
                           size="sm"
                           variant={
-                            elective.status === "draft" ||
+                            status === "draft" ||
                             (deadlinePassed && selectionStatus !== "approved" && selectionStatus !== "pending")
                               ? "outline"
                               : selectionStatus === "approved"

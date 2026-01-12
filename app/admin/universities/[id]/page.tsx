@@ -20,7 +20,6 @@ interface University {
   name_ru: string | null
   country: string
   website: string | null
-  language: string | null
   status: string
   max_students: number
   created_at: string

@@ -296,10 +296,11 @@ export default function StudentDashboard() {
         const now = new Date()
 
         // Fetch course electives with deadlines
+        // elective_courses has name, deadline, status directly
         const { data: courseElectives, error: courseError } = await supabase
           .from("elective_courses")
           .select("id, name, name_ru, deadline, status")
-          .eq("status", "published")
+          .eq("status", "active")
           .not("deadline", "is", null)
           .gte("deadline", now.toISOString())
           .order("deadline", { ascending: true })

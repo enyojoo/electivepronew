@@ -60,12 +60,12 @@ export default function ExchangePage() {
         profile.group.id,
       )
       try {
-        // Fetch exchange programs for the group
+        // Fetch exchange programs
+        // RLS policies will filter by group automatically
         console.log("ExchangePage: Fetching elective_exchange...")
         const { data: exchangeData, error: exchangeError } = await supabaseClient
           .from("elective_exchange")
           .select("*")
-          .eq("group_id", profile.group.id)
           .order("deadline", { ascending: false })
 
         if (exchangeError) {
