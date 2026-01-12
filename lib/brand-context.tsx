@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import {
@@ -29,6 +29,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [settings, setSettings] = useState<BrandSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const supabase = getSupabaseBrowserClient()
   
 
   // Determine if we're in the admin section
@@ -131,8 +132,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const supabaseClient = getSupabaseBrowserClient()
-        const { data, error } = await supabaseClient
+        const { data, error } = await supabase
           .from("settings")
           .select("name, primary_color, logo_url, favicon_url")
           .order("created_at", { ascending: true })
@@ -171,7 +171,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     loadSettings()
-  }, [applyBranding])
+  }, [applyBranding, supabase])
 
   // Re-apply branding when pathname changes (to handle admin page detection)
   useEffect(() => {
@@ -184,23 +184,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     async (updates: Partial<BrandSettings>) => {
       try {
-        // Get a fresh client instance to ensure it's properly initialized
-        const supabaseClient = getSupabaseBrowserClient()
-        
-        // Verify the client has the API key configured
-        if (!supabaseClient) {
-          throw new Error("Supabase client not initialized")
-        }
-
-        // Debug: Check if API key is configured
-        const apiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        if (!apiKey) {
-          console.error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set!")
-          throw new Error("Supabase API key not configured")
-        }
-
         // Get existing settings to preserve ID and other fields
-        const { data: existingSettings, error: fetchError } = await supabaseClient
+        const { data: existingSettings, error: fetchError } = await supabase
           .from("settings")
           .select("*")
           .limit(1)
@@ -247,7 +232,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         let result
         if (existingSettings?.id) {
           // Row exists - use UPDATE
-          result = await supabaseClient
+          result = await supabase
             .from("settings")
             .update(updateData)
             .eq("id", existingSettings.id)
@@ -262,7 +247,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             favicon_url: updateData.favicon_url || null,
             updated_at: updateData.updated_at,
           }
-          result = await supabaseClient
+          result = await supabase
             .from("settings")
             .insert(insertData)
             .select("name, primary_color, logo_url, favicon_url")
@@ -287,14 +272,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         applyBranding(newSettings)
       } catch (error) {
         console.error("Error updating brand settings:", error)
-        console.error("Error details:", {
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        })
         throw error
       }
     },
-    [applyBranding],
+    [applyBranding, supabase],
   )
 
   return <BrandContext.Provider value={{ settings, updateSettings, isLoading }}>{children}</BrandContext.Provider>
