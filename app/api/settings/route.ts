@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
-import { createApiRouteClient } from "@/lib/supabase-api"
 import { getBrandSettings } from "@/lib/supabase/brand-settings"
 
 /**
@@ -9,28 +8,19 @@ import { getBrandSettings } from "@/lib/supabase/brand-settings"
  */
 export async function GET(request: NextRequest) {
   try {
-    // Try both methods - API route client and server component client
-    let supabase = await createApiRouteClient(request)
-    let {
+    // Use createServerComponentClient which properly reads cookies in API routes
+    const supabase = await createServerComponentClient()
+    const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
-
-    // If API route client fails, try server component client as fallback
-    if (sessionError || !session) {
-      console.log("API route client failed, trying server component client")
-      supabase = await createServerComponentClient()
-      const sessionResult = await supabase.auth.getSession()
-      session = sessionResult.data?.session || null
-      sessionError = sessionResult.error || null
-    }
 
     if (sessionError) {
       console.error("Session error:", sessionError)
     }
 
     if (!session) {
-      console.error("No session found - cookies:", request.headers.get("cookie")?.substring(0, 100))
+      console.error("No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -84,28 +74,19 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    // Try both methods - API route client and server component client
-    let supabase = await createApiRouteClient(request)
-    let {
+    // Use createServerComponentClient which properly reads cookies in API routes
+    const supabase = await createServerComponentClient()
+    const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
-
-    // If API route client fails, try server component client as fallback
-    if (sessionError || !session) {
-      console.log("API route client failed, trying server component client")
-      supabase = await createServerComponentClient()
-      const sessionResult = await supabase.auth.getSession()
-      session = sessionResult.data?.session || null
-      sessionError = sessionResult.error || null
-    }
 
     if (sessionError) {
       console.error("Session error:", sessionError)
     }
 
     if (!session) {
-      console.error("No session found - cookies:", request.headers.get("cookie")?.substring(0, 100))
+      console.error("No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -219,7 +200,7 @@ export async function PUT(request: NextRequest) {
         errorCode: error.code,
         errorMessage: error.message,
         errorDetails: error.details,
-        updateData,
+        upsertData,
       })
       return NextResponse.json(
         { error: error.message || "Failed to update settings", errorCode: error.code },

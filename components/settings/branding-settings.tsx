@@ -16,6 +16,7 @@ import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 // Use a constant cache key since there's only one settings row
 const SETTINGS_CACHE_KEY = "settings"
@@ -59,6 +60,7 @@ export function BrandingSettings() {
   const router = useRouter()
   const { invalidateCache, setCachedData } = useDataCache()
   const { settings, isLoading } = useCachedSettings()
+  const supabase = getSupabaseBrowserClient()
   const [isSaving, setIsSaving] = useState(false)
   const [isLogoUploading, setIsLogoUploading] = useState(false)
   const [isFaviconUploading, setIsFaviconUploading] = useState(false)
@@ -302,62 +304,75 @@ export function BrandingSettings() {
   const handleSaveChanges = async () => {
     setIsSaving(true)
     try {
-      // Prepare update data - ensure NOT NULL constraints are satisfied
-      const updateData: {
+      // First, get existing settings to preserve values and get the ID
+      const { data: existingSettings } = await supabase
+        .from("settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle()
+
+      // Get existing ID or generate new UUID for creating
+      let settingsId: string
+      if (existingSettings?.id) {
+        settingsId = existingSettings.id
+      } else {
+        // Generate a new UUID for the settings row
+        settingsId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0
+          const v = c === "x" ? r : (r & 0x3) | 0x8
+          return v.toString(16)
+        })
+      }
+
+      // Prepare upsert data - ensure NOT NULL constraints are satisfied
+      const upsertData: {
+        id: string
         name: string
         primary_color: string
         logo_url?: string | null
         favicon_url?: string | null
+        updated_at: string
       } = {
+        id: settingsId,
         name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
         primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
+        updated_at: new Date().toISOString(),
       }
 
-      // Include logo URL if a new logo was uploaded, otherwise keep existing
+      // Include logo URL if a new logo was uploaded, otherwise preserve existing
       if (pendingLogoUrl) {
-        updateData.logo_url = pendingLogoUrl
-      } else if (settings?.logo_url !== undefined) {
-        updateData.logo_url = settings.logo_url
+        upsertData.logo_url = pendingLogoUrl
+      } else if (existingSettings?.logo_url !== undefined) {
+        upsertData.logo_url = existingSettings.logo_url
       }
 
-      // Include favicon URL if a new favicon was uploaded, otherwise keep existing
+      // Include favicon URL if a new favicon was uploaded, otherwise preserve existing
       if (pendingFaviconUrl) {
-        updateData.favicon_url = pendingFaviconUrl
-      } else if (settings?.favicon_url !== undefined) {
-        updateData.favicon_url = settings.favicon_url
+        upsertData.favicon_url = pendingFaviconUrl
+      } else if (existingSettings?.favicon_url !== undefined) {
+        upsertData.favicon_url = existingSettings.favicon_url
       }
 
-      // Use API route to update settings (handles authentication and authorization)
-      const response = await fetch("/api/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Include cookies for authentication
-        body: JSON.stringify(updateData),
-      })
+      // Use upsert to create or update settings
+      const { data, error } = await supabase
+        .from("settings")
+        .upsert(upsertData, { onConflict: "id" })
+        .select()
+        .single()
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to save settings" }))
-        console.error("Settings save error:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-          updateData,
-        })
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      if (error) {
+        console.error("Settings save error:", error)
+        throw error
       }
 
-      const result = await response.json()
-
-      // Update cache with new settings immediately using the response data
+      // Update cache with new settings immediately
       const updatedSettings = {
         ...settings,
-        ...(result.settings || {
+        ...(data || {
           name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
           primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-          logo_url: pendingLogoUrl || settings?.logo_url || null,
-          favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
+          logo_url: pendingLogoUrl || existingSettings?.logo_url || null,
+          favicon_url: pendingFaviconUrl || existingSettings?.favicon_url || null,
           updated_at: new Date().toISOString(),
         }),
       }

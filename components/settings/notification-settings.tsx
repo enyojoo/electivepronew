@@ -10,6 +10,7 @@ import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 // Use a constant cache key since there's only one settings row
 const SETTINGS_CACHE_KEY = "settings"
@@ -20,31 +21,33 @@ export function NotificationSettings() {
   const { setCachedData } = useDataCache()
   const { settings, isLoading } = useCachedSettings()
   const [isSaving, setIsSaving] = useState(false)
+  const supabase = getSupabaseBrowserClient()
 
-  // Notification settings state
-  const [selectionNotifications, setSelectionNotifications] = useState(true)
-  const [statusUpdateNotifications, setStatusUpdateNotifications] = useState(true)
-  const [platformAnnouncements, setPlatformAnnouncements] = useState(true)
-  const [userEmailNotifications, setUserEmailNotifications] = useState(true)
+  // Notification settings state - default to false (off) in UI
+  const [selectionNotifications, setSelectionNotifications] = useState(false)
+  const [statusUpdateNotifications, setStatusUpdateNotifications] = useState(false)
+  const [platformAnnouncements, setPlatformAnnouncements] = useState(false)
+  const [userEmailNotifications, setUserEmailNotifications] = useState(false)
 
   // Update state when settings are loaded
   useEffect(() => {
     if (settings) {
-      const selection = settings.selection_notifications ?? true
-      const statusUpdate = settings.status_update_notifications ?? true
-      const announcements = settings.platform_announcements ?? true
-      const userEmails = settings.user_email_notifications ?? true
+      // Use database values if they exist, otherwise default to false (off)
+      const selection = settings.selection_notifications ?? false
+      const statusUpdate = settings.status_update_notifications ?? false
+      const announcements = settings.platform_announcements ?? false
+      const userEmails = settings.user_email_notifications ?? false
 
       setSelectionNotifications(selection)
       setStatusUpdateNotifications(statusUpdate)
       setPlatformAnnouncements(announcements)
       setUserEmailNotifications(userEmails)
     } else if (!isLoading) {
-      // Defaults if no settings
-      setSelectionNotifications(true)
-      setStatusUpdateNotifications(true)
-      setPlatformAnnouncements(true)
-      setUserEmailNotifications(true)
+      // Defaults if no settings - all off
+      setSelectionNotifications(false)
+      setStatusUpdateNotifications(false)
+      setPlatformAnnouncements(false)
+      setUserEmailNotifications(false)
     }
   }, [settings, isLoading])
 
@@ -58,26 +61,86 @@ export function NotificationSettings() {
     
     setIsSaving(true)
     try {
-      // Use API route to update settings
-      const response = await fetch("/api/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updateData),
-      })
+      // First, get existing settings to preserve values and get the ID
+      const { data: existingSettings } = await supabase
+        .from("settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle()
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Failed to save settings" }))
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      // Get existing ID or generate new UUID for creating
+      let settingsId: string
+      if (existingSettings?.id) {
+        settingsId = existingSettings.id
+      } else {
+        // Generate a new UUID for the settings row
+        settingsId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0
+          const v = c === "x" ? r : (r & 0x3) | 0x8
+          return v.toString(16)
+        })
       }
 
-      const result = await response.json()
+      // Prepare upsert data - always include required NOT NULL fields
+      const upsertData: {
+        id: string
+        name: string
+        primary_color: string
+        selection_notifications?: boolean
+        status_update_notifications?: boolean
+        platform_announcements?: boolean
+        user_email_notifications?: boolean
+        updated_at: string
+      } = {
+        id: settingsId,
+        // Use existing values or defaults for required fields
+        name: existingSettings?.name || "ElectivePRO",
+        primary_color: existingSettings?.primary_color || "#027659",
+        updated_at: new Date().toISOString(),
+      }
+
+      // Include the notification settings being updated
+      if (updateData.selection_notifications !== undefined) {
+        upsertData.selection_notifications = updateData.selection_notifications
+      } else if (existingSettings?.selection_notifications !== undefined) {
+        upsertData.selection_notifications = existingSettings.selection_notifications
+      }
+
+      if (updateData.status_update_notifications !== undefined) {
+        upsertData.status_update_notifications = updateData.status_update_notifications
+      } else if (existingSettings?.status_update_notifications !== undefined) {
+        upsertData.status_update_notifications = existingSettings.status_update_notifications
+      }
+
+      if (updateData.platform_announcements !== undefined) {
+        upsertData.platform_announcements = updateData.platform_announcements
+      } else if (existingSettings?.platform_announcements !== undefined) {
+        upsertData.platform_announcements = existingSettings.platform_announcements
+      }
+
+      if (updateData.user_email_notifications !== undefined) {
+        upsertData.user_email_notifications = updateData.user_email_notifications
+      } else if (existingSettings?.user_email_notifications !== undefined) {
+        upsertData.user_email_notifications = existingSettings.user_email_notifications
+      }
+
+      // Use upsert to create or update settings
+      const { data, error } = await supabase
+        .from("settings")
+        .upsert(upsertData, { onConflict: "id" })
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error saving notification settings:", error)
+        // Silent fail - no toast notification
+        return
+      }
 
       // Update cache with new settings immediately
       const updatedSettings = {
         ...settings,
-        ...(result.settings || updateData),
+        ...(data || updateData),
         updated_at: new Date().toISOString(),
       }
       setCachedData("settings", SETTINGS_CACHE_KEY, updatedSettings)

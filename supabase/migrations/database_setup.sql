@@ -247,9 +247,9 @@ CREATE TABLE IF NOT EXISTS selection_universities (
 
 -- Settings table for single-institution branding and settings
 CREATE TABLE IF NOT EXISTS settings (
-  id UUID PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000000'::uuid,
-  name TEXT,
-  primary_color TEXT,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL DEFAULT 'ElectivePRO',
+  primary_color TEXT NOT NULL DEFAULT '#027659',
   logo_url TEXT,
   favicon_url TEXT,
   -- Email notification settings
@@ -258,8 +258,7 @@ CREATE TABLE IF NOT EXISTS settings (
   platform_announcements BOOLEAN DEFAULT true,
   user_email_notifications BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT settings_single_row CHECK (id = '00000000-0000-0000-0000-000000000000'::uuid)
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ====================================================
@@ -423,7 +422,7 @@ BEGIN
 END;
 $func$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Helper function to get settings
+-- Helper function to get settings (returns the first/only settings row)
 CREATE OR REPLACE FUNCTION get_settings()
 RETURNS TABLE (
   name TEXT,
@@ -439,10 +438,32 @@ BEGIN
     s.logo_url,
     s.favicon_url
   FROM settings s
-  WHERE s.id = '00000000-0000-0000-0000-000000000000'::uuid
+  ORDER BY s.created_at ASC
   LIMIT 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger function to ensure only one settings row exists (singleton pattern)
+CREATE OR REPLACE FUNCTION ensure_single_settings_row()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- If this is an INSERT and there's already a row, prevent the insert
+  IF TG_OP = 'INSERT' THEN
+    IF EXISTS (SELECT 1 FROM settings) THEN
+      RAISE EXCEPTION 'Only one settings row is allowed. Use UPDATE instead of INSERT.';
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger to enforce singleton pattern
+DROP TRIGGER IF EXISTS trigger_ensure_single_settings_row ON settings;
+CREATE TRIGGER trigger_ensure_single_settings_row
+  BEFORE INSERT ON settings
+  FOR EACH ROW
+  EXECUTE FUNCTION ensure_single_settings_row();
 
 -- ====================================================
 -- STEP 9: ENSURE FOREIGN KEY CONSTRAINTS
