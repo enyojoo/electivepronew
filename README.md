@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="https://cldup.com/3DOgOVrIWN.png" alt="ElectivePRO Logo" width="300" />
-
-**The Modern Open-Source Elective Course & Exchange Program Management System**
+**The Open-Source Elective Course & Exchange Program Management System**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://opensource.org/licenses/AGPL-3.0)
 [![Next.js](https://img.shields.io/badge/Next.js-16.0-black?logo=next.js)](https://nextjs.org/)
@@ -15,10 +13,6 @@
 </div>
 
 ---
-
-<div align="center">
-<img src="https://cldup.com/g7W7DHpIxf.png" alt="ElectivePRO Product Screenshot" width="100%" />
-</div>
 
 ## 🎯 Overview
 
