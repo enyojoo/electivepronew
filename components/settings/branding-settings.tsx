@@ -27,26 +27,41 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 }
 
 // Global image cache to persist across component remounts
-const imageCache = {
-  logo: DEFAULT_LOGO_URL,
-  favicon: DEFAULT_FAVICON_URL,
-}
+// Use localStorage to persist custom logos/favicons across page navigations
+const IMAGE_CACHE_KEY = "epro-brand-image-cache"
 
-// Preload default images to prevent flashing - ensure they're cached globally
-if (typeof window !== "undefined") {
-  // Preload and cache default images
-  const preloadLogo = new Image()
-  preloadLogo.src = DEFAULT_LOGO_URL
-  preloadLogo.onload = () => {
-    imageCache.logo = DEFAULT_LOGO_URL
+function getImageCache() {
+  if (typeof window === "undefined") {
+    return { logo: DEFAULT_LOGO_URL, favicon: DEFAULT_FAVICON_URL }
   }
   
-  const preloadFavicon = new Image()
-  preloadFavicon.src = DEFAULT_FAVICON_URL
-  preloadFavicon.onload = () => {
-    imageCache.favicon = DEFAULT_FAVICON_URL
+  try {
+    const cached = localStorage.getItem(IMAGE_CACHE_KEY)
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      return {
+        logo: parsed.logo || DEFAULT_LOGO_URL,
+        favicon: parsed.favicon || DEFAULT_FAVICON_URL,
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+  
+  return { logo: DEFAULT_LOGO_URL, favicon: DEFAULT_FAVICON_URL }
+}
+
+function saveImageCache(logo: string, favicon: string) {
+  if (typeof window === "undefined") return
+  
+  try {
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify({ logo, favicon }))
+  } catch {
+    // Ignore errors
   }
 }
+
+const imageCache = getImageCache()
 
 export function BrandingSettings() {
   const { t } = useLanguage()
@@ -68,6 +83,7 @@ export function BrandingSettings() {
   const [pendingFaviconUrl, setPendingFaviconUrl] = useState<string | null>(null)
   
   // Use refs to directly manipulate image elements without causing re-renders
+  // Initialize from localStorage cache (persists across navigations)
   const logoImgRef = useRef<HTMLImageElement>(null)
   const faviconImgRef = useRef<HTMLImageElement>(null)
   const logoSrcRef = useRef<string>(imageCache.logo)
@@ -76,19 +92,17 @@ export function BrandingSettings() {
   // Ref callbacks to set src immediately when element is created (synchronous, prevents flash)
   const setLogoRef = (element: HTMLImageElement | null) => {
     logoImgRef.current = element
-    if (element) {
-      // Set src immediately from cache to prevent flash
-      element.src = imageCache.logo
-      logoSrcRef.current = imageCache.logo
+    if (element && logoSrcRef.current) {
+      // Set src immediately from ref to prevent flash
+      element.src = logoSrcRef.current
     }
   }
 
   const setFaviconRef = (element: HTMLImageElement | null) => {
     faviconImgRef.current = element
-    if (element) {
-      // Set src immediately from cache to prevent flash
-      element.src = imageCache.favicon
-      faviconSrcRef.current = imageCache.favicon
+    if (element && faviconSrcRef.current) {
+      // Set src immediately from ref to prevent flash
+      element.src = faviconSrcRef.current
     }
   }
 
@@ -100,69 +114,54 @@ export function BrandingSettings() {
     settings.favicon_url
   )
 
-  // Update images when settings load or URLs change (but only if different from current)
+  // Update images immediately when settings load (synchronously, no flicker)
+  // This matches the Logo component behavior - instant update, no preloading delay
   useEffect(() => {
-    // If custom branding exists and we have a valid custom logo/favicon, use it
-    // Otherwise, always show defaults (better UX than showing nothing)
+    if (isLoading || !settings) return
+
+    // Determine final sources - same logic as Logo component
+    // If custom branding exists and we have valid custom logo/favicon, use it
+    // Otherwise use defaults (only if no custom branding exists)
     const finalLogoSrc = (hasCustomBranding && isValidUrl(logoUrl))
       ? logoUrl
       : DEFAULT_LOGO_URL
     const finalFaviconSrc = (hasCustomBranding && isValidUrl(faviconUrl))
       ? faviconUrl
       : DEFAULT_FAVICON_URL
-    
-    // Only update if the URL actually changed
-    if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
-      // Preload the new image before switching
-      const img = new Image()
-      img.onload = () => {
-        if (logoImgRef.current && logoSrcRef.current !== finalLogoSrc) {
-          logoSrcRef.current = finalLogoSrc
-          logoImgRef.current.src = finalLogoSrc
-          logoImgRef.current.style.display = "block"
-          imageCache.logo = finalLogoSrc
-        }
-      }
-      img.onerror = () => {
-        // If image fails, fall back to default
-        if (logoImgRef.current && logoSrcRef.current !== DEFAULT_LOGO_URL) {
-          logoSrcRef.current = DEFAULT_LOGO_URL
-          logoImgRef.current.src = DEFAULT_LOGO_URL
-          logoImgRef.current.style.display = "block"
-          imageCache.logo = DEFAULT_LOGO_URL
-        }
-      }
-      img.src = finalLogoSrc
-    }
-    
-    if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
-      // Preload the new image before switching
-      const img = new Image()
-      img.onload = () => {
-        if (faviconImgRef.current && faviconSrcRef.current !== finalFaviconSrc) {
-          faviconSrcRef.current = finalFaviconSrc
-          faviconImgRef.current.src = finalFaviconSrc
-          faviconImgRef.current.style.display = "block"
-          imageCache.favicon = finalFaviconSrc
-        }
-      }
-      img.onerror = () => {
-        // If image fails, fall back to default
-        if (faviconImgRef.current && faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
-          faviconSrcRef.current = DEFAULT_FAVICON_URL
-          faviconImgRef.current.src = DEFAULT_FAVICON_URL
-          faviconImgRef.current.style.display = "block"
-          imageCache.favicon = DEFAULT_FAVICON_URL
-        }
-      }
-      img.src = finalFaviconSrc
-    }
-  }, [logoUrl, faviconUrl, hasCustomBranding])
 
-  // Use ref values for initial render - these won't change on re-renders
-  // Always ensure we have a value (default if not set yet)
-  const logoSrc = logoSrcRef.current || DEFAULT_LOGO_URL
-  const faviconSrc = faviconSrcRef.current || DEFAULT_FAVICON_URL
+    // Update refs immediately (synchronous, prevents flash)
+    // This ensures preview shows correct image instantly when navigating back
+    if (logoSrcRef.current !== finalLogoSrc) {
+      logoSrcRef.current = finalLogoSrc
+      // Update image element if it exists
+      if (logoImgRef.current) {
+        logoImgRef.current.src = finalLogoSrc
+        logoImgRef.current.style.display = "block"
+      }
+      // Save to persistent cache for next navigation
+      saveImageCache(finalLogoSrc, faviconSrcRef.current)
+    }
+
+    if (faviconSrcRef.current !== finalFaviconSrc) {
+      faviconSrcRef.current = finalFaviconSrc
+      // Update image element if it exists
+      if (faviconImgRef.current) {
+        faviconImgRef.current.src = finalFaviconSrc
+        faviconImgRef.current.style.display = "block"
+      }
+      // Save to persistent cache for next navigation
+      saveImageCache(logoSrcRef.current, finalFaviconSrc)
+    }
+  }, [settings, isLoading, logoUrl, faviconUrl, hasCustomBranding])
+
+  // Use ref values for rendering - show skeleton while loading, then show image
+  // Refs are updated synchronously when settings load, so they'll have the correct value
+  const logoSrc = isLoading || !settings 
+    ? null // Show skeleton while loading
+    : logoSrcRef.current // Will be custom logo or default based on branding
+  const faviconSrc = isLoading || !settings
+    ? null // Show skeleton while loading
+    : faviconSrcRef.current // Will be custom favicon or default based on branding
 
   // Update state when settings are loaded
   useEffect(() => {
@@ -238,6 +237,14 @@ export function BrandingSettings() {
       
       // Update preview immediately
       setFaviconUrl(newFaviconUrl)
+      
+      // Update ref immediately to show in preview
+      faviconSrcRef.current = newFaviconUrl
+      if (faviconImgRef.current) {
+        faviconImgRef.current.src = newFaviconUrl
+        faviconImgRef.current.style.display = "block"
+      }
+      saveImageCache(logoSrcRef.current, newFaviconUrl)
 
       toast({
         title: t("settings.toast.faviconUploaded"),
@@ -294,6 +301,14 @@ export function BrandingSettings() {
       
       // Update preview immediately
       setLogoUrl(newLogoUrl)
+      
+      // Update ref immediately to show in preview
+      logoSrcRef.current = newLogoUrl
+      if (logoImgRef.current) {
+        logoImgRef.current.src = newLogoUrl
+        logoImgRef.current.style.display = "block"
+      }
+      saveImageCache(newLogoUrl, faviconSrcRef.current)
 
       toast({
         title: t("settings.toast.logoUploaded"),
@@ -347,9 +362,23 @@ export function BrandingSettings() {
       setOriginalInstitutionName(institutionName)
       if (pendingLogoUrl) {
         setLogoUrl(pendingLogoUrl)
+        // Update ref immediately to show in preview
+        logoSrcRef.current = pendingLogoUrl
+        if (logoImgRef.current) {
+          logoImgRef.current.src = pendingLogoUrl
+          logoImgRef.current.style.display = "block"
+        }
+        saveImageCache(pendingLogoUrl, faviconSrcRef.current)
       }
       if (pendingFaviconUrl) {
         setFaviconUrl(pendingFaviconUrl)
+        // Update ref immediately to show in preview
+        faviconSrcRef.current = pendingFaviconUrl
+        if (faviconImgRef.current) {
+          faviconImgRef.current.src = pendingFaviconUrl
+          faviconImgRef.current.style.display = "block"
+        }
+        saveImageCache(logoSrcRef.current, pendingFaviconUrl)
       }
       setPendingLogoFile(null)
       setPendingFaviconFile(null)
@@ -455,11 +484,13 @@ export function BrandingSettings() {
                       className="h-full w-full object-contain"
                       loading="eager"
                       onError={(e) => {
-                        // If custom image fails, fall back to default
-                        if (logoUrl && e.currentTarget.src !== DEFAULT_LOGO_URL) {
-                          e.currentTarget.src = DEFAULT_LOGO_URL
-                        } else {
+                        // If custom image fails, only fall back to default if no custom branding
+                        if (hasCustomBranding) {
                           e.currentTarget.style.display = "none"
+                        } else if (e.currentTarget.src !== DEFAULT_LOGO_URL) {
+                          e.currentTarget.src = DEFAULT_LOGO_URL
+                          logoSrcRef.current = DEFAULT_LOGO_URL
+                          saveImageCache(DEFAULT_LOGO_URL, faviconSrcRef.current)
                         }
                       }}
                     />
@@ -510,11 +541,13 @@ export function BrandingSettings() {
                       className="h-full w-full object-contain"
                       loading="eager"
                       onError={(e) => {
-                        // If custom image fails, fall back to default
-                        if (faviconUrl && e.currentTarget.src !== DEFAULT_FAVICON_URL) {
-                          e.currentTarget.src = DEFAULT_FAVICON_URL
-                        } else {
+                        // If custom image fails, only fall back to default if no custom branding
+                        if (hasCustomBranding) {
                           e.currentTarget.style.display = "none"
+                        } else if (e.currentTarget.src !== DEFAULT_FAVICON_URL) {
+                          e.currentTarget.src = DEFAULT_FAVICON_URL
+                          faviconSrcRef.current = DEFAULT_FAVICON_URL
+                          saveImageCache(logoSrcRef.current, DEFAULT_FAVICON_URL)
                         }
                       }}
                     />
