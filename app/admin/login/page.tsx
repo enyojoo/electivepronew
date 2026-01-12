@@ -8,15 +8,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff } from "lucide-react"
-import { DEFAULT_LOGO_URL } from "@/lib/constants"
 import Link from "next/link"
 import Indicator from "@/components/indicator"
+import Logo from "@/components/logo"
 
 export default function AdminLoginPage() {
   const { t } = useLanguage()
@@ -89,13 +88,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 bg-background">
       <div className="mx-auto max-w-md space-y-6 w-full">
         <div className="flex justify-center mb-6">
-          <Image
-            src={DEFAULT_LOGO_URL}
-            alt="ElectivePRO Logo"
-            width={160}
-            height={45}
-            className="h-10 w-auto"
-          />
+          <Logo className="mb-4 h-8 w-auto max-w-[160px]" />
         </div>
         <Card>
           <CardHeader>
