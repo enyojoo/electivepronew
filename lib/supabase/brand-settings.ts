@@ -68,13 +68,14 @@ export async function getBrandSettings(): Promise<BrandSettings> {
   // If admin has set custom branding, use custom values where set
   // Empty/null values fallback to defaults
   if (hasCustomBranding) {
+    const customName = platformSettings.name || DEFAULT_PLATFORM_NAME
     return {
-      platformName: DEFAULT_PLATFORM_NAME,
+      platformName: customName, // Use custom name for emails and platform references
       platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
       logo: platformSettings.logo_url || DEFAULT_LOGO_URL,
       favicon: platformSettings.favicon_url || DEFAULT_FAVICON_URL,
       primaryColor: platformSettings.primary_color || DEFAULT_PRIMARY_COLOR,
-      institutionName: platformSettings.name || DEFAULT_PLATFORM_NAME,
+      institutionName: customName,
       contactEmail: getContactEmail(),
       appUrl: getAppUrl(),
     }

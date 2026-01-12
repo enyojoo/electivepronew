@@ -260,7 +260,9 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
               {t("logout")}
             </button>
           </div>
-          <Indicator />
+          <div className="px-4 pb-4">
+            <Indicator />
+          </div>
         </div>
       </div>
     </>

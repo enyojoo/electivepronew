@@ -28,10 +28,11 @@ export async function generateBaseEmailTemplate(
   language: "en" | "ru" = "en"
 ): Promise<string> {
   const settings = brandSettings || (await getBrandSettingsForEmail())
-  const platformName = settings.platformName || "ElectivePRO"
+  // Use custom brand settings, fallback to defaults if not provided
+  const platformName = settings.platformName || DEFAULT_PLATFORM_NAME
   const contactEmail = settings.contactEmail || "support@electivepro.org"
   const appUrl = settings.appUrl || DEFAULT_APP_URL
-  const primaryColor = settings.primaryColor || "#027659"
+  const primaryColor = settings.primaryColor || DEFAULT_PRIMARY_COLOR
   const poweredByLogoUrl = language === "ru" ? POWERED_BY_LOGO_URL_BLACK_RU : POWERED_BY_LOGO_URL_BLACK_EN
 
   const ctaButtonHtml = ctaButton

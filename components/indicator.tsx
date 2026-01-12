@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
@@ -10,15 +9,7 @@ const POWERED_BY_LOGO_URL_RU = "https://cldup.com/8RX9GenGPk.png"
 const PLATFORM_WEBSITE = "https://www.electivepro.net/"
 
 export default function Indicator() {
-  const [mounted, setMounted] = useState(false)
   const { language } = useLanguage()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
-
   const logoUrl = language === "ru" ? POWERED_BY_LOGO_URL_RU : POWERED_BY_LOGO_URL_EN
 
   return (
@@ -35,6 +26,7 @@ export default function Indicator() {
           width={96}
           height={16}
           className="h-4 w-auto object-contain"
+          priority
         />
       </Link>
     </div>
