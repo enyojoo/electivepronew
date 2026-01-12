@@ -69,10 +69,13 @@ export default function ManagerSignupPage() {
         // Process degrees
         if (data && data.length > 0) {
           setDegrees(data)
+          // Set first degree as default - this will trigger academic years fetch
+          const firstDegreeId = String(data[0].id)
           setFormData((prev) => ({
             ...prev,
-            degreeId: data[0].id.toString(),
+            degreeId: firstDegreeId,
           }))
+          console.log("Degrees loaded, default degree set to:", firstDegreeId)
         } else {
           console.warn("No degrees found in database")
           setDegrees([])
@@ -106,7 +109,7 @@ export default function ManagerSignupPage() {
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
-          .eq("degree_id", formData.degreeId)
+          .eq("degree_id", Number(formData.degreeId))
           .eq("is_active", true)
           .order("year", { ascending: false })
 
@@ -302,11 +305,7 @@ export default function ManagerSignupPage() {
                     disabled={isLoadingDegrees}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={t("admin.users.selectDegree")}>
-                        {formData.degreeId && degrees.length > 0
-                          ? getDegreeName(degrees.find((d) => d.id?.toString() === formData.degreeId))
-                          : null}
-                      </SelectValue>
+                      <SelectValue placeholder={t("admin.users.selectDegree")} />
                     </SelectTrigger>
                     <SelectContent>
                       {degrees.length === 0 ? (
@@ -315,7 +314,7 @@ export default function ManagerSignupPage() {
                         </SelectItem>
                       ) : (
                         degrees.map((degree) => (
-                          <SelectItem key={degree.id} value={degree.id.toString()}>
+                          <SelectItem key={degree.id} value={String(degree.id)}>
                             {getDegreeName(degree)}
                           </SelectItem>
                         ))
@@ -330,6 +329,7 @@ export default function ManagerSignupPage() {
                     value={formData.academicYear}
                     onValueChange={(value) => handleSelectChange("academicYear", value)}
                     required
+                    disabled={!formData.degreeId || enrollmentYears.length === 0}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={t("auth.signup.selectYear")} />

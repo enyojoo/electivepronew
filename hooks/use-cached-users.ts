@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useDataCache } from "@/lib/data-cache-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useLanguage } from "@/lib/language-context"
+
+// Cache key and expiry (matching groups page pattern)
+const USERS_CACHE_KEY = "admin_users_cache"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
 
 // Helper function to transform user data based on language
 const transformUserData = (data: any[], currentLanguage: string) => {
@@ -65,43 +68,75 @@ const transformUserData = (data: any[], currentLanguage: string) => {
 }
 
 export function useCachedUsers() {
-  const [users, setUsers] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { getCachedData, setCachedData } = useDataCache()
-  const { toast } = useToast()
   const { language } = useLanguage()
+  const { toast } = useToast()
+  
+  // Load cached data synchronously on initial render (like groups page)
+  const initialCachedData = (() => {
+    if (typeof window === "undefined") return null
+    
+    try {
+      const cached = localStorage.getItem(USERS_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          return data || []
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached users:", error)
+    }
+    return null
+  })()
 
   // Raw data ref to store the original data with all language versions
-  const rawDataRef = useRef<any[]>([])
+  const rawDataRef = useRef<any[]>(initialCachedData || [])
 
   // Flag to track if initial data has been loaded
-  const initialDataLoadedRef = useRef(false)
+  const initialDataLoadedRef = useRef(!!initialCachedData)
 
+  const [users, setUsers] = useState<any[]>(() => {
+    // Transform cached data on initial render if available
+    if (initialCachedData && initialCachedData.length > 0) {
+      return transformUserData(initialCachedData, language)
+    }
+    return []
+  })
+  
+  const [isLoading, setIsLoading] = useState(() => {
+    // Only set loading if we don't have valid cache
+    if (typeof window === "undefined") return true
+    
+    try {
+      const cached = localStorage.getItem(USERS_CACHE_KEY)
+      if (cached) {
+        const { timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          return false // Cache exists and is valid, no need to show loading
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+    return true
+  })
+  
+  const [error, setError] = useState<string | null>(null)
+
+  // Transform users when language changes (if we have raw data)
+  useEffect(() => {
+    if (rawDataRef.current.length > 0) {
+      const transformedUsers = transformUserData(rawDataRef.current, language)
+      setUsers(transformedUsers)
+    }
+  }, [language])
+
+  // Fetch users from Supabase (only if loading)
   useEffect(() => {
     const fetchUsers = async () => {
-      // Check if we have cached data first
-      const cachedData = getCachedData<any[]>("users", "all")
-
-      if (cachedData && cachedData.length > 0) {
-        console.log("Using cached users data")
-        rawDataRef.current = cachedData
-        const transformedUsers = transformUserData(cachedData, language)
-        setUsers(transformedUsers)
-        initialDataLoadedRef.current = true
-        return
+      if (!isLoading) {
+        return // Already have data from cache
       }
-
-      // If we already have raw data, just transform it based on the current language
-      if (rawDataRef.current.length > 0) {
-        console.log("Using existing raw data with new language:", language)
-        const transformedUsers = transformUserData(rawDataRef.current, language)
-        setUsers(transformedUsers)
-        return
-      }
-
-      // Only set loading to true if we need to fetch from API
-      setIsLoading(true)
 
       try {
         console.log("Fetching users data from API")
@@ -172,8 +207,14 @@ export function useCachedUsers() {
         // Store the raw data for future language switches
         rawDataRef.current = finalProfilesData || []
 
-        // Cache the data
-        setCachedData("users", "all", finalProfilesData)
+        // Cache the data (matching groups page pattern)
+        localStorage.setItem(
+          USERS_CACHE_KEY,
+          JSON.stringify({
+            data: finalProfilesData || [],
+            timestamp: Date.now(),
+          }),
+        )
 
         // Transform the data based on current language
         const transformedUsers = transformUserData(finalProfilesData || [], language)
@@ -195,7 +236,38 @@ export function useCachedUsers() {
     }
 
     fetchUsers()
-  }, [language, toast, getCachedData, setCachedData])
+  }, [isLoading, toast, language])
+
+  // Watch for cache invalidation and trigger refetch
+  useEffect(() => {
+    const checkCache = () => {
+      const cached = localStorage.getItem(USERS_CACHE_KEY)
+      if (!cached && !isLoading && users.length > 0) {
+        // Cache was removed, trigger refetch
+        setIsLoading(true)
+      }
+    }
+
+    // Check immediately
+    checkCache()
+    
+    // Set up interval to check for cache removal (for same-tab invalidation)
+    const interval = setInterval(checkCache, 500)
+    
+    // Also listen for storage events (for cross-tab invalidation)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === USERS_CACHE_KEY && e.newValue === null) {
+        checkCache()
+      }
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("storage", handleStorageChange)
+    }
+  }, [users.length, isLoading])
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -208,7 +280,7 @@ export function useCachedUsers() {
         { event: "*", schema: "public", table: "profiles" },
         async () => {
           // Invalidate cache and refetch
-          setCachedData("users", "all", null) // Clear cache
+          localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
 
           try {
@@ -270,7 +342,16 @@ export function useCachedUsers() {
             })
 
             rawDataRef.current = profilesWithDetails
-            setCachedData("users", "all", profilesWithDetails)
+            
+            // Update cache (matching groups page pattern)
+            localStorage.setItem(
+              USERS_CACHE_KEY,
+              JSON.stringify({
+                data: profilesWithDetails,
+                timestamp: Date.now(),
+              }),
+            )
+            
             const transformedUsers = transformUserData(profilesWithDetails, language)
             setUsers(transformedUsers)
           } catch (error: any) {
@@ -285,7 +366,7 @@ export function useCachedUsers() {
         { event: "*", schema: "public", table: "student_profiles" },
         async () => {
           // Invalidate cache and refetch when student profiles change
-          setCachedData("users", "all", null)
+          localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
 
           try {
@@ -332,7 +413,16 @@ export function useCachedUsers() {
             })
 
             rawDataRef.current = profilesWithDetails
-            setCachedData("users", "all", profilesWithDetails)
+            
+            // Update cache (matching groups page pattern)
+            localStorage.setItem(
+              USERS_CACHE_KEY,
+              JSON.stringify({
+                data: profilesWithDetails,
+                timestamp: Date.now(),
+              }),
+            )
+            
             const transformedUsers = transformUserData(profilesWithDetails, language)
             setUsers(transformedUsers)
           } catch (error: any) {
@@ -347,7 +437,7 @@ export function useCachedUsers() {
         { event: "*", schema: "public", table: "manager_profiles" },
         async () => {
           // Invalidate cache and refetch when manager profiles change
-          setCachedData("users", "all", null)
+          localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
 
           try {
@@ -394,7 +484,16 @@ export function useCachedUsers() {
             })
 
             rawDataRef.current = profilesWithDetails
-            setCachedData("users", "all", profilesWithDetails)
+            
+            // Update cache (matching groups page pattern)
+            localStorage.setItem(
+              USERS_CACHE_KEY,
+              JSON.stringify({
+                data: profilesWithDetails,
+                timestamp: Date.now(),
+              }),
+            )
+            
             const transformedUsers = transformUserData(profilesWithDetails, language)
             setUsers(transformedUsers)
           } catch (error: any) {
@@ -409,7 +508,7 @@ export function useCachedUsers() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [language, getCachedData, setCachedData])
+  }, [language])
 
   return {
     users,

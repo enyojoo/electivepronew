@@ -45,7 +45,6 @@ export function UsersSettings() {
   const { users, isLoading, error, isInitialDataLoaded } = useCachedUsers()
   const { degrees } = useCachedDegrees()
   const { groups } = useCachedGroups()
-  const { invalidateCache } = useDataCache()
   const [filteredUsers, setFilteredUsers] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -209,8 +208,9 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+      // Invalidate cache to trigger refetch (matching groups page pattern)
+      localStorage.removeItem("admin_users_cache")
+      // Hook will detect cache removal and refetch automatically
 
       toast({
         title: "Success",
@@ -252,8 +252,9 @@ export function UsersSettings() {
       const updatedFilteredUsers = filteredUsers.filter((user) => user.id !== userToDelete)
       setFilteredUsers(updatedFilteredUsers)
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+      // Invalidate cache to trigger refetch (matching groups page pattern)
+      localStorage.removeItem("admin_users_cache")
+      // Hook will detect cache removal and refetch automatically
 
       toast({
         title: "Success",
@@ -340,8 +341,9 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Invalidate cache to trigger refetch
-        invalidateCache("users", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_users_cache")
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: "Success",
@@ -443,8 +445,9 @@ export function UsersSettings() {
           await supabase.from("manager_profiles").delete().eq("profile_id", editingUser.id)
         }
 
-        // Invalidate cache to trigger refetch
-        invalidateCache("users", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_users_cache")
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: "Success",
@@ -494,8 +497,9 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+      // Invalidate cache to trigger refetch (matching groups page pattern)
+      localStorage.removeItem("admin_users_cache")
+      // Hook will detect cache removal and refetch automatically
 
       toast({
         title: "Success",
@@ -515,8 +519,8 @@ export function UsersSettings() {
     }
   }
 
-  // Show skeleton only for initial data load
-  const showSkeleton = isLoading && !isInitialDataLoaded && (!users || users.length === 0)
+  // Show skeleton only if loading and no data (matching groups page pattern)
+  const showSkeleton = isLoading && (!users || users.length === 0)
 
   return (
     <div className="space-y-6">

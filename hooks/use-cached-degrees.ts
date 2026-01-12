@@ -1,35 +1,60 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useDataCache } from "@/lib/data-cache-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
+// Cache key and expiry (matching groups page pattern)
+const DEGREES_CACHE_KEY = "admin_degrees_cache"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
+
 export function useCachedDegrees() {
-  const [degrees, setDegrees] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [degrees, setDegrees] = useState<any[]>(() => {
+    // Load cached data synchronously on initial render (like groups page)
+    if (typeof window === "undefined") return []
+    
+    try {
+      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          return data || []
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached degrees:", error)
+    }
+    return []
+  })
+  
+  const [isLoading, setIsLoading] = useState(() => {
+    // Only set loading if we don't have valid cache
+    if (typeof window === "undefined") return true
+    
+    try {
+      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
+      if (cached) {
+        const { timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY) {
+          return false // Cache exists and is valid, no need to show loading
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+    return true
+  })
+  
   const [error, setError] = useState<string | null>(null)
-  const { getCachedData, setCachedData } = useDataCache()
   const { toast } = useToast()
 
+  // Fetch degrees from Supabase (only if loading)
   useEffect(() => {
     const fetchDegrees = async () => {
-      setIsLoading(true)
-      setError(null)
-
-      // Try to get data from cache first
-      const cachedDegrees = getCachedData<any[]>("degrees", "all")
-
-      // If cached data exists (even if empty array), use it
-      if (cachedDegrees !== null && cachedDegrees !== undefined) {
-        console.log("Using cached degrees data")
-        setDegrees(cachedDegrees)
-        setIsLoading(false)
-        return
+      if (!isLoading) {
+        return // Already have data from cache
       }
 
-      // If not in cache, fetch from API
-      console.log("Fetching degrees data from API")
       try {
         const supabase = getSupabaseBrowserClient()
         const { data, error } = await supabase.from("degrees").select("*").order("name")
@@ -38,8 +63,14 @@ export function useCachedDegrees() {
 
         const degreesData = data || []
 
-        // Save to cache (even if empty array)
-        setCachedData("degrees", "all", degreesData)
+        // Cache the degrees data
+        localStorage.setItem(
+          DEGREES_CACHE_KEY,
+          JSON.stringify({
+            data: degreesData,
+            timestamp: Date.now(),
+          }),
+        )
 
         // Update state
         setDegrees(degreesData)
@@ -59,7 +90,38 @@ export function useCachedDegrees() {
     }
 
     fetchDegrees()
-  }, [getCachedData, setCachedData, toast])
+  }, [isLoading, toast])
+
+  // Watch for cache invalidation and trigger refetch
+  useEffect(() => {
+    const checkCache = () => {
+      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
+      if (!cached && !isLoading && degrees.length > 0) {
+        // Cache was removed, trigger refetch
+        setIsLoading(true)
+      }
+    }
+
+    // Check immediately
+    checkCache()
+    
+    // Set up interval to check for cache removal (for same-tab invalidation)
+    const interval = setInterval(checkCache, 500)
+    
+    // Also listen for storage events (for cross-tab invalidation)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === DEGREES_CACHE_KEY && e.newValue === null) {
+        checkCache()
+      }
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("storage", handleStorageChange)
+    }
+  }, [degrees.length, isLoading])
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
@@ -71,8 +133,8 @@ export function useCachedDegrees() {
         "postgres_changes",
         { event: "*", schema: "public", table: "degrees" },
         async () => {
-          // Invalidate cache and refetch
-          setCachedData("degrees", "all", null) // Clear cache
+          // Invalidate cache
+          localStorage.removeItem(DEGREES_CACHE_KEY)
           setIsLoading(true)
 
           try {
@@ -81,7 +143,16 @@ export function useCachedDegrees() {
             if (error) throw error
 
             const degreesData = data || []
-            setCachedData("degrees", "all", degreesData)
+            
+            // Update cache
+            localStorage.setItem(
+              DEGREES_CACHE_KEY,
+              JSON.stringify({
+                data: degreesData,
+                timestamp: Date.now(),
+              }),
+            )
+            
             setDegrees(degreesData)
           } catch (error: any) {
             console.error("Error refetching degrees after real-time update:", error)
@@ -100,7 +171,7 @@ export function useCachedDegrees() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [getCachedData, setCachedData, toast])
+  }, [toast])
 
   return { degrees, isLoading, error }
 }

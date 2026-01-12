@@ -68,7 +68,10 @@ export default function StudentSignupPage() {
 
         if (data && data.length > 0) {
           setDegrees(data)
-          setDegree(data[0].id.toString())
+          // Set first degree as default - this will trigger academic years fetch
+          const firstDegreeId = String(data[0].id)
+          setDegree(firstDegreeId)
+          console.log("Degrees loaded, default degree set to:", firstDegreeId)
         } else {
           console.warn("No degrees found in database")
           setDegrees([])
@@ -99,7 +102,7 @@ export default function StudentSignupPage() {
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
-          .eq("degree_id", degree)
+          .eq("degree_id", Number(degree))
           .eq("is_active", true)
           .order("year", { ascending: false })
 
@@ -153,7 +156,7 @@ export default function StudentSignupPage() {
         const { data: academicYearData, error: academicYearError } = await supabase
           .from("academic_years")
           .select("id")
-          .eq("degree_id", degree)
+          .eq("degree_id", Number(degree))
           .eq("year", year)
           .eq("is_active", true)
           .maybeSingle()
@@ -342,11 +345,7 @@ export default function StudentSignupPage() {
                 <Label htmlFor="degree">{t("auth.signup.degree")}</Label>
                 <Select value={degree} onValueChange={setDegree} required disabled={isLoadingDegrees}>
                   <SelectTrigger id="degree" className="w-full">
-                    <SelectValue placeholder={t("auth.signup.selectDegree")}>
-                      {degree && degrees.length > 0
-                        ? getDegreeName(degrees.find((d) => d.id?.toString() === degree))
-                        : null}
-                    </SelectValue>
+                    <SelectValue placeholder={t("auth.signup.selectDegree")} />
                   </SelectTrigger>
                   <SelectContent>
                     {degrees.length === 0 ? (
@@ -355,7 +354,7 @@ export default function StudentSignupPage() {
                       </SelectItem>
                     ) : (
                       degrees.map((d) => (
-                        <SelectItem key={d.id} value={d.id?.toString() || ""}>
+                        <SelectItem key={d.id} value={String(d.id)}>
                           {getDegreeName(d)}
                         </SelectItem>
                       ))
@@ -367,7 +366,7 @@ export default function StudentSignupPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="year">{t("auth.signup.year")}</Label>
-                  <Select value={year} onValueChange={setYear} required>
+                  <Select value={year} onValueChange={setYear} required disabled={!degree || years.length === 0}>
                     <SelectTrigger id="year" className="w-full">
                       <SelectValue placeholder={t("auth.signup.selectYear")} />
                     </SelectTrigger>
@@ -389,7 +388,7 @@ export default function StudentSignupPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="group">{t("auth.signup.group")}</Label>
-                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year}>
+                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year || filteredGroups.length === 0}>
                     <SelectTrigger id="group" className="w-full">
                       <SelectValue placeholder={t("auth.signup.selectGroup")} />
                     </SelectTrigger>
@@ -400,7 +399,7 @@ export default function StudentSignupPage() {
                         </SelectItem>
                       ) : (
                         filteredGroups.map((g) => (
-                          <SelectItem key={g.id} value={g.id?.toString() || ""}>
+                          <SelectItem key={g.id} value={String(g.id)}>
                             {getGroupName(g)}
                           </SelectItem>
                         ))

@@ -17,7 +17,6 @@ import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useDataCache } from "@/lib/data-cache-context"
 import { useCachedDegrees } from "@/hooks/use-cached-degrees"
 
 interface DegreeFormData {
@@ -30,7 +29,6 @@ interface DegreeFormData {
 
 export function DegreesSettings() {
   const { t, language } = useLanguage()
-  const { invalidateCache } = useDataCache()
   const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
   const [degrees, setDegrees] = useState<any[]>([])
   const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
@@ -70,37 +68,26 @@ export function DegreesSettings() {
     }
   }, [])
 
-  // Format and set degrees from cached data
+  // Format and set degrees from cached data (matching groups page pattern)
   useEffect(() => {
-    // If we're still loading, don't update yet
-    if (isLoadingDegrees) {
-      return
-    }
+    // Format degrees data
+    if (cachedDegrees && cachedDegrees.length > 0) {
+      const formattedDegrees = cachedDegrees.map((degree) => ({
+        id: degree.id.toString(),
+        name: degree.name,
+        nameRu: degree.name_ru || "",
+        code: degree.code,
+        status: degree.status,
+      }))
 
-    // If we have cached degrees (even if empty array), format and set them
-    if (cachedDegrees !== null && cachedDegrees !== undefined) {
-      if (cachedDegrees.length > 0) {
-        const formattedDegrees = cachedDegrees.map((degree) => ({
-          id: degree.id.toString(),
-          name: degree.name,
-          nameRu: degree.name_ru || "",
-          code: degree.code,
-          status: degree.status,
-        }))
-
-        setDegrees(formattedDegrees)
-        setFilteredDegrees(formattedDegrees)
-      } else {
-        // Empty array - no degrees found
-        setDegrees([])
-        setFilteredDegrees([])
-      }
+      setDegrees(formattedDegrees)
+      setFilteredDegrees(formattedDegrees)
     } else {
-      // No cached data and not loading - set empty
+      // Empty array - no degrees found
       setDegrees([])
       setFilteredDegrees([])
     }
-  }, [cachedDegrees, isLoadingDegrees])
+  }, [cachedDegrees])
 
   // Filter degrees based on search term
   useEffect(() => {
@@ -209,9 +196,10 @@ export function DegreesSettings() {
 
         if (error) throw error
 
-        // Invalidate cache to trigger refetch
+        // Invalidate cache to trigger refetch (matching groups page pattern)
         if (isMounted.current) {
-          invalidateCache("degrees", "all")
+          localStorage.removeItem("admin_degrees_cache")
+          // Hook will detect cache removal and refetch automatically
 
           toast({
             title: t("admin.degrees.success"),
@@ -233,8 +221,9 @@ export function DegreesSettings() {
         if (error) throw error
 
         if (data && data[0] && isMounted.current) {
-          // Invalidate cache to trigger refetch
-          invalidateCache("degrees", "all")
+          // Invalidate cache to trigger refetch (matching groups page pattern)
+          localStorage.removeItem("admin_degrees_cache")
+          // Hook will detect cache removal and refetch automatically
 
           toast({
             title: t("admin.degrees.success"),
@@ -275,8 +264,9 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache to trigger refetch
-        invalidateCache("degrees", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_degrees_cache")
+        setIsLoading(true)
 
         toast({
           title: t("admin.degrees.success"),
@@ -310,8 +300,9 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache to trigger refetch
-        invalidateCache("degrees", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_degrees_cache")
+        setIsLoading(true)
 
         toast({
           title: t("admin.degrees.success"),
@@ -387,24 +378,8 @@ export function DegreesSettings() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingDegrees ? (
-                    <>
-                      <TableRow>
-                        <TableCell colSpan={4}>
-                          <Skeleton className="w-full h-10" />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell colSpan={5}>
-                          <Skeleton className="w-full h-10" />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell colSpan={5}>
-                          <Skeleton className="w-full h-10" />
-                        </TableCell>
-                      </TableRow>
-                    </>
+                  {isLoadingDegrees && degrees.length === 0 ? (
+                    <TableSkeleton columns={4} rows={5} />
                   ) : filteredDegrees.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
