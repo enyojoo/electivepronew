@@ -25,9 +25,77 @@ interface BrandContextType {
 
 const BrandContext = createContext<BrandContextType | undefined>(undefined)
 
+const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
+const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
+
+// Helper to get cached settings from localStorage
+function getCachedSettings(): BrandSettings | null {
+  if (typeof window === "undefined") return null
+  
+  try {
+    const cached = localStorage.getItem(BRAND_SETTINGS_STORAGE_KEY)
+    if (!cached) return null
+    
+    const parsed = JSON.parse(cached)
+    // Check version to ensure cache is still valid
+    if (parsed.version !== BRAND_SETTINGS_VERSION) {
+      localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
+      return null
+    }
+    
+    return parsed.settings as BrandSettings
+  } catch {
+    return null
+  }
+}
+
+// Helper to save settings to localStorage
+function saveCachedSettings(settings: BrandSettings) {
+  if (typeof window === "undefined") return
+  
+  try {
+    localStorage.setItem(
+      BRAND_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        version: BRAND_SETTINGS_VERSION,
+        settings,
+        timestamp: Date.now(),
+      })
+    )
+  } catch {
+    // Ignore localStorage errors (e.g., quota exceeded)
+  }
+}
+
 export function BrandProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [settings, setSettings] = useState<BrandSettings | null>(null)
+  const [settings, setSettings] = useState<BrandSettings | null>(() => {
+    // Initialize with cached settings immediately (synchronous, prevents flicker)
+    const cached = getCachedSettings()
+    // Apply cached settings immediately if they exist (before React renders)
+    if (cached && typeof document !== "undefined") {
+      // Apply synchronously to prevent any default flash
+      const hasCustom = !!(cached.name || cached.primary_color || cached.logo_url || cached.favicon_url)
+      if (hasCustom) {
+        const primaryColor = cached.primary_color || DEFAULT_PRIMARY_COLOR
+        const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : DEFAULT_FAVICON_URL
+        const logoUrl = cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL
+        const name = cached.name || DEFAULT_PLATFORM_NAME
+        
+        // Apply immediately to prevent default flash
+        document.documentElement.style.setProperty("--primary", primaryColor)
+        document.documentElement.style.setProperty("--color-primary", primaryColor)
+        document.title = name
+        
+        // Update favicon immediately
+        const allFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+        allFaviconLinks.forEach((link) => {
+          (link as HTMLLinkElement).href = faviconUrl
+        })
+      }
+    }
+    return cached
+  })
   const [isLoading, setIsLoading] = useState(true)
   const supabase = getSupabaseBrowserClient()
   
@@ -62,36 +130,58 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const updateFavicon = useCallback((url: string) => {
     if (typeof document === "undefined") return
     
+    // Update or create icon link
     let favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement
     if (!favicon) {
       favicon = document.createElement("link")
       favicon.rel = "icon"
       document.head.appendChild(favicon)
     }
-    favicon.href = url
+    // Force update by setting href to empty first, then to new URL
+    if (favicon.href !== url) {
+      favicon.href = ""
+      favicon.href = url
+    }
 
-    // Also update apple-touch-icon
+    // Update or create shortcut icon
+    let shortcutIcon = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement
+    if (!shortcutIcon) {
+      shortcutIcon = document.createElement("link")
+      shortcutIcon.rel = "shortcut icon"
+      document.head.appendChild(shortcutIcon)
+    }
+    if (shortcutIcon.href !== url) {
+      shortcutIcon.href = ""
+      shortcutIcon.href = url
+    }
+
+    // Update or create apple-touch-icon
     let appleIcon = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement
     if (!appleIcon) {
       appleIcon = document.createElement("link")
       appleIcon.rel = "apple-touch-icon"
       document.head.appendChild(appleIcon)
     }
-    appleIcon.href = url
+    if (appleIcon.href !== url) {
+      appleIcon.href = ""
+      appleIcon.href = url
+    }
   }, [])
+
 
   // Apply branding to DOM
   const applyBranding = useCallback(
     (brandSettings: BrandSettings) => {
       if (typeof document === "undefined") return
       
-      // Apply branding to all pages (admin, student, manager) - no exceptions
+      // Determine values: use custom if valid, otherwise fall back to defaults
+      // This ensures custom branding is always respected when it exists
       const primaryColor = brandSettings.primary_color || DEFAULT_PRIMARY_COLOR
       const faviconUrl = isValidUrl(brandSettings.favicon_url) ? brandSettings.favicon_url! : DEFAULT_FAVICON_URL
       const logoUrl = isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL
       const name = brandSettings.name || DEFAULT_PLATFORM_NAME
 
-      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, isAdmin })
+      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, brandSettings })
 
       // Apply primary color as CSS variable
       document.documentElement.style.setProperty("--primary", primaryColor)
@@ -103,8 +193,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         document.documentElement.style.setProperty("--primary-rgb", `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`)
       }
 
-      // Update favicon
+      // Update favicon - ensure we update all favicon link tags
       updateFavicon(faviconUrl)
+      
+      // Also update any existing favicon links in head (override defaults from HTML)
+      const allFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+      allFaviconLinks.forEach((link) => {
+        const linkEl = link as HTMLLinkElement
+        linkEl.href = faviconUrl
+      })
 
       // Store logo URL in data attribute for components to use
       document.documentElement.setAttribute("data-logo-url", logoUrl)
@@ -115,7 +212,19 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     [isAdmin, hexToRgb, updateFavicon],
   )
 
-  // Load settings on mount
+  // Apply cached settings immediately on mount (before async fetch)
+  useEffect(() => {
+    const cachedSettings = settings
+    if (cachedSettings) {
+      // Apply cached settings immediately to prevent flicker
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        applyBranding(cachedSettings)
+      })
+    }
+  }, [applyBranding]) // Include applyBranding in deps but only run once due to settings initial state
+
+  // Load settings from database (background fetch to ensure we have latest)
   useEffect(() => {
     async function loadSettings() {
       try {
@@ -139,19 +248,41 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           favicon_url: data?.favicon_url || null,
         }
 
-        setSettings(brandSettings)
-        applyBranding(brandSettings)
+        // Only update if settings have changed (prevents unnecessary re-renders)
+        setSettings((prev) => {
+          const hasChanged =
+            prev?.name !== brandSettings.name ||
+            prev?.primary_color !== brandSettings.primary_color ||
+            prev?.logo_url !== brandSettings.logo_url ||
+            prev?.favicon_url !== brandSettings.favicon_url
+
+          if (hasChanged) {
+            // Save to cache for next page load
+            saveCachedSettings(brandSettings)
+            // Apply updated branding
+            applyBranding(brandSettings)
+            return brandSettings
+          }
+          return prev
+        })
       } catch (error) {
         console.error("Error loading brand settings:", error)
-        // Use defaults on error
+        // On error, use defaults only if we don't have cached settings
         const defaultSettings: BrandSettings = {
           name: null,
           primary_color: null,
           logo_url: null,
           favicon_url: null,
         }
-        setSettings(defaultSettings)
-        applyBranding(defaultSettings)
+        
+        setSettings((prev) => {
+          // If we have cached settings, keep them. Otherwise use defaults.
+          if (prev) return prev
+          
+          saveCachedSettings(defaultSettings)
+          applyBranding(defaultSettings)
+          return defaultSettings
+        })
       } finally {
         setIsLoading(false)
       }
@@ -268,12 +399,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
         console.log("Settings updated, applying branding:", newSettings)
         
+        // Save to cache for instant application on next page load
+        saveCachedSettings(newSettings)
+        
         setSettings(newSettings)
 
         // Apply immediately to DOM
-        setTimeout(() => {
-          applyBranding(newSettings)
-        }, 0)
+        applyBranding(newSettings)
       } catch (error) {
         console.error("Error updating brand settings:", error)
         throw error
