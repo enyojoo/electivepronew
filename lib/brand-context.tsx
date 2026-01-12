@@ -240,15 +240,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         const result = await response.json()
 
         // Update local state with merged settings
-        // The API returns { brandSettings, rawSettings }
-        // Use rawSettings for the actual database values
-        const updatedRawSettings = result.rawSettings || existingSettings
+        // The API returns { success: true, settings: data }
+        const updatedSettings = result.settings || existingSettings
         
         const newSettings: BrandSettings = {
-          name: updatedRawSettings?.name || null,
-          primary_color: updatedRawSettings?.primary_color || null,
-          logo_url: updatedRawSettings?.logo_url || null,
-          favicon_url: updatedRawSettings?.favicon_url || null,
+          name: updatedSettings?.name || null,
+          primary_color: updatedSettings?.primary_color || null,
+          logo_url: updatedSettings?.logo_url || null,
+          favicon_url: updatedSettings?.favicon_url || null,
         }
 
         setSettings(newSettings)
