@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
-import { GripVertical } from "lucide-react"
+import { GripVertical, Loader2 } from "lucide-react"
 
 interface StudentExchangeSelectionFormProps {
   electivePackId: string
@@ -285,7 +285,14 @@ export function StudentExchangeSelectionForm({
                 {t("cancel")}
               </Button>
               <Button type="submit" disabled={isSubmitting || selectedUniversities.length === 0}>
-                {isSubmitting ? t("submitting") : t("submit_selection")}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("submitting")}
+                  </>
+                ) : (
+                  t("submit_selection")
+                )}
               </Button>
             </div>
           </form>

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
@@ -336,9 +336,14 @@ export default function EditCoursePage() {
                     {t("admin.editCourse.cancel", "Cancel")}
                   </Button>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting
-                      ? t("admin.editCourse.updating", "Updating...")
-                      : t("admin.editCourse.update", "Update Course")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("admin.editCourse.updating", "Updating...")}
+                      </>
+                    ) : (
+                      t("admin.editCourse.update", "Update Course")
+                    )}
                   </Button>
                 </div>
               </form>

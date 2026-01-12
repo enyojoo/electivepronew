@@ -22,6 +22,7 @@ import {
   Clock,
   Download,
   ExternalLink,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -483,6 +484,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
   const handleEditSave = async () => {
     if (!editingStudent) return
 
+    setIsSaving(true)
     try {
       const { error } = await supabase
         .from("course_selections")
@@ -524,6 +526,8 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
         description: "Failed to update selection",
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1021,7 +1025,16 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
                   <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleEditSave}>Save Changes</Button>
+                  <Button onClick={handleEditSave} disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
                 </div>
               </div>
             )}

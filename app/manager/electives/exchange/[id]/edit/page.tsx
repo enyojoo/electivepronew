@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Check, ChevronRight, FileUp, Search } from "lucide-react"
+import { ArrowLeft, Check, ChevronRight, FileUp, Search, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
@@ -837,10 +837,24 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 </Button>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" onClick={handleSaveAsDraft} disabled={isSubmitting}>
-                    {isSubmitting ? t("manager.exchangeBuilder.saving") : t("manager.exchangeBuilder.saveAsDraft")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("manager.exchangeBuilder.saving")}
+                      </>
+                    ) : (
+                      t("manager.exchangeBuilder.saveAsDraft")
+                    )}
                   </Button>
                   <Button type="button" onClick={handlePublish} disabled={isSubmitting}>
-                    {isSubmitting ? t("manager.exchangeBuilder.updating") : t("manager.exchangeBuilder.updateProgram")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("manager.exchangeBuilder.updating")}
+                      </>
+                    ) : (
+                      t("manager.exchangeBuilder.updateProgram")
+                    )}
                   </Button>
                 </div>
               </div>

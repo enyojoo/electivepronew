@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLanguage } from "@/lib/language-context"
@@ -80,6 +81,7 @@ export default function GroupsPage() {
   const [isLoadingGroups, setIsLoadingGroups] = useState(true)
   const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
   const [isLoadingYears, setIsLoadingYears] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [yearFilter, setYearFilter] = useState("all")
   const [degreeFilter, setDegreeFilter] = useState("all")
@@ -570,6 +572,7 @@ export default function GroupsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSaving(true)
 
     try {
       let academicYearId = currentGroup.academicYearId
@@ -666,6 +669,8 @@ export default function GroupsPage() {
         description: error.message || t("admin.groups.errorSaving"),
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1041,7 +1046,16 @@ export default function GroupsPage() {
               <Button type="button" variant="outline" onClick={handleCloseDialog}>
                 {t("admin.groups.cancel")}
               </Button>
-              <Button type="submit">{isEditing ? t("admin.groups.update") : t("admin.groups.create")}</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditing ? t("admin.groups.updating") || "Updating..." : t("admin.groups.creating") || "Creating..."}
+                  </>
+                ) : (
+                  isEditing ? t("admin.groups.update") : t("admin.groups.create")
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>

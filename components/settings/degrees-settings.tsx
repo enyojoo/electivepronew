@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -44,6 +44,7 @@ export function DegreesSettings() {
     status: "active",
   })
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const isMounted = useRef(true)
   const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -191,6 +192,7 @@ export function DegreesSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSaving(true)
 
     try {
       if (isEditing) {
@@ -251,6 +253,8 @@ export function DegreesSettings() {
           variant: "destructive",
         })
       }
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -513,7 +517,16 @@ export function DegreesSettings() {
                 >
                   {t("admin.degrees.cancel")}
                 </Button>
-                <Button type="submit">{isEditing ? t("admin.degrees.update") : t("admin.degrees.create")}</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isEditing ? t("admin.degrees.updating") || "Updating..." : t("admin.degrees.creating") || "Creating..."}
+                    </>
+                  ) : (
+                    isEditing ? t("admin.degrees.update") : t("admin.degrees.create")
+                  )}
+                </Button>
               </div>
             </form>
           </DialogContent>

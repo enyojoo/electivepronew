@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ArrowLeft, Edit, Eye, MoreVertical, Search, CheckCircle, XCircle, Clock, Download } from "lucide-react"
+import { ArrowLeft, Edit, Eye, MoreVertical, Search, CheckCircle, XCircle, Clock, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { useLanguage } from "@/lib/language-context"
@@ -36,6 +36,7 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editedUniversities, setEditedUniversities] = useState<string[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
   // Add the language hook near the top of the component
   const { t, language } = useLanguage()
@@ -312,18 +313,30 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   }
 
   // Replace this function:
-  const saveEditedUniversities = () => {
-    // In a real app, you would make an API call here to update the database
-    // For this demo, we'll just show a success message
-    setEditDialogOpen(false)
+  const saveEditedUniversities = async () => {
+    setIsSaving(true)
+    try {
+      // In a real app, you would make an API call here to update the database
+      // For this demo, we'll just show a success message
+      setEditDialogOpen(false)
 
-    // Use setTimeout to ensure the toast appears after the dialog closes
-    window.setTimeout(() => {
+      // Use setTimeout to ensure the toast appears after the dialog closes
+      window.setTimeout(() => {
+        toast({
+          title: t("toast.selection.updated"),
+          description: t("toast.selection.updated.exchange.description").replace("{0}", selectedStudent.studentName),
+        })
+      }, 100)
+    } catch (error) {
+      console.error("Error saving universities:", error)
       toast({
-        title: t("toast.selection.updated"),
-        description: t("toast.selection.updated.exchange.description").replace("{0}", selectedStudent.studentName),
+        title: t("toast.error", "Error"),
+        description: t("toast.errorDesc", "Failed to save changes"),
+        variant: "destructive",
       })
-    }, 100)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Also update the exportUniversityToCSV function to ensure consistent formatting
@@ -955,8 +968,15 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                 <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                   {t("manager.exchangeDetails.cancel")}
                 </Button>
-                <Button onClick={saveEditedUniversities} disabled={editedUniversities.length === 0}>
-                  {t("manager.exchangeDetails.saveChanges")}
+                <Button onClick={saveEditedUniversities} disabled={editedUniversities.length === 0 || isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("manager.exchangeDetails.saving") || "Saving..."}
+                    </>
+                  ) : (
+                    t("manager.exchangeDetails.saveChanges")
+                  )}
                 </Button>
               </DialogFooter>
             </>

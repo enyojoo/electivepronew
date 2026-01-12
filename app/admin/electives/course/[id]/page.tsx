@@ -26,6 +26,7 @@ import {
   Clock,
   Download,
   FileDown,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -51,6 +52,7 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editedCourses, setEditedCourses] = useState<string[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
   // Mock elective course data
   const electiveCourse = {
@@ -284,18 +286,30 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   }
 
   // Function to save edited courses
-  const saveEditedCourses = () => {
-    // In a real app, you would make an API call here to update the database
-    // For this demo, we'll just show a success message
-    setEditDialogOpen(false)
+  const saveEditedCourses = async () => {
+    setIsSaving(true)
+    try {
+      // In a real app, you would make an API call here to update the database
+      // For this demo, we'll just show a success message
+      setEditDialogOpen(false)
 
-    // Use setTimeout to ensure the toast appears after the dialog closes
-    window.setTimeout(() => {
-      toast({
-        title: t("toast.selection.updated"),
+      // Use setTimeout to ensure the toast appears after the dialog closes
+      window.setTimeout(() => {
+        toast({
+          title: t("toast.selection.updated"),
         description: t("toast.selection.updated.course.description").replace("{0}", selectedStudent.studentName),
       })
     }, 100)
+    } catch (error) {
+      console.error("Error saving courses:", error)
+      toast({
+        title: t("toast.error", "Error"),
+        description: t("toast.errorDesc", "Failed to save changes"),
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Function to export course enrollments to CSV
@@ -876,8 +890,15 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
                 <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                   {t("manager.courseDetails.cancel")}
                 </Button>
-                <Button onClick={saveEditedCourses} disabled={editedCourses.length === 0}>
-                  {t("manager.courseDetails.saveChanges")}
+                <Button onClick={saveEditedCourses} disabled={editedCourses.length === 0 || isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("manager.courseDetails.saving") || "Saving..."}
+                    </>
+                  ) : (
+                    t("manager.courseDetails.saveChanges")
+                  )}
                 </Button>
               </DialogFooter>
             </>

@@ -54,7 +54,6 @@ interface University {
 
 // Cache keys
 const UNIVERSITIES_CACHE_KEY = "admin_universities_cache"
-const COUNTRIES_CACHE_KEY = "admin_countries_cache"
 
 // Cache expiry time (1 hour)
 const CACHE_EXPIRY = 60 * 60 * 1000
@@ -84,17 +83,6 @@ export default function UniversitiesPage() {
   useEffect(() => {
     const loadCachedData = () => {
       try {
-        // Load cached countries
-        const cachedCountries = localStorage.getItem(COUNTRIES_CACHE_KEY)
-        if (cachedCountries) {
-          const { data, timestamp } = JSON.parse(cachedCountries)
-          // Check if cache is valid
-          if (Date.now() - timestamp < CACHE_EXPIRY) {
-            setCountries(data)
-            setIsLoadingCountries(false)
-          }
-        }
-
         // Load cached universities
         const cachedUniversities = localStorage.getItem(UNIVERSITIES_CACHE_KEY)
         if (cachedUniversities) {
@@ -461,7 +449,7 @@ export default function UniversitiesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoadingUniversities || isLoadingCountries ? (
+                    {isLoadingUniversities ? (
                       <TableSkeleton columns={6} rows={itemsPerPage} />
                     ) : currentItems.length > 0 ? (
                       currentItems.map((university) => (

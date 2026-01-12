@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Check, ChevronRight, FileUp, Search } from "lucide-react"
+import { ArrowLeft, Check, ChevronRight, FileUp, Search, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
@@ -808,14 +808,24 @@ export default function CourseBuilderPage() {
                 </Button>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" onClick={handleSaveAsDraft} disabled={isSubmitting}>
-                    {isSubmitting
-                      ? t("manager.courseBuilder.saving", "Saving...")
-                      : t("manager.courseBuilder.saveAsDraft", "Save as Draft")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("manager.courseBuilder.saving", "Saving...")}
+                      </>
+                    ) : (
+                      t("manager.courseBuilder.saveAsDraft", "Save as Draft")
+                    )}
                   </Button>
                   <Button type="button" onClick={handlePublish} disabled={isSubmitting}>
-                    {isSubmitting
-                      ? t("manager.courseBuilder.publishing", "Publishing...")
-                      : t("manager.courseBuilder.publishProgram", "Publish Program")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("manager.courseBuilder.publishing", "Publishing...")}
+                      </>
+                    ) : (
+                      t("manager.courseBuilder.publishProgram", "Publish Program")
+                    )}
                   </Button>
                 </div>
               </div>
