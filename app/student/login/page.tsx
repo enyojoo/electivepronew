@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
@@ -19,7 +19,7 @@ import { Eye, EyeOff, Mail } from "lucide-react"
 import Indicator from "@/components/indicator"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function StudentLoginPage() {
+function StudentLoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -185,5 +185,26 @@ export default function StudentLoginPage() {
         <Indicator />
       </div>
     </div>
+  )
+}
+
+export default function StudentLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex flex-col items-center space-y-2 text-center">
+            <Logo className="mb-4 h-8 w-auto max-w-[160px]" />
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Loading...</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+    }>
+      <StudentLoginForm />
+    </Suspense>
   )
 }
