@@ -10,7 +10,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
-import { DEFAULT_LOGO_URL } from "@/lib/constants"
+import Logo from "@/components/logo"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Input } from "@/components/ui/input"
@@ -95,16 +95,7 @@ export default function StudentLoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Image
-            src={DEFAULT_LOGO_URL || "/placeholder.svg"}
-            alt="ElectivePRO Logo"
-            width={160}
-            height={45}
-            className="h-10 w-auto"
-            priority
-          />
-          <h1 className="text-2xl font-bold">{t("auth.login.title")}</h1>
-          <p className="text-muted-foreground">{t("auth.login.description")}</p>
+          <Logo className="mb-4 h-10 w-auto" />
         </div>
         <Card>
           <CardHeader>

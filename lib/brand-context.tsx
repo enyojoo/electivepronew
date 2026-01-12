@@ -82,36 +82,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   // Apply branding to DOM
   const applyBranding = useCallback(
-    (brandSettings: BrandSettings, forceApply: boolean = false) => {
+    (brandSettings: BrandSettings) => {
       if (typeof document === "undefined") return
       
-      // For admin pages (except when force applying after save), always use defaults
-      // This allows admin pages to show defaults while editing, but apply changes when saved
-      if (isAdmin && !forceApply) {
-        document.documentElement.style.setProperty("--primary", DEFAULT_PRIMARY_COLOR)
-        document.documentElement.style.setProperty("--color-primary", DEFAULT_PRIMARY_COLOR)
-
-        const primaryRgb = hexToRgb(DEFAULT_PRIMARY_COLOR)
-        if (primaryRgb) {
-          document.documentElement.style.setProperty(
-            "--primary-rgb",
-            `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`,
-          )
-        }
-
-        updateFavicon(DEFAULT_FAVICON_URL)
-        document.title = DEFAULT_PLATFORM_NAME
-        document.documentElement.setAttribute("data-logo-url", DEFAULT_LOGO_URL)
-        return
-      }
-
-      // For non-admin pages or when force applying, use settings or defaults
+      // Apply branding to all pages (admin, student, manager) - no exceptions
       const primaryColor = brandSettings.primary_color || DEFAULT_PRIMARY_COLOR
       const faviconUrl = isValidUrl(brandSettings.favicon_url) ? brandSettings.favicon_url! : DEFAULT_FAVICON_URL
       const logoUrl = isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL
       const name = brandSettings.name || DEFAULT_PLATFORM_NAME
 
-      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, isAdmin, forceApply })
+      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, isAdmin })
 
       // Apply primary color as CSS variable
       document.documentElement.style.setProperty("--primary", primaryColor)
@@ -290,10 +270,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         
         setSettings(newSettings)
 
-        // Apply immediately to DOM - force apply even on admin pages
-        // This ensures changes are visible immediately after saving
+        // Apply immediately to DOM
         setTimeout(() => {
-          applyBranding(newSettings, true) // Force apply to override admin defaults
+          applyBranding(newSettings)
         }, 0)
       } catch (error) {
         console.error("Error updating brand settings:", error)

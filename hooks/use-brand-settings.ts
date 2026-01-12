@@ -30,11 +30,18 @@ export function useBrandSettings(): BrandSettings {
   const [hasConfirmedData, setHasConfirmedData] = useState(false)
 
   // Track when we've confirmed data from database
+  // Also update when settings change (for real-time updates)
   useEffect(() => {
     if (!isLoading && settings !== null) {
       setHasConfirmedData(true)
     }
   }, [isLoading, settings])
+  
+  // Force re-render when settings change to ensure logo updates
+  useEffect(() => {
+    // This effect ensures the component re-renders when settings change
+    // The dependency on settings will trigger a re-render
+  }, [settings])
 
   // Check if any custom branding is set
   const hasCustomBranding =

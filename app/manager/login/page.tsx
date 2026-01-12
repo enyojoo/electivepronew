@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast"
 import { useLanguage } from "@/lib/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
-import { DEFAULT_LOGO_URL } from "@/lib/constants"
+import Logo from "@/components/logo"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Eye, EyeOff } from "lucide-react"
 import Indicator from "@/components/indicator"
@@ -93,15 +93,7 @@ export default function ManagerLoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Image
-            src={DEFAULT_LOGO_URL}
-            alt="ElectivePRO Logo"
-            width={160}
-            height={45}
-            className="h-10 w-auto"
-          />
-          <h1 className="text-2xl font-bold">{t("auth.login.title")}</h1>
-          <p className="text-muted-foreground">{t("auth.login.description")}</p>
+          <Logo className="mb-4 h-10 w-auto" />
         </div>
 
         <Card>

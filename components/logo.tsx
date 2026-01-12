@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useBrandSettings } from "@/hooks/use-brand-settings"
 import { cn } from "@/lib/utils"
+import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL } from "@/lib/constants"
 
 interface LogoProps {
   className?: string
@@ -19,18 +20,20 @@ export default function Logo({ className = "", variant = "full" }: LogoProps) {
     setMounted(true)
   }, [])
 
-  // Get logo source - only use defaults if we've confirmed no custom branding exists
+  // Get logo source - use brand settings or defaults
   const getLogoSrc = (): string | null => {
+    // While loading, return null to show placeholder
     if (brandSettings.isLoading || !brandSettings.hasData) {
-      return null // Show placeholder while loading
+      return null
     }
 
     if (variant === "icon") {
-      return brandSettings.favicon || null
+      // For icon variant, use favicon
+      return brandSettings.favicon || DEFAULT_FAVICON_URL
     }
 
-    // Full logo variant - single logo
-    return brandSettings.logo || null
+    // Full logo variant - use logo from settings or default
+    return brandSettings.logo || DEFAULT_LOGO_URL
   }
 
   const logoSrc = getLogoSrc()
@@ -58,6 +61,7 @@ export default function Logo({ className = "", variant = "full" }: LogoProps) {
         height={variant === "icon" ? 32 : 40}
         className="h-auto w-auto object-contain"
         priority
+        key={logoSrc} // Force re-render when logo URL changes
       />
     </Link>
   )
