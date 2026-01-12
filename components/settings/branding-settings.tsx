@@ -518,7 +518,7 @@ export function BrandingSettings() {
         <CardContent className="space-y-6">
           {/* Institution Name - English */}
           <div className="space-y-2">
-            <Label htmlFor="institutionName">{t("settings.branding.institutionName")} (English)</Label>
+            <Label htmlFor="institutionName">{t("settings.branding.institutionNameEnglish")}</Label>
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
@@ -534,7 +534,7 @@ export function BrandingSettings() {
 
           {/* Institution Name - Russian */}
           <div className="space-y-2">
-            <Label htmlFor="institutionNameRu">{t("settings.branding.institutionName")} (Russian)</Label>
+            <Label htmlFor="institutionNameRu">{t("settings.branding.institutionNameRussian")}</Label>
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
@@ -552,7 +552,7 @@ export function BrandingSettings() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Logo Upload - English */}
             <div className="space-y-2">
-              <Label>{t("settings.branding.logo")} (English)</Label>
+              <Label>{t("settings.branding.logoEnglish")}</Label>
               <div className="flex items-center gap-2">
                 {isLoading ? (
                   <Skeleton className="h-10 w-16" />
@@ -609,7 +609,7 @@ export function BrandingSettings() {
 
             {/* Logo Upload - Russian */}
             <div className="space-y-2">
-              <Label>{t("settings.branding.logo")} (Russian)</Label>
+              <Label>{t("settings.branding.logoRussian")}</Label>
               <div className="flex items-center gap-2">
                 {isLoading ? (
                   <Skeleton className="h-10 w-16" />
