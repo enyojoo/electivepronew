@@ -315,7 +315,7 @@ Don't want to manage infrastructure? We offer a fully managed hosted service wit
 - ✅ **Automatic Backups** - Your data is automatically backed up daily with point-in-time recovery options
 - ✅ **Scalable Infrastructure** - Scale seamlessly as your student base grows without worrying about infrastructure limits
 
-**Learn more about our hosted service, including pricing plans and features:** [https://www.electivepro.org/hosted](https://www.electivepro.org/hosted)
+**Learn more about our hosted service, including pricing plans and features:** [https://www.electivepro.net/hosted](https://www.electivepro.net/hosted)
 
 ---
 
@@ -367,14 +367,14 @@ This project is licensed under the **AGPL-3.0 License** - see the [LICENSE](LICE
 - ⚠️ If you want to create a proprietary hosted service without sharing modifications, you'll need a commercial license
 
 **Commercial License:**
-If you need to use ElectivePRO in a proprietary application or provide a hosted service without open-sourcing your modifications, commercial licenses are available. <a href="https://www.electivepro.org/contact" target="_blank" rel="noopener noreferrer">Contact us</a> for more information.
+If you need to use ElectivePRO in a proprietary application or provide a hosted service without open-sourcing your modifications, commercial licenses are available. <a href="https://www.electivepro.net/contact" target="_blank" rel="noopener noreferrer">Contact us</a> for more information.
 
 ---
 
 ## 🆘 Support
 
-- 📧 [Email Support](mailto:support@electivepro.org)
-- 💬 [Contact Us](https://www.electivepro.org/contact) - Schedule a meeting or send us a message
+- 📧 [Email Support](mailto:support@electivepro.net)
+- 💬 [Contact Us](https://www.electivepro.net/contact) - Schedule a meeting or send us a message
 - 🐦 [Twitter (X)](https://x.com/enyosaam) - Follow us for updates
 
 ---
@@ -397,6 +397,6 @@ If you need to use ElectivePRO in a proprietary application or provide a hosted 
 
 **Made with ❤️ to power elective course and exchange program management**
 
-<a href="https://www.electivepro.org" target="_blank" rel="noopener noreferrer">Website</a> • <a href="https://x.com/enyosaam" target="_blank" rel="noopener noreferrer">Twitter (X)</a>
+<a href="https://www.electivepro.net" target="_blank" rel="noopener noreferrer">Website</a> • <a href="https://x.com/enyosaam" target="_blank" rel="noopener noreferrer">Twitter (X)</a>
 
 </div>
