@@ -354,19 +354,44 @@ export function BrandingSettings() {
     }
   }
 
-  const handleResetDefaults = () => {
-    if (settings) {
-      setPrimaryColor(settings.primary_color || DEFAULT_PRIMARY_COLOR)
-      setInstitutionName(settings.name || "")
-    } else {
-      setPrimaryColor(DEFAULT_PRIMARY_COLOR)
-      setInstitutionName("")
-    }
+  const handleResetDefaults = async () => {
+    try {
+      setIsSaving(true)
+      
+      // Reset all brand settings to defaults in the database
+      await updateSettings({
+        name: DEFAULT_PLATFORM_NAME,
+        primary_color: DEFAULT_PRIMARY_COLOR,
+        logo_url: null,
+        favicon_url: null,
+      })
 
-    toast({
-      title: t("settings.toast.resetDefaults"),
-      description: t("settings.toast.resetDefaultsDesc"),
-    })
+      // Update local state to reflect defaults
+      setPrimaryColor(DEFAULT_PRIMARY_COLOR)
+      setInstitutionName(DEFAULT_PLATFORM_NAME)
+      setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
+      setOriginalInstitutionName(DEFAULT_PLATFORM_NAME)
+      setLogoUrl(null)
+      setFaviconUrl(null)
+      setPendingLogoFile(null)
+      setPendingFaviconFile(null)
+      setPendingLogoUrl(null)
+      setPendingFaviconUrl(null)
+
+      toast({
+        title: t("settings.toast.resetDefaults"),
+        description: t("settings.toast.resetDefaultsDesc"),
+      })
+    } catch (error) {
+      console.error("Error resetting to defaults:", error)
+      toast({
+        title: t("settings.toast.error"),
+        description: t("settings.toast.errorDesc"),
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
 
@@ -557,28 +582,44 @@ export function BrandingSettings() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            {isEditing ? (
-              <>
-                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving || isLoading}>
-                  {t("settings.account.cancel") || "Cancel"}
+          <div className="flex justify-between items-center pt-4">
+            <Button
+              variant="outline"
+              onClick={handleResetDefaults}
+              disabled={isLoading || isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("settings.branding.saving")}
+                </>
+              ) : (
+                t("settings.branding.reset") || "Reset to Default"
+              )}
+            </Button>
+            <div className="flex gap-2">
+              {isEditing ? (
+                <>
+                  <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving || isLoading}>
+                    {t("settings.account.cancel") || "Cancel"}
+                  </Button>
+                  <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("settings.branding.saving")}
+                      </>
+                    ) : (
+                      t("settings.branding.save")
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => setIsEditing(true)} disabled={isLoading}>
+                  {t("settings.account.edit") || "Edit"}
                 </Button>
-                <Button onClick={handleSaveChanges} disabled={isSaving || isLoading}>
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t("settings.branding.saving")}
-                    </>
-                  ) : (
-                    t("settings.branding.save")
-                  )}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => setIsEditing(true)} disabled={isLoading}>
-                {t("settings.account.edit") || "Edit"}
-              </Button>
-            )}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
