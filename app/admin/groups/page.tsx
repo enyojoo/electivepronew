@@ -1007,7 +1007,11 @@ export default function GroupsPage() {
                               {year.year}
                             </button>
                           ))}
-                        {filteredAcademicYears.length === 0 && !currentGroup.yearInput && (
+                        {filteredAcademicYears.filter((year) =>
+                          currentGroup.yearInput
+                            ? year.year.includes(currentGroup.yearInput)
+                            : true
+                        ).length === 0 && (
                           <div className="px-3 py-2 text-sm text-muted-foreground">
                             {t("admin.groups.noYearsAvailable") || "No years available. Type a year to create one."}
                           </div>
