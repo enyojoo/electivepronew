@@ -249,8 +249,34 @@ export default function ExchangePage({ params }: ExchangePageProps) {
           .eq("id", existingSelection.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from("exchange_selections").insert(selectionPayload).select().single()
+        const { data: newSelection, error } = await supabase.from("exchange_selections").insert(selectionPayload).select().single()
         if (error) throw error
+
+        // Send exchange selection submitted email (non-blocking)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+        fetch(`${baseUrl}/api/send-email-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "exchange-selection-submitted",
+            selectionId: newSelection.id,
+          }),
+        }).catch((error) => {
+          console.error("Failed to send exchange selection email:", error)
+        })
+
+        // Send admin notification (non-blocking)
+        fetch(`${baseUrl}/api/send-email-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "new-selection-notification",
+            selectionId: newSelection.id,
+            selectionType: "exchange",
+          }),
+        }).catch((error) => {
+          console.error("Failed to send admin notification:", error)
+        })
       }
 
       toast({ title: "Selection submitted", description: "Your university selection has been submitted successfully." })

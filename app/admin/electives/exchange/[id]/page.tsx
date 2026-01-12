@@ -345,8 +345,8 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   const exportUniversityToCSV = (university: any) => {
     // Define column headers based on language
     const headers = {
-      en: ["Name", "Location", "Language", "Enrollment", "Programs"],
-      ru: ["Название", "Местоположение", "Язык", "Зачисление", "Программы"],
+      en: ["Name", "Location", "Enrollment"],
+      ru: ["Название", "Местоположение", "Зачисление"],
     }
 
     // Create CSV content
@@ -355,15 +355,12 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
     // Add data row
     const location = `${university.city}, ${university.country}`
     const enrollment = `${university.currentStudents}/${university.maxStudents}`
-    const programs = university.programs.join("; ")
 
     // Escape fields that might contain commas
     const row = [
       `"${university.name}"`,
       `"${location}"`,
-      `"${university.language}"`,
       `"${enrollment}"`,
-      `"${programs}"`,
     ]
 
     universityContent += row.join(",") + "\n"
@@ -567,9 +564,6 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                           {t("manager.exchangeDetails.location")}
                         </th>
                         <th className="py-3 px-4 text-left text-sm font-medium">
-                          {t("manager.exchangeDetails.language")}
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">
                           {t("manager.exchangeDetails.enrollment")}
                         </th>
                         <th className="py-3 px-4 text-center text-sm font-medium">
@@ -584,7 +578,6 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                           <td className="py-3 px-4 text-sm">
                             {university.city}, {university.country}
                           </td>
-                          <td className="py-3 px-4 text-sm">{university.language}</td>
                           <td className="py-3 px-4 text-sm">
                             <Badge
                               variant={

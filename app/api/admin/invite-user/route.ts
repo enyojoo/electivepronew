@@ -105,6 +105,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Send user invitation email (non-blocking)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    fetch(`${baseUrl}/api/send-email-notification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "user-invitation",
+        email: email,
+        name: name,
+        role: role,
+        tempPassword: tempPassword,
+      }),
+    }).catch((error) => {
+      console.error("Failed to send user invitation email:", error)
+    })
+
     return NextResponse.json({
       success: true,
       userId: authData.user.id,

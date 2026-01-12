@@ -141,6 +141,20 @@ export async function signUp(formData: FormData) {
           return { error: "Error creating manager profile" }
         }
       }
+
+      // Send welcome email (non-blocking)
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      fetch(`${baseUrl}/api/send-email-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "welcome",
+          userEmail: email,
+          firstName: name.split(" ")[0],
+        }),
+      }).catch((error) => {
+        console.error("Failed to send welcome email:", error)
+      })
     }
 
     return { success: true }

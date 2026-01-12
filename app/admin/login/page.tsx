@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff } from "lucide-react"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
 import Link from "next/link"
+import Indicator from "@/components/indicator"
 
 export default function AdminLoginPage() {
   const { t } = useLanguage()
@@ -154,6 +155,7 @@ export default function AdminLoginPage() {
         <div className="flex justify-center mt-6">
           <LanguageSwitcher />
         </div>
+        <Indicator />
       </div>
     </div>
   )

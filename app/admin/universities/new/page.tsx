@@ -46,9 +46,6 @@ export default function NewUniversityPage() {
     max_students: 5, // Default max students
   })
 
-  // State for languages
-  const [languages, setLanguages] = useState<string[]>([])
-  const [customLanguage, setCustomLanguage] = useState("")
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -63,23 +60,6 @@ export default function NewUniversityPage() {
     setUniversity((prev) => ({ ...prev, status: value }))
   }
 
-  const handleAddLanguage = () => {
-    if (customLanguage && !languages.includes(customLanguage)) {
-      setLanguages([...languages, customLanguage])
-      setCustomLanguage("")
-    }
-  }
-
-  const handleRemoveLanguage = (language: string) => {
-    setLanguages(languages.filter((l) => l !== language))
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      handleAddLanguage()
-    }
-  }
 
   // Update the handleSubmit function to save to exchange_universities table
   const handleSubmit = async (e: React.FormEvent) => {
@@ -95,7 +75,7 @@ export default function NewUniversityPage() {
         description_ru: university.description_ru || null,
         city: university.city,
         country: university.country,
-        language: languages.length > 0 ? languages.join(", ") : null,
+        language: null,
         website: university.website || null,
         max_students: university.max_students,
         status: university.status,
@@ -199,45 +179,6 @@ export default function NewUniversityPage() {
                     rows={4}
                     required
                   />
-                </div>
-              </div>
-
-              {/* Languages of Instruction */}
-              <div className="space-y-2">
-                <Label htmlFor="languages">{t("admin.newUniversity.languages", "Languages of Instruction")}</Label>
-
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {languages.map((language) => (
-                    <Badge key={language} variant="secondary" className="px-2 py-1 text-sm">
-                      {language}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLanguage(language)}
-                        className="ml-1 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <Input
-                    id="languages"
-                    placeholder={t("admin.newUniversity.addLanguage", "Add language")}
-                    value={customLanguage}
-                    onChange={(e) => setCustomLanguage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAddLanguage}
-                    disabled={!customLanguage}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
 

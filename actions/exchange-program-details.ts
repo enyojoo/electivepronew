@@ -214,6 +214,20 @@ export async function updateSelectionStatus(selectionId: string, status: "approv
       throw new Error("Failed to update selection status")
     }
 
+    // Send status update email (non-blocking)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    fetch(`${baseUrl}/api/send-email-notification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: status === "approved" ? "selection-approved" : "selection-rejected",
+        selectionId: selectionId,
+        selectionType: "exchange",
+      }),
+    }).catch((error) => {
+      console.error("Failed to send status update email:", error)
+    })
+
     revalidatePath("/manager/electives/exchange")
     return data
   } catch (error) {
@@ -242,6 +256,22 @@ export async function updateStudentSelection(
     if (error) {
       console.error("Error updating student selection:", error)
       throw new Error("Failed to update student selection")
+    }
+
+    // Send status update email if status changed to approved/rejected (non-blocking)
+    if (status === "approved" || status === "rejected") {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      fetch(`${baseUrl}/api/send-email-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: status === "approved" ? "selection-approved" : "selection-rejected",
+          selectionId: selectionId,
+          selectionType: "exchange",
+        }),
+      }).catch((error) => {
+        console.error("Failed to send status update email:", error)
+      })
     }
 
     revalidatePath("/manager/electives/exchange")

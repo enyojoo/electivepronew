@@ -16,6 +16,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Eye, EyeOff } from "lucide-react"
+import Indicator from "@/components/indicator"
 
 export default function ManagerLoginPage() {
   const { t } = useLanguage()
@@ -168,6 +169,7 @@ export default function ManagerLoginPage() {
         <div className="flex justify-center">
           <LanguageSwitcher />
         </div>
+        <Indicator />
       </div>
     </div>
   )

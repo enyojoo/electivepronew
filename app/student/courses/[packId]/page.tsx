@@ -328,8 +328,34 @@ export default function ElectivePage({ params }: ElectivePageProps) {
           .eq("id", existingSelectionRecord.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from("course_selections").insert(selectionPayload).select().single()
+        const { data: newSelection, error } = await supabase.from("course_selections").insert(selectionPayload).select().single()
         if (error) throw error
+
+        // Send course selection submitted email (non-blocking)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+        fetch(`${baseUrl}/api/send-email-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "course-selection-submitted",
+            selectionId: newSelection.id,
+          }),
+        }).catch((error) => {
+          console.error("Failed to send course selection email:", error)
+        })
+
+        // Send admin notification (non-blocking)
+        fetch(`${baseUrl}/api/send-email-notification`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "new-selection-notification",
+            selectionId: newSelection.id,
+            selectionType: "course",
+          }),
+        }).catch((error) => {
+          console.error("Failed to send admin notification:", error)
+        })
       }
 
       toast({ title: "Selection submitted", description: "Your course selection has been submitted successfully." })

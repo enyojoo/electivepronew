@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
+import Indicator from "@/components/indicator"
 
 export default function StudentLoginPage() {
   const [email, setEmail] = useState("")
@@ -169,6 +170,7 @@ export default function StudentLoginPage() {
         <div className="flex justify-center mt-8">
           <LanguageSwitcher />
         </div>
+        <Indicator />
       </div>
     </div>
   )

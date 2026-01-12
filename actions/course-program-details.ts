@@ -95,6 +95,20 @@ export async function updateCourseSelectionStatus(selectionId: string, status: "
       throw new Error("Failed to update course selection status")
     }
 
+    // Send status update email (non-blocking)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    fetch(`${baseUrl}/api/send-email-notification`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: status === "approved" ? "selection-approved" : "selection-rejected",
+        selectionId: selectionId,
+        selectionType: "course",
+      }),
+    }).catch((error) => {
+      console.error("Failed to send status update email:", error)
+    })
+
     revalidatePath("/manager/electives/course")
     return data
   } catch (error) {
@@ -112,7 +126,7 @@ export async function updateStudentCourseSelection(
     const { data, error } = await supabase
       .from("course_selections")
       .update({
-        selected_ids: selectedCourseIds,
+        selected_course_ids: selectedCourseIds,
         status,
       })
       .eq("id", selectionId)
@@ -121,6 +135,22 @@ export async function updateStudentCourseSelection(
 
     if (error) {
       throw new Error("Failed to update student course selection")
+    }
+
+    // Send status update email if status changed to approved/rejected (non-blocking)
+    if (status === "approved" || status === "rejected") {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      fetch(`${baseUrl}/api/send-email-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: status === "approved" ? "selection-approved" : "selection-rejected",
+          selectionId: selectionId,
+          selectionType: "course",
+        }),
+      }).catch((error) => {
+        console.error("Failed to send status update email:", error)
+      })
     }
 
     revalidatePath("/manager/electives/course")

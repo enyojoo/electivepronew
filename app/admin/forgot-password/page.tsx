@@ -14,6 +14,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/components/ui/use-toast"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
+import Indicator from "@/components/indicator"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -149,6 +150,7 @@ export default function ForgotPasswordPage() {
         <div className="flex justify-center mt-6">
           <LanguageSwitcher />
         </div>
+        <Indicator />
       </div>
     </div>
   )

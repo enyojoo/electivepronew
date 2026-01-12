@@ -39,8 +39,6 @@ interface University {
   max_students: number
   created_at: string
   updated_at: string
-  university_languages: string[] | null
-  university_programs: string[] | null
   description?: string
   description_ru?: string | null
 }
@@ -63,9 +61,7 @@ export default function EditUniversityPage() {
     website: "",
     status: "active",
     max_students: 5,
-    university_languages: [] as string[],
   })
-  const [customLanguage, setCustomLanguage] = useState("")
 
   // Countries are now static data from lib/countries.ts - no need to fetch
 
@@ -95,7 +91,6 @@ export default function EditUniversityPage() {
             website: data.website || "",
             status: data.status || "active",
             max_students: data.max_students || 5,
-            university_languages: data.language ? data.language.split(", ") : [],
           })
         }
       } catch (error) {
@@ -127,29 +122,6 @@ export default function EditUniversityPage() {
     setFormData((prev) => ({ ...prev, status: value }))
   }
 
-  const handleAddLanguage = () => {
-    if (customLanguage && !formData.university_languages.includes(customLanguage)) {
-      setFormData((prev) => ({
-        ...prev,
-        university_languages: [...prev.university_languages, customLanguage],
-      }))
-      setCustomLanguage("")
-    }
-  }
-
-  const handleRemoveLanguage = (language: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      university_languages: prev.university_languages.filter((l) => l !== language),
-    }))
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      handleAddLanguage()
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -169,7 +141,7 @@ export default function EditUniversityPage() {
           description_ru: formData.description_ru || null,
           city: formData.city,
           country: formData.country,
-          language: formData.university_languages.length > 0 ? formData.university_languages.join(", ") : null,
+          language: null,
           website: formData.website || null,
           status: formData.status,
           max_students: formData.max_students,
@@ -276,49 +248,6 @@ export default function EditUniversityPage() {
                     required
                   />
                 </div>
-              </div>
-
-              {/* Languages of Instruction and Available Programs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Languages of Instruction */}
-                <div className="space-y-2">
-                  <Label htmlFor="languages">{t("admin.newUniversity.languages", "Languages of Instruction")}</Label>
-
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.university_languages.map((language) => (
-                      <Badge key={language} variant="secondary" className="px-2 py-1 text-sm">
-                        {language}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLanguage(language)}
-                          className="ml-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      id="languages"
-                      placeholder={t("admin.newUniversity.addLanguage", "Add language")}
-                      value={customLanguage}
-                      onChange={(e) => setCustomLanguage(e.target.value)}
-                      onKeyPress={(e) => handleKeyPress(e, "language")}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAddLanguage}
-                      disabled={!customLanguage}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
               </div>
 
               {/* City */}

@@ -209,41 +209,6 @@ export default function UniversityDetailsPage() {
               </>
             ) : null}
 
-            {university.university_languages && university.university_languages.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("admin.universities.languages", "Languages of Instruction")}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {university.university_languages.map((language) => (
-                      <Badge key={language} variant="secondary">
-                        {language}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {university.university_programs && university.university_programs.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("admin.universities.programs", "Available Programs")}
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {university.university_programs.map((program) => (
-                      <Badge key={program} variant="secondary">
-                        {program}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
 
             <Separator />
           </CardContent>

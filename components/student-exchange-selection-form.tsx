@@ -222,11 +222,6 @@ export function StudentExchangeSelectionForm({
                   <p className="text-sm mt-2">
                     {t("max_students")}: {university.max_students}
                   </p>
-                  {university.language && (
-                    <p className="text-sm">
-                      {t("language")}: {university.language}
-                    </p>
-                  )}
                 </CardContent>
                 <CardFooter className="bg-gray-50 p-2">
                   <Button

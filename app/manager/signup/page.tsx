@@ -17,6 +17,7 @@ import { LanguageSwitcher } from "@/components/language-switcher"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Eye, EyeOff } from "lucide-react"
+import Indicator from "@/components/indicator"
 
 export default function ManagerSignupPage() {
   const { t, language } = useLanguage()
@@ -157,6 +158,20 @@ export default function ManagerSignupPage() {
       })
 
       if (profileError) throw new Error(profileError.message)
+
+      // Send welcome email (non-blocking)
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+      fetch(`${baseUrl}/api/send-email-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "welcome",
+          userEmail: formData.email,
+          firstName: formData.name.split(" ")[0],
+        }),
+      }).catch((error) => {
+        console.error("Failed to send welcome email:", error)
+      })
 
       toast({
         title: t("auth.signup.success"),
@@ -307,6 +322,7 @@ export default function ManagerSignupPage() {
         <div className="flex justify-center mt-8">
           <LanguageSwitcher />
         </div>
+        <Indicator />
       </div>
     </div>
   )

@@ -71,27 +71,31 @@ export function CountrySelect({
               {language === "ru" ? "Страна не найдена." : "No country found."}
             </CommandEmpty>
             <CommandGroup>
-              {countries.map((country) => (
-                <CommandItem
-                  key={country.code}
-                  value={`${getCountryName(country, language)} ${country.code}`}
-                  onSelect={() => {
-                    onValueChange(country.code === value ? "" : country.code)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === country.code ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  <span className="flex items-center gap-2">
-                    <span>{country.flag}</span>
-                    <span>{getCountryName(country, language)}</span>
-                  </span>
-                </CommandItem>
-              ))}
+              {countries.map((country) => {
+                const countryName = getCountryName(country, language)
+                const isSelected = value === country.code
+                return (
+                  <CommandItem
+                    key={country.code}
+                    value={countryName}
+                    onSelect={() => {
+                      onValueChange(isSelected ? "" : country.code)
+                      setOpen(false)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        isSelected ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="flex items-center gap-2">
+                      <span>{country.flag}</span>
+                      <span>{countryName}</span>
+                    </span>
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           </CommandList>
         </Command>

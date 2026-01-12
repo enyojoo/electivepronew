@@ -71,7 +71,6 @@ interface University {
   description: string | null
   description_ru: string | null
   status: string
-  university_languages: string[]
 }
 
 interface StudentSelection {
@@ -629,7 +628,6 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                         <tr className="border-b bg-muted/50">
                           <th className="py-3 px-4 text-left text-sm font-medium">Name</th>
                           <th className="py-3 px-4 text-left text-sm font-medium">Location</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Language</th>
                           <th className="py-3 px-4 text-left text-sm font-medium">Enrollment</th>
                           <th className="py-3 px-4 text-center text-sm font-medium">Export</th>
                         </tr>
@@ -637,9 +635,6 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                       <tbody>
                         {universities.map((university) => {
                           const currentEnrollment = getUniversityEnrollment(university.id)
-                          const languages = Array.isArray(university.university_languages)
-                            ? university.university_languages.join(", ")
-                            : "-"
 
                           return (
                             <tr key={university.id} className="border-b">
@@ -649,7 +644,6 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                               <td className="py-3 px-4 text-sm">
                                 {university.city}, {university.country}
                               </td>
-                              <td className="py-3 px-4 text-sm">{languages}</td>
                               <td className="py-3 px-4 text-sm">
                                 <Badge
                                   variant={currentEnrollment >= university.max_students ? "destructive" : "secondary"}
