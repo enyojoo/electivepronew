@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import { createServerClient } from "@supabase/ssr"
+import { createServerClient, createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/types/supabase"
 
 // Helper to get env vars with validation
@@ -27,10 +27,11 @@ function getSupabaseConfig() {
 }
 
 // Create a singleton for the browser client
-let browserClient: ReturnType<typeof createClient<Database>> | null = null
+let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
 let browserClientConfig: { url: string; anonKey: string } | null = null
 
 // Function to get the browser client (singleton pattern)
+// Uses createBrowserClient from @supabase/ssr for proper cookie/session handling
 export function getSupabaseBrowserClient() {
   const config = getSupabaseConfig()
   
@@ -41,6 +42,7 @@ export function getSupabaseBrowserClient() {
 
   // Client-side - use singleton pattern, but recreate if config changed
   // This handles the case where client was created with placeholder values during build
+  // Use createBrowserClient from @supabase/ssr for proper cookie/session handling
   if (!browserClient || 
       browserClientConfig?.url !== config.url || 
       browserClientConfig?.anonKey !== config.anonKey ||
@@ -48,17 +50,11 @@ export function getSupabaseBrowserClient() {
       config.anonKey === "placeholder-key") {
     // Only recreate if we have real values (not placeholders)
     if (config.url !== "https://placeholder.supabase.co" && config.anonKey !== "placeholder-key") {
-      browserClient = createClient<Database>(config.url, config.anonKey, {
-        global: {
-          headers: {
-            'apikey': config.anonKey,
-          },
-        },
-      })
+      browserClient = createBrowserClient<Database>(config.url, config.anonKey)
       browserClientConfig = { url: config.url, anonKey: config.anonKey }
     } else if (!browserClient) {
       // Fallback: create with placeholders if no client exists yet
-      browserClient = createClient<Database>(config.url, config.anonKey)
+      browserClient = createBrowserClient<Database>(config.url, config.anonKey)
       browserClientConfig = { url: config.url, anonKey: config.anonKey }
     }
   }
