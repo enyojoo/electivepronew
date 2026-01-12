@@ -865,7 +865,7 @@ export function UsersSettings() {
                               {filteredGroups.length > 0 ? (
                                 filteredGroups.map((group) => (
                                   <SelectItem key={group.id} value={group.id.toString()}>
-                                    {group.name || group.displayName}
+                                    {group.name}
                                   </SelectItem>
                                 ))
                               ) : (

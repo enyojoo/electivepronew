@@ -60,7 +60,6 @@ CREATE TABLE IF NOT EXISTS groups (
   degree_id UUID NOT NULL REFERENCES degrees(id) ON DELETE RESTRICT,
   academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
-  display_name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

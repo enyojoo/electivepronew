@@ -45,7 +45,6 @@ export function useCachedGroups() {
           .select(`
             id,
             name,
-            display_name,
             status,
             degree_id,
             academic_year_id,
@@ -98,7 +97,6 @@ export function useCachedGroups() {
           return {
             id: group.id.toString(),
             name: group.name,
-            displayName: group.display_name,
             degree: degree?.name || "Unknown",
             degreeId: group.degree_id || "",
             academicYear: academicYear?.year || "",
