@@ -390,18 +390,21 @@ export function BrandingSettings() {
         throw error
       }
 
-      // Update cache with new settings immediately
-      const updatedSettings = {
+      // Update cache with new settings immediately using the data from database
+      // This ensures we have the exact values that were saved
+      const updatedSettings = data || {
         ...settings,
-        ...(data || {
-          name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
-          primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-          logo_url: pendingLogoUrl || existingSettings?.logo_url || null,
-          favicon_url: pendingFaviconUrl || existingSettings?.favicon_url || null,
-          updated_at: new Date().toISOString(),
-        }),
+        name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
+        primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
+        logo_url: pendingLogoUrl || existingSettings?.logo_url || null,
+        favicon_url: pendingFaviconUrl || existingSettings?.favicon_url || null,
+        updated_at: new Date().toISOString(),
       }
       setCachedData("settings", SETTINGS_CACHE_KEY, updatedSettings)
+      
+      // Force a small delay to ensure cache is updated before refresh
+      // This helps DynamicBranding pick up the changes
+      await new Promise(resolve => setTimeout(resolve, 50))
 
       // Update original values and clear pending changes
       setOriginalPrimaryColor(primaryColor)
