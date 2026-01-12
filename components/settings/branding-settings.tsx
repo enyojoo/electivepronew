@@ -190,9 +190,14 @@ export function BrandingSettings() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    const validTypes = ["image/png", "image/x-icon", "image/svg+xml"]
-    if (!validTypes.includes(file.type)) {
+    // Validate file type - check both MIME type and file extension
+    const validTypes = ["image/png", "image/x-icon", "image/vnd.microsoft.icon", "image/svg+xml", "image/ico"]
+    const fileExt = file.name.split(".").pop()?.toLowerCase()
+    const validExtensions = ["png", "ico", "svg"]
+    
+    const isValidType = validTypes.includes(file.type) || (fileExt && validExtensions.includes(fileExt))
+    
+    if (!isValidType) {
       toast({
         title: t("settings.toast.invalidFileType"),
         description: t("settings.toast.invalidFileTypeDesc"),
@@ -241,9 +246,14 @@ export function BrandingSettings() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
-    const validTypes = ["image/jpeg", "image/png", "image/svg+xml"]
-    if (!validTypes.includes(file.type)) {
+    // Validate file type - check both MIME type and file extension
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml"]
+    const fileExt = file.name.split(".").pop()?.toLowerCase()
+    const validExtensions = ["jpg", "jpeg", "png", "svg"]
+    
+    const isValidType = validTypes.includes(file.type) || (fileExt && validExtensions.includes(fileExt))
+    
+    if (!isValidType) {
       toast({
         title: t("settings.toast.invalidFileType"),
         description: t("settings.toast.invalidFileTypeDesc"),
@@ -327,6 +337,12 @@ export function BrandingSettings() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Failed to save settings" }))
+        console.error("Settings save error:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          updateData,
+        })
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 

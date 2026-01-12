@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
@@ -47,21 +46,40 @@ export function useCachedSettings() {
         return
       }
 
-      // If not in cache, fetch from API
+      // If not in cache, fetch from API route
       setIsLoading(true)
       setError(null)
       console.log("Fetching settings from API")
       try {
-        const supabase = getSupabaseBrowserClient()
+        const response = await fetch("/api/settings")
+        
+        if (!response.ok) {
+          // If unauthorized or forbidden, use defaults
+          if (response.status === 401 || response.status === 403) {
+            console.log("Not authenticated, using default settings")
+            const defaultSettings = {
+              id: SETTINGS_ID,
+              name: null,
+              primary_color: null,
+              logo_url: null,
+              favicon_url: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+            setSettings(defaultSettings)
+            setCachedData("settings", SETTINGS_ID, defaultSettings)
+            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
+            return
+          }
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
-        const { data, error } = await supabase.from("settings").select("*").eq("id", SETTINGS_ID).maybeSingle()
+        const result = await response.json()
+        const data = result.rawSettings
 
-        // If settings don't exist, create a default row
-        if (error) {
-          throw error
-        } else if (!data) {
-          // No rows returned - create default settings
-          console.log("Settings row not found, creating default settings")
+        if (!data) {
+          // No settings found - use defaults
+          console.log("Settings row not found, using default settings")
           const defaultSettings = {
             id: SETTINGS_ID,
             name: null,
@@ -71,20 +89,9 @@ export function useCachedSettings() {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }
-
-          const { error: insertError } = await supabase.from("settings").insert(defaultSettings)
-
-          if (insertError) {
-            console.error("Error creating default settings:", insertError)
-            // Even if insert fails, use defaults
-            setSettings(defaultSettings)
-            setCachedData("settings", SETTINGS_ID, defaultSettings)
-            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
-          } else {
-            setSettings(defaultSettings)
-            setCachedData("settings", SETTINGS_ID, defaultSettings)
-            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
-          }
+          setSettings(defaultSettings)
+          setCachedData("settings", SETTINGS_ID, defaultSettings)
+          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
         } else {
           // Save to cache
           setCachedData("settings", SETTINGS_ID, data)

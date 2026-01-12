@@ -3,7 +3,6 @@
 import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME, DEFAULT_LOGO_URL } from "@/lib/constants"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 
 // Helper function to validate if a URL is valid
 const isValidUrl = (url: string | null | undefined): boolean => {
@@ -28,18 +27,23 @@ export function DynamicBranding() {
   // Determine if we're in the admin section
   const isAdmin = pathname?.includes("/admin") || false
 
-  // Load settings from database
+  // Load settings from database using public API route
   useEffect(() => {
     async function loadSettings() {
       try {
-        const { data, error } = await supabase
-          .from("settings")
-          .select("name, primary_color, favicon_url, logo_url")
-          .eq("id", "00000000-0000-0000-0000-000000000000")
-          .single()
-
-        if (!error && data) {
-          setSettings(data)
+        // Use brand-settings API which has public read access
+        const response = await fetch("/api/brand-settings")
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data) {
+            setSettings({
+              name: data.platformName,
+              primary_color: data.primaryColor,
+              favicon_url: data.faviconUrl,
+              logo_url: data.logoUrl,
+            })
+          }
         }
       } catch (error) {
         console.error("Error loading settings:", error)

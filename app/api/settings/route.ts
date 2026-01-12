@@ -136,9 +136,15 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Error updating settings:", error)
+      console.error("Error updating settings:", {
+        error,
+        errorCode: error.code,
+        errorMessage: error.message,
+        errorDetails: error.details,
+        updateData,
+      })
       return NextResponse.json(
-        { error: "Failed to update settings" },
+        { error: error.message || "Failed to update settings", errorCode: error.code },
         { status: 500 }
       )
     }
