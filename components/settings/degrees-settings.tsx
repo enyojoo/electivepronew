@@ -73,30 +73,20 @@ export function DegreesSettings() {
   useEffect(() => {
     // Format degrees data
     if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length > 0) {
-      console.log(`[Degrees Settings] Raw cached degrees:`, cachedDegrees)
-      const formattedDegrees = cachedDegrees.map((degree) => {
-        const formatted = {
-          id: degree.id.toString(),
-          name: degree.name || "",
-          nameRu: degree.name_ru || "",
-          code: degree.code || "",
-          status: degree.status || "active",
-        }
-        console.log(`[Degrees Settings] Formatted degree:`, formatted)
-        return formatted
-      })
+      const formattedDegrees = cachedDegrees.map((degree) => ({
+        id: degree.id.toString(),
+        name: degree.name || "",
+        nameRu: degree.name_ru || "",
+        code: degree.code || "",
+        status: degree.status || "active",
+      }))
 
-      console.log(`[Degrees Settings] Displaying ${formattedDegrees.length} degrees:`, formattedDegrees)
       setDegrees(formattedDegrees)
       setFilteredDegrees(formattedDegrees)
     } else if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length === 0) {
       // Empty array - no degrees found in database
-      console.log("[Degrees Settings] No degrees found in database")
       setDegrees([])
       setFilteredDegrees([])
-    } else {
-      // Data not loaded yet or invalid
-      console.log("[Degrees Settings] Waiting for degrees data...", { cachedDegrees })
     }
   }, [cachedDegrees])
 
@@ -277,7 +267,7 @@ export function DegreesSettings() {
       if (isMounted.current) {
         // Invalidate cache to trigger refetch (matching groups page pattern)
         localStorage.removeItem("admin_degrees_cache")
-        setIsLoading(true)
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: t("admin.degrees.success"),
@@ -313,7 +303,7 @@ export function DegreesSettings() {
       if (isMounted.current) {
         // Invalidate cache to trigger refetch (matching groups page pattern)
         localStorage.removeItem("admin_degrees_cache")
-        setIsLoading(true)
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: t("admin.degrees.success"),
@@ -403,7 +393,7 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code || "-"}</TableCell>
+                        <TableCell>{degree.code || ""}</TableCell>
                         <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
                         <TableCell>
                           <DropdownMenu>

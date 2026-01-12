@@ -57,21 +57,15 @@ export function useCachedDegrees() {
 
       try {
         const supabase = getSupabaseBrowserClient()
-        // Fetch all degrees - explicitly select all required fields
+        // Fetch all degrees - use * to get all fields including code and status
         const { data, error, count } = await supabase
           .from("degrees")
-          .select("id, name, name_ru, code, status, created_at, updated_at", { count: "exact" })
+          .select("*", { count: "exact" })
           .order("name", { ascending: true })
 
         if (error) throw error
 
         const degreesData = data || []
-        console.log(`[Degrees Hook] Fetched ${degreesData.length} degrees (total in DB: ${count})`)
-        if (degreesData.length > 0) {
-          console.log(`[Degrees Hook] Sample degree data:`, degreesData[0])
-          console.log(`[Degrees Hook] Degree has code:`, degreesData[0]?.code)
-          console.log(`[Degrees Hook] Degree has status:`, degreesData[0]?.status)
-        }
 
         // Cache the degrees data
         localStorage.setItem(
@@ -148,16 +142,15 @@ export function useCachedDegrees() {
           setIsLoading(true)
 
           try {
-            // Fetch all degrees - explicitly select all required fields
+            // Fetch all degrees - use * to get all fields
             const { data, error, count } = await supabase
               .from("degrees")
-              .select("id, name, name_ru, code, status, created_at, updated_at", { count: "exact" })
+              .select("*", { count: "exact" })
               .order("name", { ascending: true })
 
             if (error) throw error
 
             const degreesData = data || []
-            console.log(`[Degrees Hook] Real-time refetch: ${degreesData.length} degrees (total in DB: ${count})`)
             
             // Update cache
             localStorage.setItem(
