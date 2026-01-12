@@ -6,35 +6,25 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { useLanguage } from "@/lib/language-context"
-import { useToast } from "@/hooks/use-toast"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
 
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
 
 export function NotificationSettings() {
   const { t } = useLanguage()
-  const { toast } = useToast()
   const router = useRouter()
   const { setCachedData } = useDataCache()
   const { settings, isLoading } = useCachedSettings()
   const [isSaving, setIsSaving] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
 
   // Notification settings state
   const [selectionNotifications, setSelectionNotifications] = useState(true)
   const [statusUpdateNotifications, setStatusUpdateNotifications] = useState(true)
   const [platformAnnouncements, setPlatformAnnouncements] = useState(true)
   const [userEmailNotifications, setUserEmailNotifications] = useState(true)
-
-  // Original values for cancel
-  const [originalSelectionNotifications, setOriginalSelectionNotifications] = useState(true)
-  const [originalStatusUpdateNotifications, setOriginalStatusUpdateNotifications] = useState(true)
-  const [originalPlatformAnnouncements, setOriginalPlatformAnnouncements] = useState(true)
-  const [originalUserEmailNotifications, setOriginalUserEmailNotifications] = useState(true)
 
   // Update state when settings are loaded
   useEffect(() => {
@@ -48,11 +38,6 @@ export function NotificationSettings() {
       setStatusUpdateNotifications(statusUpdate)
       setPlatformAnnouncements(announcements)
       setUserEmailNotifications(userEmails)
-
-      setOriginalSelectionNotifications(selection)
-      setOriginalStatusUpdateNotifications(statusUpdate)
-      setOriginalPlatformAnnouncements(announcements)
-      setOriginalUserEmailNotifications(userEmails)
     } else if (!isLoading) {
       // Defaults if no settings
       setSelectionNotifications(true)
@@ -62,24 +47,16 @@ export function NotificationSettings() {
     }
   }, [settings, isLoading])
 
-  const handleCancelEdit = () => {
-    setSelectionNotifications(originalSelectionNotifications)
-    setStatusUpdateNotifications(originalStatusUpdateNotifications)
-    setPlatformAnnouncements(originalPlatformAnnouncements)
-    setUserEmailNotifications(originalUserEmailNotifications)
-    setIsEditing(false)
-  }
-
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = async (updateData: {
+    selection_notifications?: boolean
+    status_update_notifications?: boolean
+    platform_announcements?: boolean
+    user_email_notifications?: boolean
+  }) => {
+    if (isSaving) return // Prevent multiple simultaneous saves
+    
     setIsSaving(true)
     try {
-      const updateData = {
-        selection_notifications: selectionNotifications,
-        status_update_notifications: statusUpdateNotifications,
-        platform_announcements: platformAnnouncements,
-        user_email_notifications: userEmailNotifications,
-      }
-
       // Use API route to update settings
       const response = await fetch("/api/settings", {
         method: "PUT",
@@ -104,30 +81,34 @@ export function NotificationSettings() {
       }
       setCachedData("settings", SETTINGS_ID, updatedSettings)
 
-      // Update original values and exit edit mode
-      setOriginalSelectionNotifications(selectionNotifications)
-      setOriginalStatusUpdateNotifications(statusUpdateNotifications)
-      setOriginalPlatformAnnouncements(platformAnnouncements)
-      setOriginalUserEmailNotifications(userEmailNotifications)
-      setIsEditing(false)
-
       // Force a refresh to update all components using the settings
       router.refresh()
-
-      toast({
-        title: t("settings.toast.changesSaved"),
-        description: t("settings.toast.changesSavedDesc"),
-      })
     } catch (error) {
       console.error("Error saving notification settings:", error)
-      toast({
-        title: t("settings.toast.error"),
-        description: error instanceof Error ? error.message : t("settings.toast.errorDesc"),
-        variant: "destructive",
-      })
+      // Silent fail - no toast notification
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleSelectionNotificationsChange = (checked: boolean) => {
+    setSelectionNotifications(checked)
+    handleSaveChanges({ selection_notifications: checked })
+  }
+
+  const handleStatusUpdateNotificationsChange = (checked: boolean) => {
+    setStatusUpdateNotifications(checked)
+    handleSaveChanges({ status_update_notifications: checked })
+  }
+
+  const handlePlatformAnnouncementsChange = (checked: boolean) => {
+    setPlatformAnnouncements(checked)
+    handleSaveChanges({ platform_announcements: checked })
+  }
+
+  const handleUserEmailNotificationsChange = (checked: boolean) => {
+    setUserEmailNotifications(checked)
+    handleSaveChanges({ user_email_notifications: checked })
   }
 
   if (isLoading) {
@@ -154,19 +135,10 @@ export function NotificationSettings() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>{t("admin.settings.notifications.title", "Email Notifications")}</CardTitle>
-            <CardDescription>
-              {t("admin.settings.notifications.subtitle", "Manage email notification preferences for the platform")}
-            </CardDescription>
-          </div>
-          {!isEditing && (
-            <Button onClick={() => setIsEditing(true)} variant="outline">
-              {t("settings.branding.edit", "Edit")}
-            </Button>
-          )}
-        </div>
+        <CardTitle>{t("admin.settings.notifications.title", "Email Notifications")}</CardTitle>
+        <CardDescription>
+          {t("admin.settings.notifications.subtitle", "Manage email notification preferences for the platform")}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -185,8 +157,8 @@ export function NotificationSettings() {
             <Switch
               id="selection-notifications"
               checked={selectionNotifications}
-              onCheckedChange={setSelectionNotifications}
-              disabled={!isEditing || isSaving}
+              onCheckedChange={handleSelectionNotificationsChange}
+              disabled={isSaving}
             />
           </div>
 
@@ -205,8 +177,8 @@ export function NotificationSettings() {
             <Switch
               id="status-update-notifications"
               checked={statusUpdateNotifications}
-              onCheckedChange={setStatusUpdateNotifications}
-              disabled={!isEditing || isSaving}
+              onCheckedChange={handleStatusUpdateNotificationsChange}
+              disabled={isSaving}
             />
           </div>
 
@@ -225,8 +197,8 @@ export function NotificationSettings() {
             <Switch
               id="platform-announcements"
               checked={platformAnnouncements}
-              onCheckedChange={setPlatformAnnouncements}
-              disabled={!isEditing || isSaving}
+              onCheckedChange={handlePlatformAnnouncementsChange}
+              disabled={isSaving}
             />
           </div>
 
@@ -245,28 +217,10 @@ export function NotificationSettings() {
             <Switch
               id="user-email-notifications"
               checked={userEmailNotifications}
-              onCheckedChange={setUserEmailNotifications}
-              disabled={!isEditing || isSaving}
+              onCheckedChange={handleUserEmailNotificationsChange}
+              disabled={isSaving}
             />
           </div>
-
-          {isEditing && (
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                {t("settings.account.cancel", "Cancel")}
-              </Button>
-              <Button onClick={handleSaveChanges} disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t("settings.branding.saving", "Saving...")}
-                  </>
-                ) : (
-                  t("settings.branding.save", "Save Changes")
-                )}
-              </Button>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

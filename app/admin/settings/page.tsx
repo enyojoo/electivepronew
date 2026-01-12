@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { SettingsTabs } from "@/components/settings/settings-tabs"
+import { BrandingSettings } from "@/components/settings/branding-settings"
+import { NotificationSettings } from "@/components/settings/notification-settings"
+import { LoginLinksSettings } from "@/components/settings/login-links-settings"
 import { DegreesSettings } from "@/components/settings/degrees-settings"
 import { UsersSettings } from "@/components/settings/users-settings"
 import { useLanguage } from "@/lib/language-context"
@@ -42,7 +44,9 @@ export default function SettingsPage() {
               </TabsList>
 
               <TabsContent value="settings" className="space-y-6">
-                <SettingsTabs />
+                <BrandingSettings />
+                <NotificationSettings />
+                <LoginLinksSettings />
               </TabsContent>
 
               <TabsContent value="degrees" className="space-y-6">
