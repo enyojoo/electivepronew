@@ -99,29 +99,22 @@ export function NotificationSettings() {
         updated_at: new Date().toISOString(),
       }
 
-      // Include the notification settings being updated
+      // Only include the notification setting being updated
+      // Don't preserve other fields - let them remain as they are in the database
       if (updateData.selection_notifications !== undefined) {
         upsertData.selection_notifications = updateData.selection_notifications
-      } else if (existingSettings?.selection_notifications !== undefined) {
-        upsertData.selection_notifications = existingSettings.selection_notifications
       }
 
       if (updateData.status_update_notifications !== undefined) {
         upsertData.status_update_notifications = updateData.status_update_notifications
-      } else if (existingSettings?.status_update_notifications !== undefined) {
-        upsertData.status_update_notifications = existingSettings.status_update_notifications
       }
 
       if (updateData.platform_announcements !== undefined) {
         upsertData.platform_announcements = updateData.platform_announcements
-      } else if (existingSettings?.platform_announcements !== undefined) {
-        upsertData.platform_announcements = existingSettings.platform_announcements
       }
 
       if (updateData.user_email_notifications !== undefined) {
         upsertData.user_email_notifications = updateData.user_email_notifications
-      } else if (existingSettings?.user_email_notifications !== undefined) {
-        upsertData.user_email_notifications = existingSettings.user_email_notifications
       }
 
       // Use upsert to create or update settings
@@ -138,12 +131,27 @@ export function NotificationSettings() {
       }
 
       // Update cache with new settings immediately
+      // Only update the specific field that was changed, preserve others
       const updatedSettings = {
         ...settings,
-        ...(data || updateData),
+        ...updateData, // Only the field being updated
         updated_at: new Date().toISOString(),
       }
       setCachedData("settings", SETTINGS_CACHE_KEY, updatedSettings)
+      
+      // Update local state immediately for the changed field only
+      if (updateData.selection_notifications !== undefined) {
+        setSelectionNotifications(updateData.selection_notifications)
+      }
+      if (updateData.status_update_notifications !== undefined) {
+        setStatusUpdateNotifications(updateData.status_update_notifications)
+      }
+      if (updateData.platform_announcements !== undefined) {
+        setPlatformAnnouncements(updateData.platform_announcements)
+      }
+      if (updateData.user_email_notifications !== undefined) {
+        setUserEmailNotifications(updateData.user_email_notifications)
+      }
 
       // Force a refresh to update all components using the settings
       router.refresh()
