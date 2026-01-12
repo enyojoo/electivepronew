@@ -373,20 +373,6 @@ If you need to use ElectivePRO in a proprietary application or provide a hosted 
 
 ---
 
-## 🗺️ Roadmap
-
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics and reporting
-- [ ] Multi-institution support
-- [ ] Advanced selection algorithms
-- [ ] Integration with university information systems
-- [ ] Advanced notification preferences
-- [ ] Document upload and management
-- [ ] Calendar integration
-- [ ] Export and reporting features
-
----
-
 <div align="center">
 
 **Made with ❤️ to power education**
