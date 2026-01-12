@@ -559,6 +559,12 @@ CREATE POLICY "Admins can manage all profiles"
   USING (public.user_role() = 'admin')
   WITH CHECK (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
@@ -869,6 +875,12 @@ CREATE POLICY "Admins can view all manager profiles"
   TO authenticated
   USING (public.user_role() = 'admin');
 
+DROP POLICY IF EXISTS "Managers can insert own profile" ON manager_profiles;
+CREATE POLICY "Managers can insert own profile"
+  ON manager_profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (profile_id = auth.uid());
+
 DROP POLICY IF EXISTS "Admins can manage manager profiles" ON manager_profiles;
 CREATE POLICY "Admins can manage manager profiles"
   ON manager_profiles FOR ALL
@@ -906,6 +918,12 @@ CREATE POLICY "Managers can view students in their programs"
       WHERE mp.profile_id = auth.uid() AND g.id = student_profiles.group_id
     )
   );
+
+DROP POLICY IF EXISTS "Students can insert own profile" ON student_profiles;
+CREATE POLICY "Students can insert own profile"
+  ON student_profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (profile_id = auth.uid());
 
 DROP POLICY IF EXISTS "Admins can manage student profiles" ON student_profiles;
 CREATE POLICY "Admins can manage student profiles"
