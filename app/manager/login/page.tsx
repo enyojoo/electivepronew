@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -15,12 +15,14 @@ import { useLanguage } from "@/lib/language-context"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import Logo from "@/components/logo"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Mail } from "lucide-react"
 import Indicator from "@/components/indicator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ManagerLoginPage() {
   const { t } = useLanguage()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
 
   const [email, setEmail] = useState("")
@@ -30,6 +32,19 @@ export default function ManagerLoginPage() {
   const [error, setError] = useState("")
 
   const supabase = getSupabaseBrowserClient()
+
+  // Check if user was redirected from signup with email verification required
+  useEffect(() => {
+    if (searchParams.get("verify") === "email") {
+      toast({
+        title: t("auth.signup.success"),
+        description: t("auth.signup.emailVerificationRequired"),
+        duration: 10000,
+      })
+      // Clean up URL
+      router.replace("/manager/login", { scroll: false })
+    }
+  }, [searchParams, router, toast, t])
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
@@ -103,6 +118,14 @@ export default function ManagerLoginPage() {
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
+              {searchParams.get("verify") === "email" && (
+                <Alert>
+                  <Mail className="h-4 w-4" />
+                  <AlertTitle>{t("auth.signup.success")}</AlertTitle>
+                  <AlertDescription>{t("auth.signup.emailVerificationRequired")}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">{t("auth.login.email")}</Label>
                 <Input

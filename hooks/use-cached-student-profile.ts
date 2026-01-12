@@ -58,19 +58,13 @@ export function useCachedStudentProfile(userId?: string) {
         // If not in cache, fetch from API
         console.log("useCachedStudentProfile: Fetching student profile from API for user:", currentUserId)
 
-        // Fetch the profile data with proper relationships
+        // Fetch profile data
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select(`
-            *,
-            degrees:degree_id(id, name),
-            groups:group_id(id, name)
-          `)
+          .select("*")
           .eq("id", currentUserId)
-          .eq("role", "student") // Explicitly filter for student role
+          .eq("role", "student")
           .single()
-
-        console.log("useCachedStudentProfile: Query result:", profileData, "Error:", profileError)
 
         if (profileError) {
           console.error("useCachedStudentProfile: Profile fetch error:", profileError)
@@ -88,17 +82,41 @@ export function useCachedStudentProfile(userId?: string) {
           throw new Error(`Expected student role, but got: ${profileData.role}`)
         }
 
-        console.log("useCachedStudentProfile: Raw student profile data:", profileData)
+        // Fetch student profile with relationships (query from student_profiles to avoid nested relationship issues)
+        const { data: studentProfileData, error: studentProfileError } = await supabase
+          .from("student_profiles")
+          .select(`
+            group_id,
+            enrollment_year,
+            groups(
+              id,
+              name,
+              degrees(id, name, name_ru)
+            )
+          `)
+          .eq("profile_id", currentUserId)
+          .maybeSingle()
 
-        // Use the profile data with proper relationships
+        if (studentProfileError) {
+          console.error("useCachedStudentProfile: Student profile fetch error:", studentProfileError)
+          throw studentProfileError
+        }
+
+        console.log("useCachedStudentProfile: Raw student profile data:", studentProfileData)
+
+        // Extract data from relationships
+        const group = studentProfileData?.groups
+        const degree = group?.degrees?.[0] || group?.degrees
+
+        // Combine profile and student profile data
         const processedProfile = {
           ...profileData,
-          // Use academic_year directly as the year
-          year: profileData.academic_year || "Not specified",
-          enrollment_year: profileData.academic_year || "Not specified",
+          // Use enrollment_year from student_profiles
+          year: studentProfileData?.enrollment_year || "Not specified",
+          enrollment_year: studentProfileData?.enrollment_year || "Not specified",
           // Use the proper relationship data
-          degree: profileData.degrees || { name: "Not specified" },
-          group: profileData.groups || { name: "Not assigned" },
+          degree: degree || { name: "Not specified", name_ru: null },
+          group: group ? { id: group.id, name: group.name } : { id: null, name: "Not assigned" },
         }
 
         console.log("useCachedStudentProfile: Processed student profile data:", processedProfile)

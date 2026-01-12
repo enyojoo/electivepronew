@@ -256,13 +256,24 @@ export default function ManagerSignupPage() {
         console.error("Failed to send welcome email:", error)
       })
 
-      toast({
-        title: t("auth.signup.success"),
-        description: t("auth.signup.successMessage"),
-      })
-
-      // Redirect to login page
-      router.push("/manager/login")
+      // Check if user is automatically logged in (email verification not required)
+      if (authData.session) {
+        // User is automatically logged in
+        toast({
+          title: t("auth.signup.success"),
+          description: t("auth.signup.successMessage"),
+        })
+        router.push("/manager/dashboard")
+      } else {
+        // Email verification required - show confirmation message
+        toast({
+          title: t("auth.signup.success"),
+          description: t("auth.signup.emailVerificationRequired") || "Please check your email to verify your account before logging in.",
+          duration: 10000, // Show for 10 seconds
+        })
+        // Redirect to login page with a query parameter to show email verification message
+        router.push("/manager/login?verify=email")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("auth.signup.error"))
     } finally {

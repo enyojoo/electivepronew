@@ -2,12 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import Logo from "@/components/logo"
@@ -15,8 +15,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Mail } from "lucide-react"
 import Indicator from "@/components/indicator"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function StudentLoginPage() {
   const [email, setEmail] = useState("")
@@ -25,10 +26,24 @@ export default function StudentLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useLanguage()
   const { toast } = useToast()
 
   const supabase = getSupabaseBrowserClient()
+
+  // Check if user was redirected from signup with email verification required
+  useEffect(() => {
+    if (searchParams.get("verify") === "email") {
+      toast({
+        title: t("auth.signup.success"),
+        description: t("auth.signup.emailVerificationRequired"),
+        duration: 10000,
+      })
+      // Clean up URL
+      router.replace("/student/login", { scroll: false })
+    }
+  }, [searchParams, router, toast, t])
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
@@ -104,6 +119,14 @@ export default function StudentLoginPage() {
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
+              {searchParams.get("verify") === "email" && (
+                <Alert>
+                  <Mail className="h-4 w-4" />
+                  <AlertTitle>{t("auth.signup.success")}</AlertTitle>
+                  <AlertDescription>{t("auth.signup.emailVerificationRequired")}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">{t("auth.login.email")}</Label>
                 <Input
