@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Country, getCountryName } from "@/lib/countries"
+import { Country, getCountryName, CountryFlag } from "@/lib/countries"
 
 interface CountrySelectProps {
   value?: string
@@ -70,7 +70,7 @@ export function CountrySelect({
         >
           {selectedCountry ? (
             <span className="flex items-center gap-2">
-              <span>{selectedCountry.flag}</span>
+              <CountryFlag code={selectedCountry.code} />
               <span>{getCountryName(selectedCountry, language)}</span>
             </span>
           ) : (
@@ -119,7 +119,7 @@ export function CountrySelect({
                       )}
                     />
                     <span className="flex items-center gap-2">
-                      <span>{country.flag}</span>
+                      <CountryFlag code={country.code} />
                       <span>{countryName}</span>
                     </span>
                   </div>

@@ -33,7 +33,7 @@ import { useToast } from "@/hooks/use-toast"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useDialogState } from "@/hooks/use-dialog-state"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
-import { countries, getCountryName, getSortedCountries, type Country } from "@/lib/countries"
+import { countries, getCountryName, getSortedCountries, CountryFlag, type Country } from "@/lib/countries"
 import { CountrySelect } from "@/components/ui/country-select"
 
 // Define the University type
@@ -427,7 +427,7 @@ export default function UniversitiesPage() {
                         {getSortedCountries(language).map((country) => (
                           <SelectItem key={country.code} value={country.code}>
                             <span className="flex items-center gap-2">
-                              <span>{country.flag}</span>
+                              <CountryFlag code={country.code} />
                               <span>{getCountryName(country, language)}</span>
                             </span>
                           </SelectItem>

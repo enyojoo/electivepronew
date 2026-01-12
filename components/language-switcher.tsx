@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/lib/language-context"
+import { CountryFlag } from "@/lib/countries"
 
 export function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage()
@@ -15,10 +16,20 @@ export function LanguageSwitcher() {
       variant="outline"
       size="sm"
       onClick={toggleLanguage}
-      className="min-w-[80px] font-medium flex items-center justify-center gap-2"
+      className="flex items-center gap-2 px-3 py-2 h-9"
+      title={language === "en" ? "Switch to Russian" : "Переключить на английский"}
     >
-      <span className="text-lg">{language === "en" ? "🇺🇸" : "🇷🇺"}</span>
-      <span>{language === "en" ? "EN" : "РУ"}</span>
+      {language === "en" ? (
+        <>
+          <CountryFlag code="gb" size={16} />
+          <span className="text-sm">English</span>
+        </>
+      ) : (
+        <>
+          <CountryFlag code="ru" size={16} />
+          <span className="text-sm">Русский</span>
+        </>
+      )}
     </Button>
   )
 }

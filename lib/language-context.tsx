@@ -2446,6 +2446,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguageState(newLanguage)
     try {
       localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage)
+      // Dispatch custom event to notify other components (like brand context)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("language-changed"))
+      }
     } catch (error) {
       console.error("Error setting localStorage:", error)
     }
