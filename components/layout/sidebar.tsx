@@ -4,7 +4,6 @@ import type React from "react"
 
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import Image from "next/image"
 import { cn } from "@/lib/utils"
 import {
   BookOpen,
@@ -20,8 +19,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { useState } from "react"
-import { DEFAULT_LOGO_URL } from "@/lib/constants"
-import { useCachedSettings } from "@/hooks/use-cached-settings"
+import Logo from "@/components/logo"
 import Indicator from "@/components/indicator"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
@@ -36,7 +34,6 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
   const router = useRouter()
   const { t, language } = useLanguage()
   const [electivesOpen, setElectivesOpen] = useState(pathname.includes("/electives"))
-  const { settings } = useCachedSettings()
 
   // Determine user role based on URL path
   const isAdmin = pathname.includes("/admin")
@@ -65,24 +62,6 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
     router.refresh() // Refresh to clear any cached data
   }
 
-  // Helper function to validate if a URL is valid
-  const isValidUrl = (url: string | null | undefined): boolean => {
-    if (!url) return false
-    try {
-      const parsedUrl = new URL(url)
-      return parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:"
-    } catch {
-      return false
-    }
-  }
-
-  // Use settings logo if available and valid, otherwise use default
-  // For admin pages, always use default logo
-  const logoUrl = isAdmin
-    ? DEFAULT_LOGO_URL
-    : isValidUrl(settings?.logo_url)
-      ? settings.logo_url!
-      : DEFAULT_LOGO_URL
 
   return (
     <>
@@ -108,15 +87,8 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
             className="flex items-center gap-2"
             prefetch={true}
           >
-            {/* Updated to use the appropriate logo based on user role */}
-            <Image
-              src={logoUrl || "/placeholder.svg"}
-              alt="ElectivePRO Logo"
-              width={110}
-              height={30}
-              className="h-7 w-auto"
-              priority
-            />
+            {/* Use Logo component which gets logo from brand settings */}
+            <Logo className="h-7 w-auto" />
           </Link>
           <button
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:hidden"
