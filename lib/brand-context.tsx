@@ -60,6 +60,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   // Update favicon in document head
   const updateFavicon = useCallback((url: string) => {
+    if (typeof document === "undefined") return
+    
     let favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement
     if (!favicon) {
       favicon = document.createElement("link")
@@ -80,9 +82,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   // Apply branding to DOM
   const applyBranding = useCallback(
-    (brandSettings: BrandSettings) => {
-      // For admin pages, always use defaults
-      if (isAdmin) {
+    (brandSettings: BrandSettings, forceApply: boolean = false) => {
+      if (typeof document === "undefined") return
+      
+      // For admin pages (except when force applying after save), always use defaults
+      // This allows admin pages to show defaults while editing, but apply changes when saved
+      if (isAdmin && !forceApply) {
         document.documentElement.style.setProperty("--primary", DEFAULT_PRIMARY_COLOR)
         document.documentElement.style.setProperty("--color-primary", DEFAULT_PRIMARY_COLOR)
 
@@ -100,11 +105,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // For non-admin pages, use settings or defaults
+      // For non-admin pages or when force applying, use settings or defaults
       const primaryColor = brandSettings.primary_color || DEFAULT_PRIMARY_COLOR
       const faviconUrl = isValidUrl(brandSettings.favicon_url) ? brandSettings.favicon_url! : DEFAULT_FAVICON_URL
       const logoUrl = isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL
       const name = brandSettings.name || DEFAULT_PLATFORM_NAME
+
+      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, isAdmin, forceApply })
 
       // Apply primary color as CSS variable
       document.documentElement.style.setProperty("--primary", primaryColor)
@@ -279,10 +286,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           favicon_url: result.data?.favicon_url || null,
         }
 
+        console.log("Settings updated, applying branding:", newSettings)
+        
         setSettings(newSettings)
 
-        // Apply immediately to DOM
-        applyBranding(newSettings)
+        // Apply immediately to DOM - force apply even on admin pages
+        // This ensures changes are visible immediately after saving
+        setTimeout(() => {
+          applyBranding(newSettings, true) // Force apply to override admin defaults
+        }, 0)
       } catch (error) {
         console.error("Error updating brand settings:", error)
         throw error
