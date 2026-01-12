@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -23,6 +23,7 @@ import { useState } from "react"
 import { DEFAULT_LOGO_URL } from "@/lib/constants"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
 import Indicator from "@/components/indicator"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface SidebarProps {
   open: boolean
@@ -32,8 +33,10 @@ interface SidebarProps {
 
 export function Sidebar({ open, setOpen, className }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { t, language } = useLanguage()
   const [electivesOpen, setElectivesOpen] = useState(pathname.includes("/electives"))
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { settings } = useCachedSettings()
 
   // Determine user role based on URL path
@@ -49,6 +52,30 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
       : isStudent
         ? "/student/login"
         : "/auth/login"
+
+  // Handle logout
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      const supabase = getSupabaseBrowserClient()
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        console.error("Error signing out:", error)
+        // Still redirect even if there's an error
+      }
+      
+      // Redirect to appropriate login page
+      router.push(logoutRoute)
+      router.refresh() // Refresh to clear any cached data
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Still redirect even if there's an error
+      router.push(logoutRoute)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   // Helper function to validate if a URL is valid
   const isValidUrl = (url: string | null | undefined): boolean => {
@@ -247,12 +274,13 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
           )}
         </div>
 
-        {/* Logout link at bottom with role-specific route */}
+        {/* Logout button at bottom with role-specific route */}
         <div className="mt-auto border-t flex-shrink-0">
           <div className="p-4">
-            <Link
-              href={logoutRoute}
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground"
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed w-full"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -270,8 +298,8 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
                 <polyline points="16 17 21 12 16 7"></polyline>
                 <line x1="21" y1="12" x2="9" y2="12"></line>
               </svg>
-              {t("logout")}
-            </Link>
+              {isLoggingOut ? t("loggingOut") : t("logout")}
+            </button>
           </div>
           <Indicator />
         </div>
