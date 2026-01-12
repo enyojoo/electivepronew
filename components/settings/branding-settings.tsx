@@ -113,57 +113,56 @@ export function BrandingSettings() {
     
     // Only update if the URL actually changed
     if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
-        // Preload the new image before switching
-        const img = new Image()
-        img.onload = () => {
-          if (logoImgRef.current && logoSrcRef.current !== finalLogoSrc) {
-            logoSrcRef.current = finalLogoSrc
-            logoImgRef.current.src = finalLogoSrc
-            logoImgRef.current.style.display = "block"
-            imageCache.logo = finalLogoSrc
-          }
+      // Preload the new image before switching
+      const img = new Image()
+      img.onload = () => {
+        if (logoImgRef.current && logoSrcRef.current !== finalLogoSrc) {
+          logoSrcRef.current = finalLogoSrc
+          logoImgRef.current.src = finalLogoSrc
+          logoImgRef.current.style.display = "block"
+          imageCache.logo = finalLogoSrc
         }
-        img.onerror = () => {
-          // If image fails, fall back to default
-          if (logoImgRef.current && logoSrcRef.current !== DEFAULT_LOGO_URL) {
-            logoSrcRef.current = DEFAULT_LOGO_URL
-            logoImgRef.current.src = DEFAULT_LOGO_URL
-            logoImgRef.current.style.display = "block"
-            imageCache.logo = DEFAULT_LOGO_URL
-          }
-        }
-        img.src = finalLogoSrc
       }
+      img.onerror = () => {
+        // If image fails, fall back to default
+        if (logoImgRef.current && logoSrcRef.current !== DEFAULT_LOGO_URL) {
+          logoSrcRef.current = DEFAULT_LOGO_URL
+          logoImgRef.current.src = DEFAULT_LOGO_URL
+          logoImgRef.current.style.display = "block"
+          imageCache.logo = DEFAULT_LOGO_URL
+        }
+      }
+      img.src = finalLogoSrc
     }
     
     if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
-        // Preload the new image before switching
-        const img = new Image()
-        img.onload = () => {
-          if (faviconImgRef.current && faviconSrcRef.current !== finalFaviconSrc) {
-            faviconSrcRef.current = finalFaviconSrc
-            faviconImgRef.current.src = finalFaviconSrc
-            faviconImgRef.current.style.display = "block"
-            imageCache.favicon = finalFaviconSrc
-          }
+      // Preload the new image before switching
+      const img = new Image()
+      img.onload = () => {
+        if (faviconImgRef.current && faviconSrcRef.current !== finalFaviconSrc) {
+          faviconSrcRef.current = finalFaviconSrc
+          faviconImgRef.current.src = finalFaviconSrc
+          faviconImgRef.current.style.display = "block"
+          imageCache.favicon = finalFaviconSrc
         }
-        img.onerror = () => {
-          // If image fails, fall back to default
-          if (faviconImgRef.current && faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
-            faviconSrcRef.current = DEFAULT_FAVICON_URL
-            faviconImgRef.current.src = DEFAULT_FAVICON_URL
-            faviconImgRef.current.style.display = "block"
-            imageCache.favicon = DEFAULT_FAVICON_URL
-          }
-        }
-        img.src = finalFaviconSrc
       }
+      img.onerror = () => {
+        // If image fails, fall back to default
+        if (faviconImgRef.current && faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
+          faviconSrcRef.current = DEFAULT_FAVICON_URL
+          faviconImgRef.current.src = DEFAULT_FAVICON_URL
+          faviconImgRef.current.style.display = "block"
+          imageCache.favicon = DEFAULT_FAVICON_URL
+        }
+      }
+      img.src = finalFaviconSrc
     }
   }, [logoUrl, faviconUrl, hasCustomBranding])
 
   // Use ref values for initial render - these won't change on re-renders
-  const logoSrc = logoSrcRef.current
-  const faviconSrc = faviconSrcRef.current
+  // Always ensure we have a value (default if not set yet)
+  const logoSrc = logoSrcRef.current || DEFAULT_LOGO_URL
+  const faviconSrc = faviconSrcRef.current || DEFAULT_FAVICON_URL
 
   // Update state when settings are loaded
   useEffect(() => {
@@ -449,30 +448,21 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-16" />
                 ) : (
                   <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {logoSrc ? (
-                      <img
-                        ref={setLogoRef}
-                        src={logoSrc}
-                        alt="Logo"
-                        className="h-full w-full object-contain"
-                        loading="eager"
-                        onError={(e) => {
-                          // If custom branding exists and logo fails, hide it
-                          // Otherwise try default only if no custom branding
-                          if (hasCustomBranding) {
-                            e.currentTarget.style.display = "none"
-                          } else if (e.currentTarget.src !== DEFAULT_LOGO_URL) {
-                            e.currentTarget.src = DEFAULT_LOGO_URL
-                          } else {
-                            e.currentTarget.style.display = "none"
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="text-xs text-muted-foreground text-center px-2">
-                        {hasCustomBranding ? "No logo" : "Default"}
-                      </div>
-                    )}
+                    <img
+                      ref={setLogoRef}
+                      src={logoSrc}
+                      alt="Logo"
+                      className="h-full w-full object-contain"
+                      loading="eager"
+                      onError={(e) => {
+                        // If custom image fails, fall back to default
+                        if (logoUrl && e.currentTarget.src !== DEFAULT_LOGO_URL) {
+                          e.currentTarget.src = DEFAULT_LOGO_URL
+                        } else {
+                          e.currentTarget.style.display = "none"
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="logo-upload" className="cursor-pointer">
@@ -513,30 +503,21 @@ export function BrandingSettings() {
                   <Skeleton className="h-10 w-10" />
                 ) : (
                   <div className="h-10 w-10 bg-muted rounded flex items-center justify-center overflow-hidden">
-                    {faviconSrc ? (
-                      <img
-                        ref={setFaviconRef}
-                        src={faviconSrc}
-                        alt="Favicon"
-                        className="h-full w-full object-contain"
-                        loading="eager"
-                        onError={(e) => {
-                          // If custom branding exists and favicon fails, hide it
-                          // Otherwise try default only if no custom branding
-                          if (hasCustomBranding) {
-                            e.currentTarget.style.display = "none"
-                          } else if (e.currentTarget.src !== DEFAULT_FAVICON_URL) {
-                            e.currentTarget.src = DEFAULT_FAVICON_URL
-                          } else {
-                            e.currentTarget.style.display = "none"
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div className="text-xs text-muted-foreground text-center px-1">
-                        {hasCustomBranding ? "No icon" : "Default"}
-                      </div>
-                    )}
+                    <img
+                      ref={setFaviconRef}
+                      src={faviconSrc}
+                      alt="Favicon"
+                      className="h-full w-full object-contain"
+                      loading="eager"
+                      onError={(e) => {
+                        // If custom image fails, fall back to default
+                        if (faviconUrl && e.currentTarget.src !== DEFAULT_FAVICON_URL) {
+                          e.currentTarget.src = DEFAULT_FAVICON_URL
+                        } else {
+                          e.currentTarget.style.display = "none"
+                        }
+                      }}
+                    />
                   </div>
                 )}
                 <label htmlFor="favicon-upload" className="cursor-pointer">
