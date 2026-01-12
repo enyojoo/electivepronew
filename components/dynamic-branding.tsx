@@ -34,7 +34,7 @@ export function DynamicBranding() {
   const isAdmin = pathname?.includes("/admin") || false
 
   // Watch for cache updates to react to changes instantly
-  // Use a polling mechanism to check for cache changes (lightweight check)
+  // The useCachedSettings hook has a real-time subscription, so we just watch the cache version
   useEffect(() => {
     const checkCache = () => {
       const currentVersion = getCacheVersion("settings", SETTINGS_CACHE_KEY)
@@ -55,8 +55,8 @@ export function DynamicBranding() {
     // Check immediately
     checkCache()
 
-    // Poll for cache updates every 200ms (for responsive updates without heavy load)
-    const interval = setInterval(checkCache, 200)
+    // Poll for cache updates every 500ms (real-time subscription handles most updates, this is a fallback)
+    const interval = setInterval(checkCache, 500)
 
     return () => clearInterval(interval)
   }, [getCacheVersion, getCachedData])

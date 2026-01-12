@@ -117,5 +117,53 @@ export function useCachedSettings() {
     fetchSettings()
   }, [getCachedData, setCachedData, getCacheVersion, toast])
 
+  // Set up real-time subscription for instant updates when settings change
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+
+    const channel = supabase
+      .channel("settings-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "settings" },
+        async () => {
+          // Refetch settings when they change
+          setIsLoading(true)
+          setError(null)
+          
+          try {
+            const { data, error: fetchError } = await supabase
+              .from("settings")
+              .select("*")
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle()
+
+            if (fetchError && fetchError.code !== "PGRST116") {
+              console.error("Error fetching settings:", fetchError)
+              throw fetchError
+            }
+
+            if (data) {
+              // Update cache and state
+              setCachedData("settings", SETTINGS_CACHE_KEY, data)
+              cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
+              setSettings(data)
+            }
+          } catch (error: any) {
+            console.error("Error refetching settings after real-time update:", error)
+            setError(error.message)
+          } finally {
+            setIsLoading(false)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [getCachedData, setCachedData, getCacheVersion])
+
   return { settings, isLoading, error }
 }
