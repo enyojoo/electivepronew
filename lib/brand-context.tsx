@@ -73,14 +73,18 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     // Initialize with cached settings immediately (synchronous, prevents flicker)
     const cached = getCachedSettings()
     // Apply cached settings immediately if they exist (before React renders)
-    if (cached && typeof document !== "undefined") {
+    if (typeof document !== "undefined") {
+      // Always set platform name in data attribute (even if no custom branding) to prevent flicker
+      const name = cached?.name || DEFAULT_PLATFORM_NAME
+      document.documentElement.setAttribute("data-platform-name", name)
+      document.title = name
+      
       // Apply synchronously to prevent any default flash
-      const hasCustom = !!(cached.name || cached.primary_color || cached.logo_url || cached.favicon_url)
+      const hasCustom = !!(cached?.name || cached?.primary_color || cached?.logo_url || cached?.favicon_url)
       if (hasCustom) {
         const primaryColor = cached.primary_color || DEFAULT_PRIMARY_COLOR
         const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : DEFAULT_FAVICON_URL
         const logoUrl = cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL
-        const name = cached.name || DEFAULT_PLATFORM_NAME
         
         // Apply immediately to prevent default flash
         document.documentElement.style.setProperty("--primary", primaryColor)
@@ -92,8 +96,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         const g = parseInt(hex.substr(2, 2), 16)
         const b = parseInt(hex.substr(4, 2), 16)
         document.documentElement.style.setProperty("--primary-rgb", `${r}, ${g}, ${b}`)
-        
-        document.title = name
         
         // Update favicon immediately
         const allFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
@@ -211,11 +213,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         linkEl.href = faviconUrl
       })
 
-      // Store logo URL in data attribute for components to use
-      document.documentElement.setAttribute("data-logo-url", logoUrl)
+        // Store logo URL in data attribute for components to use
+        document.documentElement.setAttribute("data-logo-url", logoUrl)
 
-      // Update page title with settings name
-      document.title = name
+        // Store platform name in data attribute for synchronous access (prevents flicker)
+        document.documentElement.setAttribute("data-platform-name", name)
+
+        // Update page title with settings name
+        document.title = name
     },
     [isAdmin, hexToRgb, updateFavicon],
   )

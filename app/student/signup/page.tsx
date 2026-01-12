@@ -36,7 +36,6 @@ export default function StudentSignupPage() {
   // Data states
   const [degrees, setDegrees] = useState<any[]>([])
   const [years, setYears] = useState<string[]>([])
-  const [groups, setGroups] = useState<any[]>([])
   const [filteredGroups, setFilteredGroups] = useState<any[]>([])
 
   // Refs to prevent multiple fetches
@@ -44,47 +43,42 @@ export default function StudentSignupPage() {
 
   const supabase = getSupabaseBrowserClient()
 
-  // Load degrees and groups on component mount
+  // Load degrees on component mount
   useEffect(() => {
     if (dataFetchedRef.current) return
 
-    async function loadAllData() {
+    async function loadDegrees() {
       try {
         dataFetchedRef.current = true
 
-        // Fetch degrees and groups in parallel
-        const [degreesResponse, groupsResponse] = await Promise.all([
-          supabase
-            .from("degrees")
-            .select("id, name, name_ru, code, status")
-            .eq("status", "active")
-            .order("name", { ascending: true }),
-          supabase.from("groups").select("*").eq("status", "active"),
-        ])
+        // Fetch degrees
+        const { data, error } = await supabase
+          .from("degrees")
+          .select("id, name, name_ru, code, status")
+          .eq("status", "active")
+          .order("name", { ascending: true })
 
-        // Process degrees
-        if (degreesResponse.error) {
-          console.error("Error fetching degrees:", degreesResponse.error)
+        if (error) {
+          console.error("Error fetching degrees:", error)
+          dataFetchedRef.current = false // Allow retry on error
+          throw error
         }
 
-        if (degreesResponse.data && degreesResponse.data.length > 0) {
-          setDegrees(degreesResponse.data)
-          setDegree(degreesResponse.data[0].id.toString())
+        if (data && data.length > 0) {
+          setDegrees(data)
+          setDegree(data[0].id.toString())
         } else {
           console.warn("No degrees found in database")
           setDegrees([])
         }
-
-        // Process groups
-        if (groupsResponse.data && groupsResponse.data.length > 0) {
-          setGroups(groupsResponse.data)
-        }
       } catch (error) {
-        console.error("Error loading data:", error)
+        console.error("Error loading degrees:", error)
+        dataFetchedRef.current = false // Allow retry on error
+        setDegrees([])
       }
     }
 
-    loadAllData()
+    loadDegrees()
   }, [supabase])
 
   // Fetch academic years when degree changes
@@ -127,14 +121,15 @@ export default function StudentSignupPage() {
     fetchAcademicYears()
   }, [degree, supabase])
 
-  // Filter groups when degree or year changes
+  // Fetch groups when degree or year changes
   useEffect(() => {
-    if (!groups.length || !degree || !year) {
+    if (!degree || !year) {
       setFilteredGroups([])
+      setGroup("")
       return
     }
 
-    async function filterGroups() {
+    async function fetchGroups() {
       try {
         // First, get the academic_year_id for the selected year and degree
         const { data: academicYearData, error: academicYearError } = await supabase
@@ -146,31 +141,48 @@ export default function StudentSignupPage() {
           .single()
 
         if (academicYearError || !academicYearData) {
+          console.error("Error fetching academic year:", academicYearError)
           setFilteredGroups([])
+          setGroup("")
           return
         }
 
-        // Filter groups by degree and academic_year_id
-        const filtered = groups.filter(
-          (g) => g.degree_id?.toString() === degree && g.academic_year_id === academicYearData.id,
-        )
+        // Fetch groups directly from database for this academic_year_id and degree
+        const { data: groupsData, error: groupsError } = await supabase
+          .from("groups")
+          .select("id, name, name_ru, academic_year_id, degree_id, status")
+          .eq("academic_year_id", academicYearData.id)
+          .eq("degree_id", degree)
+          .eq("status", "active")
+          .order("name", { ascending: true })
 
-        setFilteredGroups(filtered)
+        if (groupsError) {
+          console.error("Error fetching groups:", groupsError)
+          setFilteredGroups([])
+          setGroup("")
+          return
+        }
 
-        // Set default group if available and not already set
-        if (filtered.length > 0 && (!group || !filtered.find((g) => g.id?.toString() === group))) {
-          setGroup(filtered[0].id?.toString() || "")
-        } else if (filtered.length === 0) {
+        if (groupsData && groupsData.length > 0) {
+          setFilteredGroups(groupsData)
+
+          // Set default group if available and not already set
+          if (!group || !groupsData.find((g) => g.id?.toString() === group)) {
+            setGroup(groupsData[0].id?.toString() || "")
+          }
+        } else {
+          setFilteredGroups([])
           setGroup("")
         }
       } catch (error) {
-        console.error("Error filtering groups:", error)
+        console.error("Error fetching groups:", error)
         setFilteredGroups([])
+        setGroup("")
       }
     }
 
-    filterGroups()
-  }, [degree, year, groups, group, supabase])
+    fetchGroups()
+  }, [degree, year, group, supabase])
 
   // Helper function to get localized degree name
   const getDegreeName = (degreeItem: any) => {

@@ -58,8 +58,13 @@ export function useBrandSettings(): BrandSettings {
     customValue: string | null | undefined,
     defaultValue: string
   ): string => {
-    // If we haven't confirmed data yet, return empty string to show skeleton
-    if (!hasConfirmedData) {
+    // If we haven't confirmed data yet, try to read from data attribute (synchronous, prevents flicker)
+    if (!hasConfirmedData && typeof document !== "undefined") {
+      const cachedName = document.documentElement.getAttribute("data-platform-name")
+      if (cachedName) {
+        return cachedName
+      }
+      // Return empty string to show skeleton if no cache
       return ""
     }
 
@@ -82,13 +87,16 @@ export function useBrandSettings(): BrandSettings {
     return defaultValue
   }
 
+  // Get platform name - use same logic as institutionName to prevent flicker
+  const platformNameValue = getValue(settings?.name, DEFAULT_PLATFORM_NAME)
+
   return {
-    platformName: DEFAULT_PLATFORM_NAME,
+    platformName: platformNameValue,
     platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
     logo: getValue(settings?.logo_url, DEFAULT_LOGO_URL),
     favicon: getValue(settings?.favicon_url, DEFAULT_FAVICON_URL),
     primaryColor: getValue(settings?.primary_color, DEFAULT_PRIMARY_COLOR),
-    institutionName: getValue(settings?.name, DEFAULT_PLATFORM_NAME),
+    institutionName: platformNameValue,
     contactEmail: DEFAULT_CONTACT_EMAIL,
     appUrl: DEFAULT_APP_URL,
     isLoading,

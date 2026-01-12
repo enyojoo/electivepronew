@@ -60,6 +60,7 @@ export default function ManagerSignupPage() {
 
         if (error) {
           console.error("Error fetching degrees:", error)
+          dataFetchedRef.current = false // Allow retry on error
           throw error
         }
 
@@ -76,6 +77,8 @@ export default function ManagerSignupPage() {
         }
       } catch (error) {
         console.error("Error loading degrees:", error)
+        dataFetchedRef.current = false // Allow retry on error
+        setDegrees([])
       }
     }
 
