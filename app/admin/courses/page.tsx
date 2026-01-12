@@ -40,7 +40,6 @@ interface Course {
   name_ru: string
   instructor_en: string
   instructor_ru: string
-  code: string
   status: string
   degree_id: string
   max_students: number
@@ -185,9 +184,9 @@ export default function CoursesPage() {
 
         // Apply filters
         if (searchTerm) {
-          // Note: courses table has 'name' and 'name_ru', not 'name_en' and 'instructor_en'
+          // Search in name, name_ru, instructor_en, and instructor_ru
           query = query.or(
-            `name.ilike.%${searchTerm}%,name_ru.ilike.%${searchTerm}%`,
+            `name.ilike.%${searchTerm}%,name_ru.ilike.%${searchTerm}%,instructor_en.ilike.%${searchTerm}%,instructor_ru.ilike.%${searchTerm}%`,
           )
         }
 
@@ -195,8 +194,10 @@ export default function CoursesPage() {
           query = query.eq("status", statusFilter)
         }
 
-        // Note: We can't filter by degree_id directly since courses table doesn't have it
-        // We'll filter in JavaScript after fetching
+        // Filter by degree_id if needed
+        if (degreeFilter !== "all") {
+          query = query.eq("degree_id", degreeFilter)
+        }
 
         // Apply pagination
         const from = (currentPage - 1) * itemsPerPage
@@ -210,50 +211,39 @@ export default function CoursesPage() {
           throw error
         }
 
-        // Since courses don't have degree_id directly, we need to fetch degrees through elective_packs -> programs -> degrees
-        // Fetch elective_packs for these courses (only if they have elective_pack_id)
-        const electivePackIds = [...new Set((coursesData || []).map((c: any) => c.elective_pack_id).filter(Boolean))]
+        // Fetch degrees for courses that have degree_id
+        const degreeIds = [...new Set((coursesData || []).map((c: any) => c.degree_id).filter(Boolean))]
         
-        let electivePacksData: any[] = []
-        if (electivePackIds.length > 0) {
-          const { data: packsData } = await supabase
-            .from("elective_packs")
-            .select("id, program_electives(program_id, programs(degree_id, degrees(id, name, name_ru, code)))")
-            .in("id", electivePackIds)
+        let degreesData: any[] = []
+        if (degreeIds.length > 0) {
+          const { data: degData } = await supabase
+            .from("degrees")
+            .select("id, name, name_ru, code")
+            .in("id", degreeIds)
           
-          electivePacksData = packsData || []
+          degreesData = degData || []
         }
 
-        // Create a map of elective_pack_id to degree
-        const packToDegreeMap = new Map()
-        if (electivePacksData) {
-          electivePacksData.forEach((pack: any) => {
-            if (pack.program_electives && Array.isArray(pack.program_electives) && pack.program_electives.length > 0) {
-              const programElective = pack.program_electives[0]
-              if (programElective.programs) {
-                const program = Array.isArray(programElective.programs) ? programElective.programs[0] : programElective.programs
-                if (program.degrees) {
-                  const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
-                  packToDegreeMap.set(pack.id, degree)
-                }
-              }
-            }
+        // Create a map of degree_id to degree
+        const degreeMap = new Map()
+        if (degreesData) {
+          degreesData.forEach((degree: any) => {
+            degreeMap.set(degree.id, degree)
           })
         }
 
         // Map the course data to match the expected interface
         const coursesWithDegrees = (coursesData || []).map((course: any) => {
-          const degree = course.elective_pack_id ? packToDegreeMap.get(course.elective_pack_id) : null
+          const degree = course.degree_id ? degreeMap.get(course.degree_id) : null
           
           return {
             id: course.id,
             name_en: course.name || "", // Map 'name' to 'name_en' for interface compatibility
             name_ru: course.name_ru || "",
-            instructor_en: "", // Not in schema - would need to be added
-            instructor_ru: "", // Not in schema - would need to be added
-            code: course.code || "",
+            instructor_en: course.instructor_en || "",
+            instructor_ru: course.instructor_ru || "",
             status: course.status || "active",
-            degree_id: degree?.id || "",
+            degree_id: course.degree_id || "",
             max_students: course.max_students || 0,
             degree: degree ? {
               id: degree.id,
@@ -264,13 +254,8 @@ export default function CoursesPage() {
           }
         })
 
-        // Filter by degree if needed
-        let filteredCourses = coursesWithDegrees
-        if (degreeFilter !== "all") {
-          filteredCourses = coursesWithDegrees.filter((course) => course.degree_id === degreeFilter)
-        }
-
-        setCourses(filteredCourses)
+        // No need to filter by degree here since it's done in the query
+        setCourses(coursesWithDegrees)
         setTotalCourses(count || 0)
 
         // Cache the courses data
@@ -278,7 +263,7 @@ export default function CoursesPage() {
           COURSES_CACHE_KEY,
           JSON.stringify({
             data: {
-              courses: filteredCourses,
+              courses: coursesWithDegrees,
               totalCourses: count || 0,
             },
             timestamp: Date.now(),
@@ -371,6 +356,7 @@ export default function CoursesPage() {
 
       // Invalidate cache
       localStorage.removeItem(COURSES_CACHE_KEY)
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("admin.courses.statusUpdated", "Course status updated"),
@@ -419,6 +405,7 @@ export default function CoursesPage() {
 
       // Invalidate cache
       localStorage.removeItem(COURSES_CACHE_KEY)
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("admin.courses.deleteSuccess", "Course deleted"),
@@ -600,7 +587,7 @@ export default function CoursesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           {t("admin.courses.noCoursesFound", "No courses found")}
                         </TableCell>
                       </TableRow>

@@ -4,7 +4,6 @@ export type ExchangeUniversity = {
   name: string
   name_ru?: string
   country: string
-  city: string
   description?: string
   description_ru?: string
   language?: string

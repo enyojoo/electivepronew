@@ -42,7 +42,6 @@ interface University {
   name: string
   name_ru: string | null
   country: string
-  city: string
   website: string | null
   language: string | null
   status: string
@@ -92,11 +91,18 @@ export default function UniversitiesPage() {
           if (Date.now() - timestamp < CACHE_EXPIRY) {
             setUniversities(data)
             setIsLoadingUniversities(false)
+          } else {
+            // Cache expired, force refetch
+            setIsLoadingUniversities(true)
           }
+        } else {
+          // No cache, force refetch
+          setIsLoadingUniversities(true)
         }
       } catch (error) {
         console.error("Error loading cached data:", error)
-        // If there's an error, we'll just fetch fresh data
+        // If there's an error, force refetch
+        setIsLoadingUniversities(true)
       }
     }
 
@@ -206,9 +212,7 @@ export default function UniversitiesPage() {
       result = result.filter(
         (university) =>
           (university.name && university.name.toLowerCase().includes(term)) ||
-          (university.name_ru && university.name_ru.toLowerCase().includes(term)) ||
-          (university.city && university.city.toLowerCase().includes(term)) ||
-          (university.city_ru && university.city_ru.toLowerCase().includes(term)),
+          (university.name_ru && university.name_ru.toLowerCase().includes(term)),
       )
     }
 
@@ -229,11 +233,6 @@ export default function UniversitiesPage() {
       return university.name_ru
     }
     return university.name
-  }
-
-  // Get localized city based on current language
-  const getLocalizedCity = (university: University) => {
-    return university.city
   }
 
   // Get localized country name based on current language
@@ -445,7 +444,6 @@ export default function UniversitiesPage() {
                     <TableRow>
                       <TableHead className="w-[30%]">{t("admin.universities.name", "Name")}</TableHead>
                       <TableHead>{t("admin.universities.country", "Country")}</TableHead>
-                      <TableHead>{t("admin.universities.city", "City")}</TableHead>
                       <TableHead>{t("admin.universities.maxStudents", "Max Students")}</TableHead>
                       <TableHead>{t("admin.universities.status.label", "Status")}</TableHead>
                       <TableHead className="w-[80px]">{t("admin.universities.action", "Action")}</TableHead>
@@ -453,13 +451,12 @@ export default function UniversitiesPage() {
                   </TableHeader>
                   <TableBody>
                     {isLoadingUniversities ? (
-                      <TableSkeleton columns={6} rows={itemsPerPage} />
+                      <TableSkeleton columns={5} rows={itemsPerPage} />
                     ) : currentItems.length > 0 ? (
                       currentItems.map((university) => (
                         <TableRow key={university.id}>
                           <TableCell className="font-medium">{getLocalizedName(university)}</TableCell>
                           <TableCell>{getLocalizedCountry(university.country)}</TableCell>
-                          <TableCell>{getLocalizedCity(university)}</TableCell>
                           <TableCell>{university.max_students}</TableCell>
                           <TableCell>{getStatusBadge(university.status)}</TableCell>
                           <TableCell>
@@ -503,7 +500,7 @@ export default function UniversitiesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           {t("admin.universities.noUniversitiesFound", "No universities found")}
                         </TableCell>
                       </TableRow>

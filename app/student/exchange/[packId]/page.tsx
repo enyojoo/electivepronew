@@ -601,7 +601,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
                   </div>
                   <CardDescription className="flex items-center gap-1">
                     <MapPin className="h-3.5 w-3.5" />
-                    {uni.city}, {uni.country}
+                    {uni.country}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pb-4 flex-grow flex flex-col gap-2">
@@ -706,7 +706,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
                     const uni = universities.find((u) => u.id === id)
                     return (
                       <li key={id} className="text-sm">
-                        {uni?.name} ({uni?.city}, {uni?.country})
+                        {uni?.name} ({uni?.country})
                       </li>
                     )
                   })}
@@ -763,7 +763,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
             <DialogHeader>
               <DialogTitle>{viewingUniversity?.name}</DialogTitle>
               <DialogDescription>
-                {viewingUniversity?.city}, {viewingUniversity?.country}
+                {viewingUniversity?.country}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">

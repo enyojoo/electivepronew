@@ -19,7 +19,6 @@ interface University {
   name: string
   name_ru: string | null
   country: string
-  city: string
   website: string | null
   language: string | null
   status: string
@@ -46,11 +45,6 @@ export default function UniversityDetailsPage() {
       return university.name_ru
     }
     return university.name
-  }
-
-  const getLocalizedCity = (university: University) => {
-    // Note: city_ru was removed from schema, so we only have city
-    return university.city
   }
 
   const getLocalizedCountry = (countryCode: string) => {
@@ -147,19 +141,11 @@ export default function UniversityDetailsPage() {
 
             <Separator />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                  {t("admin.universities.country", "Country")}
-                </h3>
-                <p>{getLocalizedCountry(university.country)}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                  {t("admin.universities.city", "City")}
-                </h3>
-                <p>{getLocalizedCity(university)}</p>
-              </div>
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                {t("admin.universities.country", "Country")}
+              </h3>
+              <p>{getLocalizedCountry(university.country)}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

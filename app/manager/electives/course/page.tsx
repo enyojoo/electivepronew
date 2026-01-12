@@ -164,6 +164,7 @@ export default function ManagerCourseElectivesPage() {
       if (error) throw error
 
       invalidateCache("coursePrograms")
+      localStorage.removeItem("admin_dashboard_stats_cache")
       setElectivePacks((prev) => prev.map((pack) => (pack.id === id ? { ...pack, status: newStatus } : pack)))
 
       toast({
@@ -195,6 +196,7 @@ export default function ManagerCourseElectivesPage() {
       if (error) throw error
 
       invalidateCache("coursePrograms")
+      localStorage.removeItem("admin_dashboard_stats_cache")
       setElectivePacks((prev) => prev.filter((pack) => pack.id !== packToDelete))
 
       toast({

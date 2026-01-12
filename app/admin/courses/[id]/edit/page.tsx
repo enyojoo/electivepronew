@@ -27,12 +27,12 @@ const statusOptions = [
 
 interface Course {
   id: string
-  name_en: string
+  name: string
   name_ru: string | null
-  degree_id: string
-  instructor_en: string
+  degree_id: string | null
+  instructor_en: string | null
   instructor_ru: string | null
-  description_en: string | null
+  description: string | null
   description_ru: string | null
   status: string
   created_at: string
@@ -47,17 +47,16 @@ export default function EditCoursePage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const supabase = getSupabaseBrowserClient()
-  // Use the cached degrees hook instead of fetching directly
   const { degrees, isLoading: isLoadingDegrees } = useCachedDegrees()
 
   const [course, setCourse] = useState<Course | null>(null)
   const [formData, setFormData] = useState({
-    nameEn: "",
+    name: "",
     nameRu: "",
     degreeId: "",
     instructorEn: "",
     instructorRu: "",
-    descriptionEn: "",
+    description: "",
     descriptionRu: "",
     status: "active",
     maxStudents: 30,
@@ -80,12 +79,12 @@ export default function EditCoursePage() {
         if (data) {
           setCourse(data)
           setFormData({
-            nameEn: data.name_en || "",
+            name: data.name || "",
             nameRu: data.name_ru || "",
             degreeId: data.degree_id || "",
             instructorEn: data.instructor_en || "",
             instructorRu: data.instructor_ru || "",
-            descriptionEn: data.description_en || "",
+            description: data.description || "",
             descriptionRu: data.description_ru || "",
             status: data.status || "active",
             maxStudents: data.max_students || 30,
@@ -105,7 +104,7 @@ export default function EditCoursePage() {
     if (params.id) {
       fetchCourse()
     }
-  }, [params.id, supabase, toast, t, institution?.id, router])
+  }, [params.id, supabase, toast, t, router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -120,28 +119,35 @@ export default function EditCoursePage() {
     setFormData((prev) => ({ ...prev, status: value }))
   }
 
+  // Helper function to get localized degree name
+  const getLocalizedDegreeName = (degree: any) => {
+    if (language === "ru" && degree.name_ru) {
+      return degree.name_ru
+    }
+    return degree.name
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      if (!course || !institution?.id) {
-        throw new Error("Course or institution not found")
+      if (!course) {
+        throw new Error("Course not found")
       }
 
       const { error } = await supabase
         .from("courses")
         .update({
-          name_en: formData.nameEn,
+          name: formData.name,
           name_ru: formData.nameRu || null,
-          degree_id: formData.degreeId,
-          instructor_en: formData.instructorEn,
+          degree_id: formData.degreeId || null,
+          instructor_en: formData.instructorEn || null,
           instructor_ru: formData.instructorRu || null,
-          description_en: formData.descriptionEn || null,
+          description: formData.description || null,
           description_ru: formData.descriptionRu || null,
           status: formData.status,
-          max_students: Number.parseInt(formData.maxStudents) || 30,
-          updated_at: new Date().toISOString(),
+          max_students: Number.parseInt(formData.maxStudents.toString()) || 30,
         })
         .eq("id", course.id)
 
@@ -151,6 +157,7 @@ export default function EditCoursePage() {
 
       // Clear cache to ensure fresh data is loaded
       localStorage.removeItem("admin_courses_cache")
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("admin.courses.updateSuccess", "Course Updated"),
@@ -168,14 +175,6 @@ export default function EditCoursePage() {
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  // Helper function to get localized degree name
-  const getLocalizedDegreeName = (degree: any) => {
-    if (language === "ru" && degree.name_ru) {
-      return degree.name_ru
-    }
-    return degree.name
   }
 
   return (
@@ -196,40 +195,41 @@ export default function EditCoursePage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="nameEn">{t("admin.editCourse.nameEn", "Course Name (English)")}</Label>
+                    <Label htmlFor="name">{t("admin.newCourse.nameEn")}</Label>
                     <Input
-                      id="nameEn"
-                      name="nameEn"
-                      placeholder={t("admin.editCourse.nameEnPlaceholder", "Strategic Management")}
-                      value={formData.nameEn}
+                      id="name"
+                      name="name"
+                      placeholder={t("admin.newCourse.nameEnPlaceholder")}
+                      value={formData.name}
                       onChange={handleChange}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nameRu">{t("admin.editCourse.nameRu", "Course Name (Russian)")}</Label>
+                    <Label htmlFor="nameRu">{t("admin.newCourse.nameRu")}</Label>
                     <Input
                       id="nameRu"
                       name="nameRu"
-                      placeholder={t("admin.editCourse.nameRuPlaceholder", "Стратегический менеджмент")}
+                      placeholder={t("admin.newCourse.nameRuPlaceholder")}
                       value={formData.nameRu}
                       onChange={handleChange}
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="degreeId">{t("admin.editCourse.degree", "Degree")}</Label>
+                    <Label htmlFor="degreeId">{t("admin.newCourse.degree")}</Label>
                     <Select value={formData.degreeId} onValueChange={handleDegreeChange} required>
                       <SelectTrigger>
-                        <SelectValue placeholder={t("admin.editCourse.selectDegree", "Select a degree")} />
+                        <SelectValue
+                          placeholder={isLoadingDegrees ? t("admin.courses.loading") : t("admin.newCourse.selectDegree")}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {degrees.length === 0 ? (
                           <SelectItem value="no-degrees" disabled>
-                            {t("admin.editCourse.noDegrees", "No degrees available")}
+                            {t("admin.newCourse.noDegrees")}
                           </SelectItem>
                         ) : (
                           degrees.map((degree) => (
@@ -242,22 +242,22 @@ export default function EditCoursePage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="status">{t("admin.editCourse.status", "Status")}</Label>
+                    <Label htmlFor="status">{t("admin.newCourse.status")}</Label>
                     <Select value={formData.status} onValueChange={handleStatusChange} required>
                       <SelectTrigger>
-                        <SelectValue placeholder={t("admin.editCourse.selectStatus", "Select status")} />
+                        <SelectValue placeholder={t("admin.newCourse.selectStatus")} />
                       </SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
-                            {t(`admin.courses.status.${option.value}`, option.label)}
+                            {t(`admin.courses.${option.value}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="maxStudents">{t("admin.editCourse.maxStudents", "Max Students")}</Label>
+                    <Label htmlFor="maxStudents">{t("admin.newCourse.maxStudents", "Max Students")}</Label>
                     <Input
                       id="maxStudents"
                       name="maxStudents"
@@ -273,60 +273,48 @@ export default function EditCoursePage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="instructorEn">
-                      {t("admin.editCourse.instructorEn", "Instructor Name (English)")}
-                    </Label>
+                    <Label htmlFor="instructorEn">{t("admin.newCourse.instructorEn")}</Label>
                     <Input
                       id="instructorEn"
                       name="instructorEn"
-                      placeholder={t("admin.editCourse.instructorEnPlaceholder", "Prof. John Smith")}
+                      placeholder={t("admin.newCourse.instructorEnPlaceholder")}
                       value={formData.instructorEn}
                       onChange={handleChange}
-                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="instructorRu">
-                      {t("admin.editCourse.instructorRu", "Instructor Name (Russian)")}
-                    </Label>
+                    <Label htmlFor="instructorRu">{t("admin.newCourse.instructorRu")}</Label>
                     <Input
                       id="instructorRu"
                       name="instructorRu"
-                      placeholder={t("admin.editCourse.instructorRuPlaceholder", "Проф. Ив��н Смирнов")}
+                      placeholder={t("admin.newCourse.instructorRuPlaceholder")}
                       value={formData.instructorRu}
                       onChange={handleChange}
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="descriptionEn">
-                      {t("admin.editCourse.descriptionEn", "Description (English)")}
-                    </Label>
+                    <Label htmlFor="description">{t("admin.newCourse.descriptionEn")}</Label>
                     <Textarea
-                      id="descriptionEn"
-                      name="descriptionEn"
-                      placeholder={t("admin.editCourse.descriptionEnPlaceholder", "Course description in English")}
-                      value={formData.descriptionEn}
+                      id="description"
+                      name="description"
+                      placeholder={t("admin.newCourse.descriptionEnPlaceholder")}
+                      value={formData.description}
                       onChange={handleChange}
                       rows={4}
-                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="descriptionRu">
-                      {t("admin.editCourse.descriptionRu", "Description (Russian)")}
-                    </Label>
+                    <Label htmlFor="descriptionRu">{t("admin.newCourse.descriptionRu")}</Label>
                     <Textarea
                       id="descriptionRu"
                       name="descriptionRu"
-                      placeholder={t("admin.editCourse.descriptionRuPlaceholder", "Описание курса на русском языке")}
+                      placeholder={t("admin.newCourse.descriptionRuPlaceholder")}
                       value={formData.descriptionRu}
                       onChange={handleChange}
                       rows={4}
-                      required
                     />
                   </div>
                 </div>

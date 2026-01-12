@@ -38,7 +38,6 @@ export default function NewUniversityPage() {
     name_ru: "",
     description: "",
     description_ru: "",
-    city: "",
     country: "",
     language: "",
     website: "",
@@ -73,7 +72,6 @@ export default function NewUniversityPage() {
         name_ru: university.name_ru || null,
         description: university.description || null,
         description_ru: university.description_ru || null,
-        city: university.city,
         country: university.country,
         language: null,
         website: university.website || null,
@@ -82,9 +80,12 @@ export default function NewUniversityPage() {
       }
 
       // Make the API call to Supabase - save to exchange_universities table
-      const { error } = await supabase.from("exchange_universities").insert([universityData])
+      const { error } = await supabase.from("exchange_universities").insert(universityData)
 
       if (error) throw error
+
+      // Invalidate cache to ensure fresh data on list page
+      localStorage.removeItem("admin_universities_cache")
 
       toast({
         title: t("admin.universities.createSuccess", "Success"),
@@ -127,7 +128,7 @@ export default function NewUniversityPage() {
                   <Input
                     id="name"
                     name="name"
-                    placeholder={t("admin.newUniversity.namePlaceholder", "Harvard University")}
+                    placeholder={t("admin.newUniversity.namePlaceholder", "Enter university name")}
                     value={university.name}
                     onChange={handleChange}
                     required
@@ -138,7 +139,7 @@ export default function NewUniversityPage() {
                   <Input
                     id="name_ru"
                     name="name_ru"
-                    placeholder={t("admin.newUniversity.namePlaceholder", "Гарвардский университет")}
+                    placeholder={language === "en" ? "Enter university name (Russian)" : "Введите название университета"}
                     value={university.name_ru}
                     onChange={handleChange}
                     required
@@ -182,19 +183,6 @@ export default function NewUniversityPage() {
                 </div>
               </div>
 
-              {/* City */}
-              <div className="space-y-2">
-                <Label htmlFor="city">{t("admin.newUniversity.city", "City")}</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
-                  value={university.city}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
               {/* Country and Website */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -215,7 +203,7 @@ export default function NewUniversityPage() {
                     id="website"
                     name="website"
                     type="url"
-                    placeholder={t("admin.newUniversity.websitePlaceholder", "https://www.harvard.edu")}
+                    placeholder={t("admin.newUniversity.websitePlaceholder", "https://example.com")}
                     value={university.website}
                     onChange={handleChange}
                     required

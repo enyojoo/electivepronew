@@ -212,6 +212,7 @@ export default function ManagerExchangeElectivesPage() {
       if (error) throw error
 
       invalidateCache("exchangePrograms")
+      localStorage.removeItem("admin_dashboard_stats_cache")
       setElectivePacks((prev) => prev.filter((pack) => pack.id !== packToDelete))
       setFilteredPacks((prev) => prev.filter((pack) => pack.id !== packToDelete))
 

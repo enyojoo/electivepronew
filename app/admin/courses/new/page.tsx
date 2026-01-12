@@ -30,16 +30,15 @@ export default function NewCoursePage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { t, language } = useLanguage()
-  // Use the cached degrees hook instead of fetching directly
   const { degrees, isLoading: isLoadingDegrees } = useCachedDegrees()
 
   const [course, setCourse] = useState({
-    nameEn: "",
+    name: "",
     nameRu: "",
     degreeId: "",
     instructorEn: "",
     instructorRu: "",
-    descriptionEn: "",
+    description: "",
     descriptionRu: "",
     status: "active", // Default status
     maxStudents: 30, // Default max students
@@ -68,6 +67,14 @@ export default function NewCoursePage() {
     setCourse((prev) => ({ ...prev, status: value }))
   }
 
+  // Helper function to get localized degree name
+  const getLocalizedDegreeName = (degree: any) => {
+    if (language === "ru" && degree.name_ru) {
+      return degree.name_ru
+    }
+    return degree.name
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -75,15 +82,15 @@ export default function NewCoursePage() {
     try {
       // Create the course in Supabase
       const { error } = await supabase.from("courses").insert({
-        name_en: course.nameEn,
-        name_ru: course.nameRu,
-        degree_id: course.degreeId,
-        instructor_en: course.instructorEn,
-        instructor_ru: course.instructorRu,
-        description_en: course.descriptionEn,
-        description_ru: course.descriptionRu,
+        name: course.name,
+        name_ru: course.nameRu || null,
+        degree_id: course.degreeId || null,
+        instructor_en: course.instructorEn || null,
+        instructor_ru: course.instructorRu || null,
+        description: course.description || null,
+        description_ru: course.descriptionRu || null,
         status: course.status,
-        max_students: Number.parseInt(course.maxStudents) || 30,
+        max_students: Number.parseInt(course.maxStudents.toString()) || 30,
       })
 
       if (error) {
@@ -94,6 +101,10 @@ export default function NewCoursePage() {
         })
         return
       }
+
+      // Invalidate cache to ensure fresh data on list page and dashboard
+      localStorage.removeItem("admin_courses_cache")
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: "Success",
@@ -114,13 +125,6 @@ export default function NewCoursePage() {
     }
   }
 
-  // Helper function to get localized degree name
-  const getLocalizedDegreeName = (degree: any) => {
-    if (language === "ru" && degree.name_ru) {
-      return degree.name_ru
-    }
-    return degree.name
-  }
 
   return (
     <DashboardLayout>
@@ -139,12 +143,12 @@ export default function NewCoursePage() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="nameEn">{t("admin.newCourse.nameEn")}</Label>
+                  <Label htmlFor="name">{t("admin.newCourse.nameEn")}</Label>
                   <Input
-                    id="nameEn"
-                    name="nameEn"
+                    id="name"
+                    name="name"
                     placeholder={t("admin.newCourse.nameEnPlaceholder")}
-                    value={course.nameEn}
+                    value={course.name}
                     onChange={handleChange}
                     required
                   />
@@ -157,7 +161,6 @@ export default function NewCoursePage() {
                     placeholder={t("admin.newCourse.nameRuPlaceholder")}
                     value={course.nameRu}
                     onChange={handleChange}
-                    required
                   />
                 </div>
               </div>
@@ -225,7 +228,6 @@ export default function NewCoursePage() {
                     placeholder={t("admin.newCourse.instructorEnPlaceholder")}
                     value={course.instructorEn}
                     onChange={handleChange}
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -236,22 +238,20 @@ export default function NewCoursePage() {
                     placeholder={t("admin.newCourse.instructorRuPlaceholder")}
                     value={course.instructorRu}
                     onChange={handleChange}
-                    required
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="descriptionEn">{t("admin.newCourse.descriptionEn")}</Label>
+                  <Label htmlFor="description">{t("admin.newCourse.descriptionEn")}</Label>
                   <Textarea
-                    id="descriptionEn"
-                    name="descriptionEn"
+                    id="description"
+                    name="description"
                     placeholder={t("admin.newCourse.descriptionEnPlaceholder")}
-                    value={course.descriptionEn}
+                    value={course.description}
                     onChange={handleChange}
                     rows={4}
-                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -263,7 +263,6 @@ export default function NewCoursePage() {
                     value={course.descriptionRu}
                     onChange={handleChange}
                     rows={4}
-                    required
                   />
                 </div>
               </div>

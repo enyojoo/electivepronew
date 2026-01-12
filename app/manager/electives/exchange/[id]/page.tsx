@@ -65,7 +65,6 @@ interface University {
   name: string
   name_ru: string | null
   country: string
-  city: string
   max_students: number
   website: string | null
   description: string | null
@@ -642,7 +641,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                                 {language === "ru" && university.name_ru ? university.name_ru : university.name}
                               </td>
                               <td className="py-3 px-4 text-sm">
-                                {university.city}, {university.country}
+                                {university.country}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 <Badge
@@ -794,7 +793,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                                                   </span>
                                                   {university && (
                                                     <span className="text-xs text-muted-foreground">
-                                                      {university.city}, {university.country}
+                                                      {university.country}
                                                     </span>
                                                   )}
                                                 </div>
@@ -938,7 +937,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
                         />
                         <Label htmlFor={university.id} className="text-sm">
                           {language === "ru" && university.name_ru ? university.name_ru : university.name} -{" "}
-                          {university.city}, {university.country}
+                          {university.country}
                         </Label>
                       </div>
                     ))}

@@ -317,6 +317,7 @@ export default function CourseElectivesPage() {
       // Update cache
       clearCache()
       setCachedData(updatedPacks)
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("admin.electives.success", "Success"),
@@ -374,6 +375,7 @@ export default function CourseElectivesPage() {
       // Update cache
       clearCache()
       setCachedData(updatedPacks)
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("admin.electives.success", "Success"),

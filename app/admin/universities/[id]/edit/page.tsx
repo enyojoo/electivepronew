@@ -57,7 +57,6 @@ export default function EditUniversityPage() {
     name_ru: "",
     description: "",
     description_ru: "",
-    city: "",
     country: "",
     website: "",
     status: "active",
@@ -69,6 +68,8 @@ export default function EditUniversityPage() {
   // Fetch university data
   useEffect(() => {
     const fetchUniversity = async () => {
+      if (!params.id) return
+
       setIsLoading(true)
       try {
         const { data, error } = await supabase
@@ -88,7 +89,6 @@ export default function EditUniversityPage() {
             name_ru: data.name_ru || "",
             description: data.description || "",
             description_ru: data.description_ru || "",
-            city: data.city || "",
             country: data.country || "",
             website: data.website || "",
             status: data.status || "active",
@@ -108,10 +108,78 @@ export default function EditUniversityPage() {
       }
     }
 
-    if (params.id) {
-      fetchUniversity()
-    }
+    fetchUniversity()
   }, [params.id, supabase, toast, t, router])
+
+  // Set up real-time subscription for instant updates
+  useEffect(() => {
+    if (!params.id) return
+
+    const channel = supabase
+      .channel(`university-edit-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "exchange_universities",
+          filter: `id=eq.${params.id}`,
+        },
+        async (payload) => {
+          console.log("University change detected:", payload)
+          // Only update if the change is not from the current user's edit
+          // (to avoid updating while user is typing)
+          if (payload.eventType === "UPDATE" || payload.eventType === "DELETE") {
+            setIsLoading(true)
+            try {
+              const { data, error } = await supabase
+                .from("exchange_universities")
+                .select("*")
+                .eq("id", params.id)
+                .single()
+
+              if (error) {
+                console.error("Error refetching university after real-time update:", error)
+                return
+              }
+
+              if (data) {
+                setUniversity(data)
+                setFormData({
+                  name: data.name || "",
+                  name_ru: data.name_ru || "",
+                  description: data.description || "",
+                  description_ru: data.description_ru || "",
+                  country: data.country || "",
+                  website: data.website || "",
+                  status: data.status || "active",
+                  max_students: data.max_students || 5,
+                })
+                toast({
+                  title: t("admin.universities.updated", "University Updated"),
+                  description: t("admin.universities.updatedDesc", "University data has been updated"),
+                })
+              }
+            } catch (error) {
+              console.error("Error in real-time update handler:", error)
+            } finally {
+              setIsLoading(false)
+            }
+          }
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`✓ Subscribed to university ${params.id} changes`)
+        } else if (status === "CHANNEL_ERROR") {
+          console.error(`✗ Error subscribing to university ${params.id} changes`)
+        }
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [params.id, supabase, toast, t])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -143,18 +211,24 @@ export default function EditUniversityPage() {
           name_ru: formData.name_ru || null,
           description: formData.description || null,
           description_ru: formData.description_ru || null,
-          city: formData.city,
           country: formData.country,
           language: null,
           website: formData.website || null,
           status: formData.status,
           max_students: formData.max_students,
-          updated_at: new Date().toISOString(),
         })
         .eq("id", university.id)
 
       if (error) {
         throw error
+      }
+
+      // Invalidate cache to ensure fresh data on list page
+      localStorage.removeItem("admin_universities_cache")
+      // Also invalidate the specific university cache if it exists
+      if (typeof window !== "undefined") {
+        const universityCacheKey = `university-${university.id}`
+        localStorage.removeItem(universityCacheKey)
       }
 
       toast({
@@ -199,7 +273,7 @@ export default function EditUniversityPage() {
                   <Input
                     id="name"
                     name="name"
-                    placeholder={t("admin.newUniversity.namePlaceholder", "Harvard University")}
+                    placeholder={t("admin.newUniversity.namePlaceholder", "Enter university name")}
                     value={formData.name}
                     onChange={handleChange}
                     required
@@ -210,7 +284,7 @@ export default function EditUniversityPage() {
                   <Input
                     id="name_ru"
                     name="name_ru"
-                    placeholder={t("admin.newUniversity.namePlaceholder", "Гарвардский университет")}
+                    placeholder={language === "en" ? "Enter university name (Russian)" : "Введите название университета"}
                     value={formData.name_ru}
                     onChange={handleChange}
                     required
@@ -254,19 +328,6 @@ export default function EditUniversityPage() {
                 </div>
               </div>
 
-              {/* City */}
-              <div className="space-y-2">
-                <Label htmlFor="city">{t("admin.newUniversity.city", "City")}</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  placeholder={t("admin.newUniversity.cityPlaceholder", "Cambridge")}
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
               {/* Country and Website */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -287,7 +348,7 @@ export default function EditUniversityPage() {
                     id="website"
                     name="website"
                     type="url"
-                    placeholder={t("admin.newUniversity.websitePlaceholder", "https://www.harvard.edu")}
+                    placeholder={t("admin.newUniversity.websitePlaceholder", "https://example.com")}
                     value={formData.website}
                     onChange={handleChange}
                     required

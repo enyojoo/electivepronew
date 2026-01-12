@@ -36,7 +36,6 @@ interface University {
   name: string
   name_ru: string | null
   country: string
-  city: string
   language: string | null
   max_students: number
   status: string
@@ -261,8 +260,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     const term = searchTerm.toLowerCase()
     return (
       (university.name && university.name.toLowerCase().includes(term)) ||
-      (university.name_ru && university.name_ru.toLowerCase().includes(term)) ||
-      (university.city && university.city.toLowerCase().includes(term))
+      (university.name_ru && university.name_ru.toLowerCase().includes(term))
     )
   })
 
@@ -274,10 +272,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     return university.name
   }
 
-  // Get localized city based on current language
-  const getLocalizedCity = (university: University) => {
-    return university.city
-  }
 
   // Generate program name based on semester and year
   const generateProgramName = (lang: string = language) => {
@@ -380,8 +374,9 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
 
       console.log("Updated exchange program:", exchangeData)
 
-      // Invalidate the cache for the exchange programs list
+      // Invalidate the cache for the exchange programs list and dashboard
       invalidateCache("exchangePrograms")
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title: t("manager.exchangeBuilder.updateSuccess"),
@@ -684,7 +679,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                       <TableHead className="w-[50px]"></TableHead>
                       <TableHead>{t("manager.exchangeBuilder.name")}</TableHead>
                       <TableHead>{t("manager.exchangeBuilder.country")}</TableHead>
-                      <TableHead>{t("manager.exchangeBuilder.city")}</TableHead>
                       <TableHead>{t("manager.exchangeBuilder.maxStudents")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -724,7 +718,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                           </TableCell>
                           <TableCell className="font-medium">{getLocalizedName(university)}</TableCell>
                           <TableCell>{university.country}</TableCell>
-                          <TableCell>{getLocalizedCity(university)}</TableCell>
                           <TableCell>{university.max_students}</TableCell>
                         </TableRow>
                       ))
@@ -802,7 +795,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                         <TableRow>
                           <TableHead>{t("manager.exchangeBuilder.name")}</TableHead>
                           <TableHead>{t("manager.exchangeBuilder.country")}</TableHead>
-                          <TableHead>{t("manager.exchangeBuilder.city")}</TableHead>
                           <TableHead>{t("manager.exchangeBuilder.maxStudents")}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -813,7 +805,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                             <TableRow key={university.id}>
                               <TableCell className="font-medium">{getLocalizedName(university)}</TableCell>
                               <TableCell>{university.country}</TableCell>
-                              <TableCell>{getLocalizedCity(university)}</TableCell>
                               <TableCell>{university.max_students}</TableCell>
                             </TableRow>
                           ))}

@@ -107,12 +107,20 @@ export default function AdminDashboard() {
       }
 
       // Check if we already have valid cached data
+      // But still fetch if stats are all at 0 (might be initial load)
       const cachedStats = localStorage.getItem(DASHBOARD_STATS_CACHE_KEY)
       if (cachedStats) {
         const { data, timestamp } = JSON.parse(cachedStats)
-        if (Date.now() - timestamp < CACHE_EXPIRY) {
-          // Already loaded from cache in previous effect
-          return
+        const cacheAge = Date.now() - timestamp
+        if (cacheAge < CACHE_EXPIRY) {
+          // Check if any stat is still loading or if we have valid data
+          const hasValidData = Object.values(data).some(
+            (stat: any) => stat.count > 0 || !stat.isLoading
+          )
+          if (hasValidData) {
+            // Already loaded from cache in previous effect, skip fetch
+            return
+          }
         }
       }
 
@@ -230,123 +238,171 @@ export default function AdminDashboard() {
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
+    // Helper function to refetch and update a specific stat
+    const refetchStat = async (table: string, statKey: keyof DashboardStats) => {
+      try {
+        console.log(`Refetching ${table} count for dashboard...`)
+        const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true })
+        if (error) {
+          console.error(`Error fetching ${table} count:`, error)
+          setDashboardStats((prev) => ({
+            ...prev,
+            [statKey]: { ...prev[statKey], isLoading: false },
+          }))
+          return
+        }
+        console.log(`${table} count updated:`, count)
+        setDashboardStats((prev) => {
+          const updated = {
+            ...prev,
+            [statKey]: { count: count || 0, isLoading: false },
+          }
+          // Update cache
+          localStorage.setItem(
+            DASHBOARD_STATS_CACHE_KEY,
+            JSON.stringify({
+              data: updated,
+              timestamp: Date.now(),
+            }),
+          )
+          return updated
+        })
+      } catch (error) {
+        console.error(`Error in refetchStat for ${table}:`, error)
+        setDashboardStats((prev) => ({
+          ...prev,
+          [statKey]: { ...prev[statKey], isLoading: false },
+        }))
+      }
+    }
+
     const channels = [
       supabase
         .channel("profiles-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-          // Invalidate cache and refetch
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
+          console.log("Profiles change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             users: { ...prev.users, isLoading: true },
           }))
-          // Refetch users count
-          supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                users: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("profiles", "users")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to profiles changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to profiles changes")
+          }
+        }),
       supabase
         .channel("groups-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, (payload) => {
+          console.log("Groups change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             groups: { ...prev.groups, isLoading: true },
           }))
-          supabase
-            .from("groups")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                groups: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("groups", "groups")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to groups changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to groups changes")
+          }
+        }),
       supabase
         .channel("courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, () => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, (payload) => {
+          console.log("Courses change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             courses: { ...prev.courses, isLoading: true },
           }))
-          supabase
-            .from("courses")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                courses: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("courses", "courses")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to courses changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to courses changes")
+          }
+        }),
       supabase
         .channel("elective-courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, () => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, (payload) => {
+          console.log("Elective courses change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             courseElectives: { ...prev.courseElectives, isLoading: true },
           }))
-          supabase
-            .from("elective_courses")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                courseElectives: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("elective_courses", "courseElectives")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to elective_courses changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to elective_courses changes")
+          }
+        }),
       supabase
         .channel("elective-exchange-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, () => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, (payload) => {
+          console.log("Elective exchange change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             exchangePrograms: { ...prev.exchangePrograms, isLoading: true },
           }))
-          supabase
-            .from("elective_exchange")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                exchangePrograms: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("elective_exchange", "exchangePrograms")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to elective_exchange changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to elective_exchange changes")
+          }
+        }),
       supabase
-        .channel("universities-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, () => {
+        .channel("exchange-universities-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "exchange_universities" }, (payload) => {
+          console.log("Exchange universities change detected:", payload)
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
             universities: { ...prev.universities, isLoading: true },
           }))
-          supabase
-            .from("universities")
-            .select("*", { count: "exact", head: true })
-            .then(({ count }) => {
-              setDashboardStats((prev) => ({
-                ...prev,
-                universities: { count: count || 0, isLoading: false },
-              }))
-            })
+          refetchStat("exchange_universities", "universities")
         })
-        .subscribe(),
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to exchange_universities changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to exchange_universities changes")
+          }
+        }),
+      supabase
+        .channel("programs-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "programs" }, (payload) => {
+          console.log("Programs change detected:", payload)
+          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+          setDashboardStats((prev) => ({
+            ...prev,
+            programs: { ...prev.programs, isLoading: true },
+          }))
+          refetchStat("programs", "programs")
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Subscribed to programs changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to programs changes")
+          }
+        }),
     ]
 
     // Cleanup subscriptions on unmount

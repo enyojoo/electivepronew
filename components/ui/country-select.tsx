@@ -4,14 +4,7 @@ import * as React from "react"
 import { Check, ChevronsUpDown, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
@@ -39,8 +32,31 @@ export function CountrySelect({
   required = false,
 }: CountrySelectProps) {
   const [open, setOpen] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState("")
 
   const selectedCountry = countries.find((country) => country.code === value)
+
+  // Filter countries based on search query
+  const filteredCountries = React.useMemo(() => {
+    if (!searchQuery.trim()) return countries
+
+    const query = searchQuery.toLowerCase().trim()
+    return countries.filter((country) => {
+      const countryName = getCountryName(country, language)
+      return (
+        countryName.toLowerCase().includes(query) ||
+        country.code.toLowerCase().includes(query) ||
+        country.nameEn.toLowerCase().includes(query) ||
+        country.nameRu.toLowerCase().includes(query)
+      )
+    })
+  }, [countries, searchQuery, language])
+
+  const handleSelect = (countryCode: string) => {
+    onValueChange(countryCode)
+    setOpen(false)
+    setSearchQuery("")
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -64,24 +80,37 @@ export function CountrySelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" sideOffset={4}>
-        <Command>
-          <CommandInput placeholder={language === "ru" ? "Поиск страны..." : "Search country..."} />
-          <CommandList>
-            <CommandEmpty>
-              {language === "ru" ? "Страна не найдена." : "No country found."}
-            </CommandEmpty>
-            <CommandGroup>
-              {countries.map((country) => {
+        <div className="flex flex-col">
+          {/* Search Input */}
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Input
+              placeholder={language === "ru" ? "Поиск страны..." : "Search country..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-11"
+              autoFocus
+            />
+          </div>
+
+          {/* Countries List */}
+          <div className="max-h-[300px] overflow-y-auto p-1">
+            {filteredCountries.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                {language === "ru" ? "Страна не найдена." : "No country found."}
+              </div>
+            ) : (
+              filteredCountries.map((country) => {
                 const countryName = getCountryName(country, language)
                 const isSelected = value === country.code
                 return (
-                  <CommandItem
+                  <div
                     key={country.code}
-                    value={countryName}
-                    onSelect={() => {
-                      onValueChange(isSelected ? "" : country.code)
-                      setOpen(false)
-                    }}
+                    onClick={() => handleSelect(country.code)}
+                    className={cn(
+                      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      isSelected && "bg-accent text-accent-foreground"
+                    )}
                   >
                     <Check
                       className={cn(
@@ -93,12 +122,12 @@ export function CountrySelect({
                       <span>{country.flag}</span>
                       <span>{countryName}</span>
                     </span>
-                  </CommandItem>
+                  </div>
                 )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+              })
+            )}
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   )

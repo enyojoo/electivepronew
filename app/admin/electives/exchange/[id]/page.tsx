@@ -790,7 +790,6 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                         <div key={index} className="rounded-md border p-2">
                           <p className="font-medium">{university}</p>
                           <p className="text-xs text-muted-foreground">
-                            {universities.find((u) => u.name === university)?.city},{" "}
                             {universities.find((u) => u.name === university)?.country}
                           </p>
                         </div>

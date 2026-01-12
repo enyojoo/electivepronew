@@ -439,10 +439,11 @@ export interface Database {
           elective_pack_id: string | null
           name: string
           name_ru: string | null
-          code: string
+          degree_id: string | null
+          instructor_en: string | null
+          instructor_ru: string | null
           description: string | null
           description_ru: string | null
-          credits: number
           max_students: number
           status: string
           created_at: string
@@ -454,10 +455,11 @@ export interface Database {
           elective_pack_id?: string | null
           name: string
           name_ru?: string | null
-          code: string
+          degree_id?: string | null
+          instructor_en?: string | null
+          instructor_ru?: string | null
           description?: string | null
           description_ru?: string | null
-          credits: number
           max_students?: number
           status?: string
           created_at?: string
@@ -469,10 +471,11 @@ export interface Database {
           elective_pack_id?: string | null
           name?: string
           name_ru?: string | null
-          code?: string
+          degree_id?: string | null
+          instructor_en?: string | null
+          instructor_ru?: string | null
           description?: string | null
           description_ru?: string | null
-          credits?: number
           max_students?: number
           status?: string
           created_at?: string
@@ -666,7 +669,6 @@ export interface Database {
           name: string
           name_ru: string | null
           country: string
-          city: string
           language: string | null
           max_students: number
           website: string | null
@@ -682,7 +684,6 @@ export interface Database {
           name: string
           name_ru?: string | null
           country: string
-          city: string
           language?: string | null
           max_students: number
           website?: string | null
@@ -698,7 +699,6 @@ export interface Database {
           name?: string
           name_ru?: string | null
           country?: string
-          city?: string
           language?: string | null
           max_students?: number
           website?: string | null

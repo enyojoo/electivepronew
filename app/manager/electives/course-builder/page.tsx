@@ -363,8 +363,9 @@ export default function CourseBuilderPage() {
 
       console.log("Created elective courses:", electiveCoursesData)
 
-      // Invalidate the cache for the course electives list
+      // Invalidate the cache for the course electives list and dashboard
       invalidateCache("coursePrograms")
+      localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
         title:

@@ -18,7 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Logo from "@/components/logo"
 import Indicator from "@/components/indicator"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
@@ -34,6 +34,12 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
   const router = useRouter()
   const { t, language } = useLanguage()
   const [electivesOpen, setElectivesOpen] = useState(pathname.includes("/electives"))
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering language-dependent content after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Determine user role based on URL path
   const isAdmin = pathname.includes("/admin")
@@ -82,14 +88,8 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
         )}
       >
         <div className="flex h-16 items-center border-b px-4 flex-shrink-0">
-          <Link
-            href={isAdmin ? "/admin/dashboard" : isManager ? "/manager/dashboard" : "/student/dashboard"}
-            className="flex items-center gap-2"
-            prefetch={true}
-          >
-            {/* Use Logo component which gets logo from brand settings */}
-            <Logo className="h-6 w-auto max-w-[140px]" />
-          </Link>
+          {/* Logo component already contains a Link, so don't wrap it in another Link */}
+          <Logo className="h-6 w-auto max-w-[140px]" />
           <button
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:hidden"
             onClick={() => setOpen(false)}
@@ -288,7 +288,7 @@ function NavItem({ href, icon, active, children }: NavItemProps) {
       scroll={false} // Add this to prevent scrolling to top on navigation
     >
       {icon}
-      <span>{children}</span>
+      <span suppressHydrationWarning>{children}</span>
     </Link>
   )
 }

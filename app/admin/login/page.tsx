@@ -16,9 +16,11 @@ import { Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import Indicator from "@/components/indicator"
 import Logo from "@/components/logo"
+import { useBrandSettings } from "@/hooks/use-brand-settings"
 
 export default function AdminLoginPage() {
   const { t } = useLanguage()
+  const { institutionName } = useBrandSettings()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -93,7 +95,9 @@ export default function AdminLoginPage() {
         <Card>
           <CardHeader>
             <CardTitle>{t("admin.login.title")}</CardTitle>
-            <CardDescription>{t("admin.login.description")}</CardDescription>
+            <CardDescription>
+              {t("admin.login.description")}
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">

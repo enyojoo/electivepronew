@@ -93,10 +93,11 @@ CREATE TABLE IF NOT EXISTS courses (
   elective_pack_id UUID REFERENCES elective_packs(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   name_ru TEXT,
-  code TEXT NOT NULL,
+  degree_id UUID REFERENCES degrees(id) ON DELETE SET NULL,
+  instructor_en TEXT,
+  instructor_ru TEXT,
   description TEXT,
   description_ru TEXT,
-  credits INTEGER NOT NULL,
   max_students INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -136,7 +137,6 @@ CREATE TABLE IF NOT EXISTS exchange_universities (
   name TEXT NOT NULL,
   name_ru TEXT,
   country TEXT NOT NULL,
-  city TEXT NOT NULL,
   language TEXT,
   max_students INTEGER NOT NULL DEFAULT 0,
   website TEXT,
@@ -295,6 +295,7 @@ CREATE INDEX IF NOT EXISTS idx_elective_packs_status ON elective_packs(status);
 
 -- Courses indexes
 CREATE INDEX IF NOT EXISTS idx_courses_elective_pack_id ON courses(elective_pack_id);
+CREATE INDEX IF NOT EXISTS idx_courses_degree_id ON courses(degree_id);
 CREATE INDEX IF NOT EXISTS idx_courses_status ON courses(status);
 
 -- Elective Courses indexes
