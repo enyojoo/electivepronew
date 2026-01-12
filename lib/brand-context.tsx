@@ -130,26 +130,22 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const supabase = getSupabaseBrowserClient()
-
-        const { data, error } = await supabase
-          .from("settings")
-          .select("name, primary_color, logo_url, favicon_url")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle()
-
-        if (error && error.code !== "PGRST116") {
-          // PGRST116 is "not found" - that's okay, we'll use defaults
-          console.error("Error loading brand settings:", error)
-          throw error
+        // Use public API route for reading (no auth required, works reliably)
+        const response = await fetch("/api/brand-settings")
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch brand settings: ${response.statusText}`)
         }
 
+        const data = await response.json()
+
+        // Map API response to BrandSettings format
+        // API returns: { platformName, institutionName, logo, favicon, primaryColor, ... }
         const brandSettings: BrandSettings = {
-          name: data?.name || null,
-          primary_color: data?.primary_color || null,
-          logo_url: data?.logo_url || null,
-          favicon_url: data?.favicon_url || null,
+          name: data.institutionName || null,
+          primary_color: data.primaryColor || null,
+          logo_url: data.logo || null,
+          favicon_url: data.favicon || null,
         }
 
         setSettings(brandSettings)
@@ -187,11 +183,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         const supabase = getSupabaseBrowserClient()
 
         // Get existing settings to preserve ID and other fields
-        const { data: existingSettings } = await supabase
-          .from("settings")
-          .select("*")
-          .limit(1)
-          .maybeSingle()
+        // Use API route for reading to avoid API key issues
+        const existingResponse = await fetch("/api/settings")
+        let existingSettings: any = null
+        
+        if (existingResponse.ok) {
+          const existingData = await existingResponse.json()
+          existingSettings = existingData.rawSettings
+        }
 
         // Prepare update data
         const updateData: {
@@ -199,10 +198,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           primary_color?: string
           logo_url?: string | null
           favicon_url?: string | null
-          updated_at: string
-        } = {
-          updated_at: new Date().toISOString(),
-        }
+        } = {}
 
         // Include only the fields being updated
         if (updates.name !== undefined) {
@@ -226,41 +222,33 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           updateData.primary_color = existingSettings.primary_color || DEFAULT_PRIMARY_COLOR
         }
 
-        let result
-        if (existingSettings?.id) {
-          // Row exists - use UPDATE
-          result = await supabase
-            .from("settings")
-            .update(updateData)
-            .eq("id", existingSettings.id)
-            .select("name, primary_color, logo_url, favicon_url")
-            .single()
-        } else {
-          // Row doesn't exist - use INSERT
-          const insertData = {
-            name: updateData.name || DEFAULT_PLATFORM_NAME,
-            primary_color: updateData.primary_color || DEFAULT_PRIMARY_COLOR,
-            logo_url: updateData.logo_url || null,
-            favicon_url: updateData.favicon_url || null,
-            updated_at: updateData.updated_at,
-          }
-          result = await supabase
-            .from("settings")
-            .insert(insertData)
-            .select("name, primary_color, logo_url, favicon_url")
-            .single()
+        // Use API route for updates (handles auth properly)
+        const response = await fetch("/api/settings", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(updateData),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `Failed to update settings: ${response.statusText}`)
         }
 
-        if (result.error) {
-          throw result.error
-        }
+        const result = await response.json()
 
         // Update local state with merged settings
+        // The API returns { brandSettings, rawSettings }
+        // Use rawSettings for the actual database values
+        const updatedRawSettings = result.rawSettings || existingSettings
+        
         const newSettings: BrandSettings = {
-          name: result.data?.name || null,
-          primary_color: result.data?.primary_color || null,
-          logo_url: result.data?.logo_url || null,
-          favicon_url: result.data?.favicon_url || null,
+          name: updatedRawSettings?.name || null,
+          primary_color: updatedRawSettings?.primary_color || null,
+          logo_url: updatedRawSettings?.logo_url || null,
+          favicon_url: updatedRawSettings?.favicon_url || null,
         }
 
         setSettings(newSettings)
