@@ -2,8 +2,8 @@
 
 import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME, DEFAULT_LOGO_URL } from "@/lib/constants"
 import { usePathname } from "next/navigation"
-import { useEffect, useState, useRef } from "react"
-import { useDataCache } from "@/lib/data-cache-context"
+import { useEffect } from "react"
+import { useCachedSettings } from "@/hooks/use-cached-settings"
 
 // Helper function to validate if a URL is valid
 const isValidUrl = (url: string | null | undefined): boolean => {
@@ -16,90 +16,12 @@ const isValidUrl = (url: string | null | undefined): boolean => {
   }
 }
 
-// Use a constant cache key since there's only one settings row
-const SETTINGS_CACHE_KEY = "settings"
-
 export function DynamicBranding() {
   const pathname = usePathname()
-  const { getCachedData, getCacheVersion } = useDataCache()
-  const [settings, setSettings] = useState<{
-    name?: string
-    primary_color?: string
-    favicon_url?: string
-    logo_url?: string
-  } | null>(null)
-  const cacheVersionRef = useRef<number>(0)
+  const { settings } = useCachedSettings()
 
   // Determine if we're in the admin section
   const isAdmin = pathname?.includes("/admin") || false
-
-  // Watch for cache updates to react to changes instantly
-  // The useCachedSettings hook has a real-time subscription, so we just watch the cache version
-  useEffect(() => {
-    const checkCache = () => {
-      const currentVersion = getCacheVersion("settings", SETTINGS_CACHE_KEY)
-      if (currentVersion !== cacheVersionRef.current && currentVersion > 0) {
-        cacheVersionRef.current = currentVersion
-        const cachedSettings = getCachedData<any>("settings", SETTINGS_CACHE_KEY)
-        if (cachedSettings) {
-          setSettings({
-            name: cachedSettings.name,
-            primary_color: cachedSettings.primary_color,
-            favicon_url: cachedSettings.favicon_url,
-            logo_url: cachedSettings.logo_url,
-          })
-        }
-      }
-    }
-
-    // Check immediately
-    checkCache()
-
-    // Poll for cache updates every 500ms (real-time subscription handles most updates, this is a fallback)
-    const interval = setInterval(checkCache, 500)
-
-    return () => clearInterval(interval)
-  }, [getCacheVersion, getCachedData])
-
-  // Load settings from database using public API route (only on initial load)
-  useEffect(() => {
-    // Check cache first
-    const cachedSettings = getCachedData<any>("settings", SETTINGS_CACHE_KEY)
-    if (cachedSettings) {
-      setSettings({
-        name: cachedSettings.name,
-        primary_color: cachedSettings.primary_color,
-        favicon_url: cachedSettings.favicon_url,
-        logo_url: cachedSettings.logo_url,
-      })
-      cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
-      return
-    }
-
-    // If not in cache, fetch from API
-    async function loadSettings() {
-      try {
-        // Use brand-settings API which has public read access
-        const response = await fetch("/api/brand-settings")
-        
-        if (response.ok) {
-          const data = await response.json()
-          if (data) {
-            setSettings({
-              name: data.platformName,
-              primary_color: data.primaryColor,
-              favicon_url: data.faviconUrl,
-              logo_url: data.logoUrl,
-            })
-          }
-        }
-      } catch (error) {
-        console.error("Error loading settings:", error)
-      }
-    }
-
-    loadSettings()
-  }, []) // Only run once on mount
 
   useEffect(() => {
     // For admin pages, always use the default color, favicon, and platform name
