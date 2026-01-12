@@ -44,7 +44,7 @@ export default function StudentSignupPage() {
 
   const supabase = getSupabaseBrowserClient()
 
-  // Load all data once when the component mounts
+  // Load degrees and groups on component mount
   useEffect(() => {
     if (dataFetchedRef.current) return
 
@@ -52,7 +52,7 @@ export default function StudentSignupPage() {
       try {
         dataFetchedRef.current = true
 
-        // Fetch all data in parallel
+        // Fetch degrees and groups in parallel
         const [degreesResponse, groupsResponse] = await Promise.all([
           supabase.from("degrees").select("*").eq("status", "active"),
           supabase.from("groups").select("*").eq("status", "active"),
@@ -67,23 +67,6 @@ export default function StudentSignupPage() {
         // Process groups
         if (groupsResponse.data && groupsResponse.data.length > 0) {
           setGroups(groupsResponse.data)
-
-          // Extract unique years from groups
-          const uniqueYears = [...new Set(groupsResponse.data.map((g) => g.academic_year).filter(Boolean))]
-            .sort()
-            .reverse()
-
-          setYears(uniqueYears)
-
-          // Set default year
-          if (uniqueYears.length > 0) {
-            const currentYear = new Date().getFullYear().toString()
-            if (uniqueYears.includes(currentYear)) {
-              setYear(currentYear)
-            } else {
-              setYear(uniqueYears[0])
-            }
-          }
         }
       } catch (error) {
         console.error("Error loading data:", error)
@@ -93,27 +76,90 @@ export default function StudentSignupPage() {
     loadAllData()
   }, [supabase])
 
+  // Fetch academic years when degree changes
+  useEffect(() => {
+    if (!degree) return
+
+    async function fetchAcademicYears() {
+      try {
+        const { data, error } = await supabase
+          .from("academic_years")
+          .select("id, year, degree_id")
+          .eq("degree_id", degree)
+          .eq("is_active", true)
+          .order("year", { ascending: false })
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          const yearValues = data.map((ay) => ay.year).filter(Boolean)
+          setYears(yearValues)
+
+          // Set default year
+          const currentYear = new Date().getFullYear().toString()
+          if (yearValues.includes(currentYear)) {
+            setYear(currentYear)
+          } else {
+            setYear(yearValues[0])
+          }
+        } else {
+          setYears([])
+          setYear("")
+        }
+      } catch (error) {
+        console.error("Error fetching academic years:", error)
+        setYears([])
+        setYear("")
+      }
+    }
+
+    fetchAcademicYears()
+  }, [degree, supabase])
+
   // Filter groups when degree or year changes
   useEffect(() => {
-    if (!groups.length) return
-
-    let filtered = [...groups]
-
-    if (degree) {
-      filtered = filtered.filter((g) => g.degree_id?.toString() === degree)
+    if (!groups.length || !degree || !year) {
+      setFilteredGroups([])
+      return
     }
 
-    if (year) {
-      filtered = filtered.filter((g) => g.academic_year === year)
+    async function filterGroups() {
+      try {
+        // First, get the academic_year_id for the selected year and degree
+        const { data: academicYearData, error: academicYearError } = await supabase
+          .from("academic_years")
+          .select("id")
+          .eq("degree_id", degree)
+          .eq("year", year)
+          .eq("is_active", true)
+          .single()
+
+        if (academicYearError || !academicYearData) {
+          setFilteredGroups([])
+          return
+        }
+
+        // Filter groups by degree and academic_year_id
+        const filtered = groups.filter(
+          (g) => g.degree_id?.toString() === degree && g.academic_year_id === academicYearData.id,
+        )
+
+        setFilteredGroups(filtered)
+
+        // Set default group if available and not already set
+        if (filtered.length > 0 && (!group || !filtered.find((g) => g.id?.toString() === group))) {
+          setGroup(filtered[0].id?.toString() || "")
+        } else if (filtered.length === 0) {
+          setGroup("")
+        }
+      } catch (error) {
+        console.error("Error filtering groups:", error)
+        setFilteredGroups([])
+      }
     }
 
-    setFilteredGroups(filtered)
-
-    // Set default group if available and not already set
-    if (filtered.length > 0 && (!group || !filtered.find((g) => g.id?.toString() === group))) {
-      setGroup(filtered[0].id?.toString() || "")
-    }
-  }, [degree, year, groups, group])
+    filterGroups()
+  }, [degree, year, groups, group, supabase])
 
   // Helper function to get localized degree name
   const getDegreeName = (degreeItem: any) => {

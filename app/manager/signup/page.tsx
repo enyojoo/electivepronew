@@ -44,60 +44,88 @@ export default function ManagerSignupPage() {
 
   const supabase = getSupabaseBrowserClient()
 
-  // Load all data once when the component mounts
+  // Load degrees on component mount
   useEffect(() => {
     if (dataFetchedRef.current) return
 
-    async function loadAllData() {
+    async function loadDegrees() {
       try {
         dataFetchedRef.current = true
 
-        // Fetch all data in parallel
-        const [degreesResponse, groupsResponse] = await Promise.all([
-          supabase.from("degrees").select("*").eq("status", "active"),
-          supabase.from("groups").select("academic_year").eq("status", "active"),
-        ])
+        const { data, error } = await supabase
+          .from("degrees")
+          .select("*")
+          .eq("status", "active")
+
+        if (error) throw error
 
         // Process degrees
-        if (degreesResponse.data && degreesResponse.data.length > 0) {
-          setDegrees(degreesResponse.data)
+        if (data && data.length > 0) {
+          setDegrees(data)
           setFormData((prev) => ({
             ...prev,
-            degreeId: degreesResponse.data[0].id.toString(),
+            degreeId: data[0].id.toString(),
           }))
         }
-
-        // Process years from groups
-        if (groupsResponse.data && groupsResponse.data.length > 0) {
-          const uniqueYears = [...new Set(groupsResponse.data.map((g) => g.academic_year).filter(Boolean))]
-            .sort()
-            .reverse()
-
-          setYears(uniqueYears)
-
-          // Set default year
-          if (uniqueYears.length > 0) {
-            const currentYear = new Date().getFullYear().toString()
-            if (uniqueYears.includes(currentYear)) {
-              setFormData((prev) => ({
-                ...prev,
-                academicYear: currentYear,
-              }))
-            } else {
-              setFormData((prev) => ({
-                ...prev,
-                academicYear: uniqueYears[0],
-              }))
-            }
-          }
-        }
       } catch (error) {
-        console.error("Error loading data:", error)
+        console.error("Error loading degrees:", error)
       }
     }
 
-    loadAllData()
+    loadDegrees()
   }, [supabase])
+
+  // Fetch academic years when degree changes
+  useEffect(() => {
+    if (!formData.degreeId) return
+
+    async function fetchAcademicYears() {
+      try {
+        const { data, error } = await supabase
+          .from("academic_years")
+          .select("id, year, degree_id")
+          .eq("degree_id", formData.degreeId)
+          .eq("is_active", true)
+          .order("year", { ascending: false })
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          const yearValues = data.map((ay) => ay.year).filter(Boolean)
+          setYears(yearValues)
+
+          // Set default year
+          const currentYear = new Date().getFullYear().toString()
+          if (yearValues.includes(currentYear)) {
+            setFormData((prev) => ({
+              ...prev,
+              academicYear: currentYear,
+            }))
+          } else {
+            setFormData((prev) => ({
+              ...prev,
+              academicYear: yearValues[0],
+            }))
+          }
+        } else {
+          setYears([])
+          setFormData((prev) => ({
+            ...prev,
+            academicYear: "",
+          }))
+        }
+      } catch (error) {
+        console.error("Error fetching academic years:", error)
+        setYears([])
+        setFormData((prev) => ({
+          ...prev,
+          academicYear: "",
+        }))
+      }
+    }
+
+    fetchAcademicYears()
+  }, [formData.degreeId, supabase])
 
   // Helper function to get localized degree name
   const getDegreeName = (degreeItem: any) => {
