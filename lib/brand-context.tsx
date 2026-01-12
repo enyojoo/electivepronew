@@ -106,14 +106,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             document.title = titleName
           }
         }
-      if (hasCustom) {
+        
+        // Apply other branding settings (colors, logos, favicons)
         const primaryColor = cached.primary_color || DEFAULT_PRIMARY_COLOR
         const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : DEFAULT_FAVICON_URL
-        // If no custom branding, use defaults for both languages
-        const logoUrlEn = hasCustom && cached.logo_url_en && /^https?:\/\//.test(cached.logo_url_en) ? cached.logo_url_en :
-                         (hasCustom && cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
-        const logoUrlRu = hasCustom && cached.logo_url_ru && /^https?:\/\//.test(cached.logo_url_ru) ? cached.logo_url_ru :
-                         (hasCustom && cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+        const logoUrlEn = cached.logo_url_en && /^https?:\/\//.test(cached.logo_url_en) ? cached.logo_url_en :
+                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+        const logoUrlRu = cached.logo_url_ru && /^https?:\/\//.test(cached.logo_url_ru) ? cached.logo_url_ru :
+                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
         
         // Store logo URLs in data attributes
         document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
@@ -259,16 +259,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // No logo and not confirmed - use empty strings
         logoUrlEn = ""
         logoUrlRu = ""
-      }
-      
-      // Check if we've confirmed from Supabase that no custom branding exists
-      let confirmedNoCustom = false
-      try {
-        const confirmed = localStorage.getItem("epro-brand-confirmed")
-        const hasCustom = localStorage.getItem("epro-brand-has-custom")
-        confirmedNoCustom = confirmed === "true" && hasCustom === "false"
-      } catch {
-        // Ignore localStorage errors
       }
 
       // Platform names - use language-specific

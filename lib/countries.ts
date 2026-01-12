@@ -1,10 +1,6 @@
 // Countries data with flags (using flag-icons SVG)
 // ISO 3166-1 alpha-2 country codes
 
-import * as React from "react"
-import Image from "next/image"
-import { cn } from "@/lib/utils"
-
 export interface Country {
   code: string
   flag: string // Kept for backward compatibility, but we'll use flag-icons SVG instead
@@ -12,23 +8,8 @@ export interface Country {
   nameRu: string
 }
 
-// Helper component to render country flag using flag-icons SVG
-export function CountryFlag({ code, className, size = 20 }: { code: string; className?: string; size?: number }) {
-  const flagPath = `/flags/4x3/${code.toLowerCase()}.svg`
-  
-  return (
-    <span className={cn("inline-flex items-center justify-center shrink-0", className)}>
-      <Image
-        src={flagPath}
-        alt={`${code} flag`}
-        width={size}
-        height={Math.round(size * 0.75)} // 4:3 aspect ratio
-        className="rounded-sm object-cover"
-        unoptimized // SVG files don't need optimization
-      />
-    </span>
-  )
-}
+// Re-export CountryFlag component from separate file
+export { CountryFlag } from "@/components/country-flag"
 
 export const countries: Country[] = [
   { code: "US", flag: "🇺🇸", nameEn: "United States", nameRu: "Соединенные Штаты" },
