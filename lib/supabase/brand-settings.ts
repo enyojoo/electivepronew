@@ -29,8 +29,6 @@ export interface BrandSettings {
   appUrl: string
 }
 
-const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
-
 /**
  * Get brand settings with smart fallback logic
  * - If no record exists: Use defaults
@@ -38,11 +36,12 @@ const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
  * - If any custom branding is set: Use custom values where provided, defaults for empty fields
  */
 export async function getBrandSettings(): Promise<BrandSettings> {
+  // Since there's only one settings row, select without filtering by ID
   const { data: platformSettings, error } = await supabaseAdmin
     .from("settings")
     .select("*")
-    .eq("id", SETTINGS_ID)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   // If no record exists at all, use defaults
   if (!platformSettings || error) {

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const { data: settings, error } = await supabase
           .from("settings")
           .select("favicon_url")
-          .eq("id", "00000000-0000-0000-0000-000000000000")
+          .limit(1)
           .single()
 
         if (!error && settings?.favicon_url && isValidUrl(settings.favicon_url)) {

@@ -11,7 +11,8 @@ import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "next/navigation"
 
-const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
+// Use a constant cache key since there's only one settings row
+const SETTINGS_CACHE_KEY = "settings"
 
 export function NotificationSettings() {
   const { t } = useLanguage()
@@ -79,7 +80,7 @@ export function NotificationSettings() {
         ...(result.settings || updateData),
         updated_at: new Date().toISOString(),
       }
-      setCachedData("settings", SETTINGS_ID, updatedSettings)
+      setCachedData("settings", SETTINGS_CACHE_KEY, updatedSettings)
 
       // Force a refresh to update all components using the settings
       router.refresh()

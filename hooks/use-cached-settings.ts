@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
 import { useToast } from "@/hooks/use-toast"
 
-const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
+// Use a constant cache key since there's only one settings row
+const SETTINGS_CACHE_KEY = "settings"
 
 export function useCachedSettings() {
   const [settings, setSettings] = useState<any>(null)
@@ -18,10 +19,10 @@ export function useCachedSettings() {
   // Watch for cache updates by monitoring cache version
   // getCacheVersion depends on cache, so when cache changes, this effect will run
   useEffect(() => {
-    const currentVersion = getCacheVersion("settings", SETTINGS_ID)
+    const currentVersion = getCacheVersion("settings", SETTINGS_CACHE_KEY)
     if (currentVersion !== cacheVersionRef.current && currentVersion > 0) {
       cacheVersionRef.current = currentVersion
-      const cachedSettings = getCachedData<any>("settings", SETTINGS_ID)
+      const cachedSettings = getCachedData<any>("settings", SETTINGS_CACHE_KEY)
       if (cachedSettings && JSON.stringify(cachedSettings) !== JSON.stringify(settings)) {
         console.log("Cache updated, refreshing settings")
         setSettings(cachedSettings)
@@ -36,12 +37,12 @@ export function useCachedSettings() {
 
     const fetchSettings = async () => {
       // Try to get data from cache first
-      const cachedSettings = getCachedData<any>("settings", SETTINGS_ID)
+      const cachedSettings = getCachedData<any>("settings", SETTINGS_CACHE_KEY)
 
       if (cachedSettings) {
         console.log("Using cached settings")
         setSettings(cachedSettings)
-        cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
+        cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
         setIsLoading(false)
         return
       }
@@ -51,14 +52,15 @@ export function useCachedSettings() {
       setError(null)
       console.log("Fetching settings from API")
       try {
-        const response = await fetch("/api/settings")
+        const response = await fetch("/api/settings", {
+          credentials: "include", // Include cookies for authentication
+        })
         
         if (!response.ok) {
           // If unauthorized or forbidden, use defaults
           if (response.status === 401 || response.status === 403) {
             console.log("Not authenticated, using default settings")
             const defaultSettings = {
-              id: SETTINGS_ID,
               name: null,
               primary_color: null,
               logo_url: null,
@@ -67,8 +69,8 @@ export function useCachedSettings() {
               updated_at: new Date().toISOString(),
             }
             setSettings(defaultSettings)
-            setCachedData("settings", SETTINGS_ID, defaultSettings)
-            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
+            setCachedData("settings", SETTINGS_CACHE_KEY, defaultSettings)
+            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
             return
           }
           throw new Error(`HTTP error! status: ${response.status}`)
@@ -81,7 +83,6 @@ export function useCachedSettings() {
           // No settings found - use defaults
           console.log("Settings row not found, using default settings")
           const defaultSettings = {
-            id: SETTINGS_ID,
             name: null,
             primary_color: null,
             logo_url: null,
@@ -90,12 +91,12 @@ export function useCachedSettings() {
             updated_at: new Date().toISOString(),
           }
           setSettings(defaultSettings)
-          setCachedData("settings", SETTINGS_ID, defaultSettings)
-          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
+          setCachedData("settings", SETTINGS_CACHE_KEY, defaultSettings)
+          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
         } else {
           // Save to cache
-          setCachedData("settings", SETTINGS_ID, data)
-          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
+          setCachedData("settings", SETTINGS_CACHE_KEY, data)
+          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
 
           // Update state
           setSettings(data)
@@ -110,7 +111,6 @@ export function useCachedSettings() {
         })
         // Set default settings on error
         const defaultSettings = {
-          id: SETTINGS_ID,
           name: null,
           primary_color: null,
           logo_url: null,

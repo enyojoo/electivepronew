@@ -36,7 +36,6 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
   const router = useRouter()
   const { t, language } = useLanguage()
   const [electivesOpen, setElectivesOpen] = useState(pathname.includes("/electives"))
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { settings } = useCachedSettings()
 
   // Determine user role based on URL path
@@ -54,27 +53,16 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
         : "/auth/login"
 
   // Handle logout
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-    try {
-      const supabase = getSupabaseBrowserClient()
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error("Error signing out:", error)
-        // Still redirect even if there's an error
-      }
-      
-      // Redirect to appropriate login page
-      router.push(logoutRoute)
-      router.refresh() // Refresh to clear any cached data
-    } catch (error) {
-      console.error("Logout error:", error)
-      // Still redirect even if there's an error
-      router.push(logoutRoute)
-    } finally {
-      setIsLoggingOut(false)
-    }
+  const handleLogout = () => {
+    // Sign out in the background (fire and forget)
+    const supabase = getSupabaseBrowserClient()
+    supabase.auth.signOut().catch((error) => {
+      console.error("Error signing out:", error)
+    })
+    
+    // Immediately redirect to appropriate login page
+    router.push(logoutRoute)
+    router.refresh() // Refresh to clear any cached data
   }
 
   // Helper function to validate if a URL is valid
@@ -279,8 +267,7 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
           <div className="p-4">
             <button
               onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed w-full"
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground w-full"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -298,7 +285,7 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
                 <polyline points="16 17 21 12 16 7"></polyline>
                 <line x1="21" y1="12" x2="9" y2="12"></line>
               </svg>
-              {isLoggingOut ? t("loggingOut") : t("logout")}
+              {t("logout")}
             </button>
           </div>
           <Indicator />

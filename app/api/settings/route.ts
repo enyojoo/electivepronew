@@ -1,21 +1,36 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
+import { createApiRouteClient } from "@/lib/supabase-api"
 import { getBrandSettings } from "@/lib/supabase/brand-settings"
-
-const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
 
 /**
  * GET: Returns settings for admin
  * Works with existing settings table structure
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerComponentClient()
-    const {
+    // Try both methods - API route client and server component client
+    let supabase = await createApiRouteClient(request)
+    let {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession()
 
+    // If API route client fails, try server component client as fallback
+    if (sessionError || !session) {
+      console.log("API route client failed, trying server component client")
+      supabase = await createServerComponentClient()
+      const sessionResult = await supabase.auth.getSession()
+      session = sessionResult.data?.session || null
+      sessionError = sessionResult.error || null
+    }
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+    }
+
     if (!session) {
+      console.error("No session found - cookies:", request.headers.get("cookie")?.substring(0, 100))
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -37,11 +52,12 @@ export async function GET() {
     const brandSettings = await getBrandSettings()
 
     // Also get raw settings for admin editing using admin client to bypass RLS
+    // Since there's only one settings row, we can select without filtering by ID
     const { data: settings, error } = await supabaseAdmin
       .from("settings")
       .select("*")
-      .eq("id", SETTINGS_ID)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 is "not found" - that's okay, we'll use defaults
@@ -68,12 +84,28 @@ export async function GET() {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createServerComponentClient()
-    const {
+    // Try both methods - API route client and server component client
+    let supabase = await createApiRouteClient(request)
+    let {
       data: { session },
+      error: sessionError,
     } = await supabase.auth.getSession()
 
+    // If API route client fails, try server component client as fallback
+    if (sessionError || !session) {
+      console.log("API route client failed, trying server component client")
+      supabase = await createServerComponentClient()
+      const sessionResult = await supabase.auth.getSession()
+      session = sessionResult.data?.session || null
+      sessionError = sessionResult.error || null
+    }
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+    }
+
     if (!session) {
+      console.error("No session found - cookies:", request.headers.get("cookie")?.substring(0, 100))
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -93,45 +125,91 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
 
-    // Prepare update data
-    const updateData: {
-      name?: string
-      primary_color?: string
+    // First, get existing settings to preserve values for fields not being updated and get the ID
+    const { data: existingSettings } = await supabaseAdmin
+      .from("settings")
+      .select("*")
+      .limit(1)
+      .maybeSingle()
+
+    // Get existing ID or generate new UUID for creating
+    let settingsId: string
+    if (existingSettings?.id) {
+      // Use existing ID to update the row
+      settingsId = existingSettings.id
+    } else {
+      // Generate a new UUID for the settings row
+      // Use a simple UUID v4 generator
+      settingsId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0
+        const v = c === "x" ? r : (r & 0x3) | 0x8
+        return v.toString(16)
+      })
+    }
+
+    // Prepare upsert data - always include required NOT NULL fields
+    const upsertData: {
+      id: string
+      name: string
+      primary_color: string
       logo_url?: string | null
       favicon_url?: string | null
       selection_notifications?: boolean
       status_update_notifications?: boolean
       platform_announcements?: boolean
       user_email_notifications?: boolean
-    } = {}
+      updated_at: string
+    } = {
+      id: settingsId,
+      // Use provided values or fall back to existing or defaults
+      name: body.name !== undefined ? body.name : (existingSettings?.name || "ElectivePRO"),
+      primary_color: body.primary_color !== undefined ? body.primary_color : (existingSettings?.primary_color || "#027659"),
+      updated_at: new Date().toISOString(),
+    }
 
-    if (body.name !== undefined) updateData.name = body.name
-    if (body.primary_color !== undefined)
-      updateData.primary_color = body.primary_color
-    if (body.logo_url !== undefined) updateData.logo_url = body.logo_url
-    if (body.favicon_url !== undefined)
-      updateData.favicon_url = body.favicon_url
-    if (body.selection_notifications !== undefined)
-      updateData.selection_notifications = body.selection_notifications
-    if (body.status_update_notifications !== undefined)
-      updateData.status_update_notifications = body.status_update_notifications
-    if (body.platform_announcements !== undefined)
-      updateData.platform_announcements = body.platform_announcements
-    if (body.user_email_notifications !== undefined)
-      updateData.user_email_notifications = body.user_email_notifications
+    // Include optional fields if provided, otherwise preserve existing values
+    if (body.logo_url !== undefined) {
+      upsertData.logo_url = body.logo_url
+    } else if (existingSettings?.logo_url !== undefined) {
+      upsertData.logo_url = existingSettings.logo_url
+    }
+
+    if (body.favicon_url !== undefined) {
+      upsertData.favicon_url = body.favicon_url
+    } else if (existingSettings?.favicon_url !== undefined) {
+      upsertData.favicon_url = existingSettings.favicon_url
+    }
+
+    if (body.selection_notifications !== undefined) {
+      upsertData.selection_notifications = body.selection_notifications
+    } else if (existingSettings?.selection_notifications !== undefined) {
+      upsertData.selection_notifications = existingSettings.selection_notifications
+    }
+
+    if (body.status_update_notifications !== undefined) {
+      upsertData.status_update_notifications = body.status_update_notifications
+    } else if (existingSettings?.status_update_notifications !== undefined) {
+      upsertData.status_update_notifications = existingSettings.status_update_notifications
+    }
+
+    if (body.platform_announcements !== undefined) {
+      upsertData.platform_announcements = body.platform_announcements
+    } else if (existingSettings?.platform_announcements !== undefined) {
+      upsertData.platform_announcements = existingSettings.platform_announcements
+    }
+
+    if (body.user_email_notifications !== undefined) {
+      upsertData.user_email_notifications = body.user_email_notifications
+    } else if (existingSettings?.user_email_notifications !== undefined) {
+      upsertData.user_email_notifications = existingSettings.user_email_notifications
+    }
 
     // Use upsert to ensure the row exists and update it
     // Use supabaseAdmin to bypass RLS policies
+    // If row exists, update it; if not, insert with the generated UUID
     const { data, error } = await supabaseAdmin
       .from("settings")
-      .upsert(
-        {
-          id: SETTINGS_ID,
-          ...updateData,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      )
+      .upsert(upsertData, { onConflict: "id" })
       .select()
       .single()
 
