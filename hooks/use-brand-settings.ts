@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useCachedSettings } from "@/hooks/use-cached-settings"
+import { useBrand } from "@/lib/brand-context"
 import {
   DEFAULT_PLATFORM_NAME,
   DEFAULT_PLATFORM_DESCRIPTION,
@@ -26,7 +26,7 @@ export interface BrandSettings {
 }
 
 export function useBrandSettings(): BrandSettings {
-  const { settings, isLoading } = useCachedSettings()
+  const { settings, isLoading } = useBrand()
   const [hasConfirmedData, setHasConfirmedData] = useState(false)
 
   // Track when we've confirmed data from database

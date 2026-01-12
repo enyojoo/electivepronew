@@ -12,14 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { uploadLogo, uploadFavicon } from "@/lib/file-utils"
 import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 import { Loader2 } from "lucide-react"
-import { useCachedSettings } from "@/hooks/use-cached-settings"
-import { useDataCache } from "@/lib/data-cache-context"
+import { useBrand } from "@/lib/brand-context"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRouter } from "next/navigation"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-
-// Use a constant cache key since there's only one settings row
-const SETTINGS_CACHE_KEY = "settings"
 
 // Helper function to validate if a URL is valid
 const isValidUrl = (url: string | null | undefined): boolean => {
@@ -57,10 +51,7 @@ if (typeof window !== "undefined") {
 export function BrandingSettings() {
   const { t } = useLanguage()
   const { toast } = useToast()
-  const router = useRouter()
-  const { invalidateCache, setCachedData } = useDataCache()
-  const { settings, isLoading } = useCachedSettings()
-  const supabase = getSupabaseBrowserClient()
+  const { settings, updateSettings, isLoading } = useBrand()
   const [isSaving, setIsSaving] = useState(false)
   const [isLogoUploading, setIsLogoUploading] = useState(false)
   const [isFaviconUploading, setIsFaviconUploading] = useState(false)
@@ -304,107 +295,33 @@ export function BrandingSettings() {
   const handleSaveChanges = async () => {
     setIsSaving(true)
     try {
-      // First, get existing settings to preserve values and get the ID
-      const { data: existingSettings } = await supabase
-        .from("settings")
-        .select("*")
-        .limit(1)
-        .maybeSingle()
-
-      // Get existing ID or generate new UUID for creating
-      let settingsId: string
-      if (existingSettings?.id) {
-        settingsId = existingSettings.id
-      } else {
-        // Generate a new UUID for the settings row
-        settingsId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-          const r = (Math.random() * 16) | 0
-          const v = c === "x" ? r : (r & 0x3) | 0x8
-          return v.toString(16)
-        })
-      }
-
-      // Prepare upsert data - ensure NOT NULL constraints are satisfied
-      const upsertData: {
-        id: string
-        name: string
-        primary_color: string
+      // Prepare updates for BrandContext
+      const updates: {
+        name?: string
+        primary_color?: string
         logo_url?: string | null
         favicon_url?: string | null
-        updated_at: string
       } = {
-        id: settingsId,
         name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
         primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-        updated_at: new Date().toISOString(),
       }
 
       // Include logo URL if a new logo was uploaded, otherwise preserve existing
       if (pendingLogoUrl) {
-        upsertData.logo_url = pendingLogoUrl
-      } else if (existingSettings?.logo_url !== undefined) {
-        upsertData.logo_url = existingSettings.logo_url
+        updates.logo_url = pendingLogoUrl
+      } else if (settings?.logo_url !== undefined) {
+        updates.logo_url = settings.logo_url
       }
 
       // Include favicon URL if a new favicon was uploaded, otherwise preserve existing
       if (pendingFaviconUrl) {
-        upsertData.favicon_url = pendingFaviconUrl
-      } else if (existingSettings?.favicon_url !== undefined) {
-        upsertData.favicon_url = existingSettings.favicon_url
+        updates.favicon_url = pendingFaviconUrl
+      } else if (settings?.favicon_url !== undefined) {
+        updates.favicon_url = settings.favicon_url
       }
 
-      // If row exists, use UPDATE (more efficient and avoids API key issues)
-      // If row doesn't exist, use INSERT with all required fields
-      let data, error
-      if (existingSettings?.id) {
-        // Row exists - use UPDATE
-        const result = await supabase
-          .from("settings")
-          .update(upsertData)
-          .eq("id", settingsId)
-          .select()
-          .single()
-        
-        data = result.data
-        error = result.error
-      } else {
-        // Row doesn't exist - use INSERT
-        const insertResult = await supabase
-          .from("settings")
-          .insert(upsertData)
-          .select()
-          .single()
-        
-        data = insertResult.data
-        error = insertResult.error
-      }
-
-      if (error) {
-        console.error("Settings save error:", {
-          error,
-          errorCode: error.code,
-          errorMessage: error.message,
-          errorDetails: error.details,
-          upsertData,
-        })
-        throw error
-      }
-
-      // Update cache with new settings immediately using the data from database
-      // This ensures we have the exact values that were saved
-      const updatedSettings = data || {
-        ...settings,
-        name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
-        primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-        logo_url: pendingLogoUrl || existingSettings?.logo_url || null,
-        favicon_url: pendingFaviconUrl || existingSettings?.favicon_url || null,
-        updated_at: new Date().toISOString(),
-      }
-      setCachedData("settings", SETTINGS_CACHE_KEY, updatedSettings)
-      
-      // Force a small delay to ensure cache is updated before refresh
-      // This helps DynamicBranding pick up the changes
-      await new Promise(resolve => setTimeout(resolve, 50))
+      // Update settings via BrandContext (this will save to DB and apply to DOM immediately)
+      await updateSettings(updates)
 
       // Update original values and clear pending changes
       setOriginalPrimaryColor(primaryColor)
@@ -420,9 +337,6 @@ export function BrandingSettings() {
       setPendingLogoUrl(null)
       setPendingFaviconUrl(null)
       setIsEditing(false)
-
-      // Force a refresh to update all components using the settings
-      router.refresh()
 
       toast({
         title: t("settings.toast.changesSaved"),
