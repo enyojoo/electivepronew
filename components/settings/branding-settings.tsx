@@ -516,36 +516,37 @@ export function BrandingSettings() {
           <CardDescription>{t("settings.branding.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Institution Name - English */}
-          <div className="space-y-2">
-            <Label htmlFor="institutionName">{t("settings.branding.institutionNameEnglish")}</Label>
-            {isLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input
-                id="institutionName"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder={t("settings.branding.institutionNamePlaceholder")}
-                disabled={!isEditing}
-              />
-            )}
-          </div>
+          {/* Institution Name - English and Russian */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="institutionName">{t("settings.branding.institutionNameEnglish")}</Label>
+              {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Input
+                  id="institutionName"
+                  value={institutionName}
+                  onChange={(e) => setInstitutionName(e.target.value)}
+                  placeholder={t("settings.branding.institutionNamePlaceholder")}
+                  disabled={!isEditing}
+                />
+              )}
+            </div>
 
-          {/* Institution Name - Russian */}
-          <div className="space-y-2">
-            <Label htmlFor="institutionNameRu">{t("settings.branding.institutionNameRussian")}</Label>
-            {isLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input
-                id="institutionNameRu"
-                value={institutionNameRu}
-                onChange={(e) => setInstitutionNameRu(e.target.value)}
-                placeholder={t("settings.branding.institutionNamePlaceholder")}
-                disabled={!isEditing}
-              />
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="institutionNameRu">{t("settings.branding.institutionNameRussian")}</Label>
+              {isLoading ? (
+                <Skeleton className="h-10 w-full" />
+              ) : (
+                <Input
+                  id="institutionNameRu"
+                  value={institutionNameRu}
+                  onChange={(e) => setInstitutionNameRu(e.target.value)}
+                  placeholder={t("settings.branding.institutionNamePlaceholder")}
+                  disabled={!isEditing}
+                />
+              )}
+            </div>
           </div>
 
           {/* Logo, Favicon, and Color in one row */}
