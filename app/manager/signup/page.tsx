@@ -258,7 +258,7 @@ export default function ManagerSignupPage() {
         <Card>
           <CardHeader>
             <CardTitle>{t("auth.signup.createAccount")}</CardTitle>
-            <CardDescription>Create a new manager account</CardDescription>
+            <CardDescription>{t("auth.signup.managerDescription")}</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
@@ -311,7 +311,7 @@ export default function ManagerSignupPage() {
                     <SelectContent>
                       {degrees.length === 0 ? (
                         <SelectItem value="no-degrees" disabled>
-                          {t("auth.signup.noDegrees", "No degrees available")}
+                          {t("auth.signup.noDegrees")}
                         </SelectItem>
                       ) : (
                         degrees.map((degree) => (
@@ -325,7 +325,7 @@ export default function ManagerSignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="academicYear">Year</Label>
+                  <Label htmlFor="academicYear">{t("auth.signup.year")}</Label>
                   <Select
                     value={formData.academicYear}
                     onValueChange={(value) => handleSelectChange("academicYear", value)}
@@ -337,7 +337,7 @@ export default function ManagerSignupPage() {
                     <SelectContent>
                       {enrollmentYears.length === 0 ? (
                         <SelectItem value="no-years" disabled>
-                          {t("auth.signup.noYears", "No years available")}
+                          {t("auth.signup.noYears")}
                         </SelectItem>
                       ) : (
                         enrollmentYears.map((year) => (

@@ -137,7 +137,7 @@ export default function StudentSignupPage() {
     fetchAcademicYears()
   }, [degree, supabase])
 
-  // Fetch groups when degree or year changes
+  // Fetch groups when degree or year changes (show all groups for the selected degree and year)
   useEffect(() => {
     if (!degree || !year) {
       setFilteredGroups([])
@@ -149,7 +149,7 @@ export default function StudentSignupPage() {
       try {
         console.log("Fetching groups for degree:", degree, "year:", year)
         
-        // First, get the academic_year_id for the selected year and degree
+        // Get the academic_year_id for the selected degree and year
         const { data: academicYearData, error: academicYearError } = await supabase
           .from("academic_years")
           .select("id")
@@ -174,12 +174,11 @@ export default function StudentSignupPage() {
 
         console.log("Academic year ID found:", academicYearData.id)
 
-        // Fetch groups directly from database for this academic_year_id and degree
+        // Fetch all groups for this academic_year_id (they should all be for the selected degree and year)
         const { data: groupsData, error: groupsError } = await supabase
           .from("groups")
-          .select("id, name, name_ru, academic_year_id, degree_id, status")
+          .select("id, name, academic_year_id, degree_id, status")
           .eq("academic_year_id", academicYearData.id)
-          .eq("degree_id", degree)
           .eq("status", "active")
           .order("name", { ascending: true })
 
@@ -200,7 +199,7 @@ export default function StudentSignupPage() {
             setGroup(groupsData[0].id?.toString() || "")
           }
         } else {
-          console.warn("No groups found for academic_year_id:", academicYearData.id, "degree_id:", degree)
+          console.warn("No groups found for academic_year_id:", academicYearData.id)
           setFilteredGroups([])
           setGroup("")
         }
@@ -220,9 +219,9 @@ export default function StudentSignupPage() {
     return language === "ru" && degreeItem.name_ru ? degreeItem.name_ru : degreeItem.name || ""
   }
 
-  // Helper function to get localized group name
+  // Helper function to get group name
   const getGroupName = (groupItem: any) => {
-    return language === "ru" && groupItem.name_ru ? groupItem.name_ru : groupItem.name
+    return groupItem.name || ""
   }
 
   const togglePasswordVisibility = () => {
@@ -352,7 +351,7 @@ export default function StudentSignupPage() {
                   <SelectContent>
                     {degrees.length === 0 ? (
                       <SelectItem value="no-degrees" disabled>
-                        {t("auth.signup.noDegrees", "No degrees available")}
+                        {t("auth.signup.noDegrees")}
                       </SelectItem>
                     ) : (
                       degrees.map((d) => (
@@ -375,7 +374,7 @@ export default function StudentSignupPage() {
                     <SelectContent>
                       {years.length === 0 ? (
                         <SelectItem value="no-years" disabled>
-                          {t("auth.signup.noYears", "No years available")}
+                          {t("auth.signup.noYears")}
                         </SelectItem>
                       ) : (
                         years.map((y) => (
@@ -390,14 +389,14 @@ export default function StudentSignupPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="group">{t("auth.signup.group")}</Label>
-                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year || filteredGroups.length === 0}>
+                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year}>
                     <SelectTrigger id="group" className="w-full">
                       <SelectValue placeholder={t("auth.signup.selectGroup")} />
                     </SelectTrigger>
                     <SelectContent>
                       {filteredGroups.length === 0 ? (
                         <SelectItem value="no-groups" disabled>
-                          {t("auth.signup.noGroups", "No groups available")}
+                          {t("auth.signup.noGroups")}
                         </SelectItem>
                       ) : (
                         filteredGroups.map((g) => (
