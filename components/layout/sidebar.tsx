@@ -88,7 +88,7 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
             prefetch={true}
           >
             {/* Use Logo component which gets logo from brand settings */}
-            <Logo className="h-7 w-auto" />
+            <Logo className="h-8 w-auto max-w-[160px]" />
           </Link>
           <button
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:hidden"
