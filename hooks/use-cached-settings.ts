@@ -24,13 +24,15 @@ export function useCachedSettings() {
     if (currentVersion !== cacheVersionRef.current && currentVersion > 0) {
       cacheVersionRef.current = currentVersion
       const cachedSettings = getCachedData<any>("settings", SETTINGS_CACHE_KEY)
-      if (cachedSettings && JSON.stringify(cachedSettings) !== JSON.stringify(settings)) {
-        console.log("Cache updated, refreshing settings")
+      if (cachedSettings) {
+        // Always update if cache version changed, regardless of content comparison
+        // This ensures we pick up changes even if JSON.stringify would be the same
+        console.log("Cache updated, refreshing settings", cachedSettings)
         setSettings(cachedSettings)
         setIsLoading(false)
       }
     }
-  }, [getCacheVersion, getCachedData, settings])
+  }, [getCacheVersion, getCachedData])
 
   useEffect(() => {
     if (hasInitializedRef.current) return
