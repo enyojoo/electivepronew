@@ -16,7 +16,7 @@
 
 ## 🎯 Overview
 
-ElectivePRO is a modern, open-source platform built with Next.js, TypeScript, and Supabase for managing elective course selection and exchange programs in universities. It provides a complete solution for students to select courses and exchange programs, program managers to create and manage electives, and administrators to oversee the entire system.
+ElectivePRO is an open-source platform built with Next.js, TypeScript, and Supabase for managing elective course selection and exchange programs in universities. It provides a complete solution for students to select courses and exchange programs, program managers to create and manage electives, and administrators to oversee the entire system.
 
 ### Why ElectivePRO?
 
