@@ -73,13 +73,21 @@ export function BrandingSettings() {
   const [isEditing, setIsEditing] = useState(false)
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [institutionName, setInstitutionName] = useState("")
+  const [institutionNameRu, setInstitutionNameRu] = useState("")
   const [originalPrimaryColor, setOriginalPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [originalInstitutionName, setOriginalInstitutionName] = useState("")
+  const [originalInstitutionNameRu, setOriginalInstitutionNameRu] = useState("")
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUrlEn, setLogoUrlEn] = useState<string | null>(null)
+  const [logoUrlRu, setLogoUrlRu] = useState<string | null>(null)
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null)
+  const [pendingLogoFileEn, setPendingLogoFileEn] = useState<File | null>(null)
+  const [pendingLogoFileRu, setPendingLogoFileRu] = useState<File | null>(null)
   const [pendingFaviconFile, setPendingFaviconFile] = useState<File | null>(null)
   const [pendingLogoUrl, setPendingLogoUrl] = useState<string | null>(null)
+  const [pendingLogoUrlEn, setPendingLogoUrlEn] = useState<string | null>(null)
+  const [pendingLogoUrlRu, setPendingLogoUrlRu] = useState<string | null>(null)
   const [pendingFaviconUrl, setPendingFaviconUrl] = useState<string | null>(null)
   
   // Use refs to directly manipulate image elements without causing re-renders
@@ -109,8 +117,11 @@ export function BrandingSettings() {
   // Check if custom branding has been established
   const hasCustomBranding = settings && !!(
     settings.name ||
+    settings.name_ru ||
     settings.primary_color ||
     settings.logo_url ||
+    settings.logo_url_en ||
+    settings.logo_url_ru ||
     settings.favicon_url
   )
 
@@ -169,31 +180,47 @@ export function BrandingSettings() {
       // Only set URLs if they are valid, otherwise keep as null (will show default without fetching)
       const validFavicon = isValidUrl(settings.favicon_url) ? settings.favicon_url : null
       const validLogo = isValidUrl(settings.logo_url) ? settings.logo_url : null
+      const validLogoEn = isValidUrl(settings.logo_url_en) ? settings.logo_url_en : null
+      const validLogoRu = isValidUrl(settings.logo_url_ru) ? settings.logo_url_ru : null
       setFaviconUrl(validFavicon)
       setLogoUrl(validLogo)
+      setLogoUrlEn(validLogoEn)
+      setLogoUrlRu(validLogoRu)
       const color = settings.primary_color || DEFAULT_PRIMARY_COLOR
       const name = settings.name || DEFAULT_PLATFORM_NAME
+      const nameRu = settings.name_ru || ""
       setPrimaryColor(color)
       setInstitutionName(name)
+      setInstitutionNameRu(nameRu)
       setOriginalPrimaryColor(color)
       setOriginalInstitutionName(name)
+      setOriginalInstitutionNameRu(nameRu)
     } else if (!isLoading) {
       // Only initialize with defaults if we're done loading and there's no settings
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setInstitutionName(DEFAULT_PLATFORM_NAME)
+      setInstitutionNameRu("")
       setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setOriginalInstitutionName(DEFAULT_PLATFORM_NAME)
+      setOriginalInstitutionNameRu("")
       setFaviconUrl(null)
       setLogoUrl(null)
+      setLogoUrlEn(null)
+      setLogoUrlRu(null)
     }
   }, [settings, isLoading])
 
   const handleCancelEdit = () => {
     setPrimaryColor(originalPrimaryColor)
     setInstitutionName(originalInstitutionName)
+    setInstitutionNameRu(originalInstitutionNameRu)
     setPendingLogoFile(null)
+    setPendingLogoFileEn(null)
+    setPendingLogoFileRu(null)
     setPendingFaviconFile(null)
     setPendingLogoUrl(null)
+    setPendingLogoUrlEn(null)
+    setPendingLogoUrlRu(null)
     setPendingFaviconUrl(null)
     setIsEditing(false)
   }
@@ -262,7 +289,7 @@ export function BrandingSettings() {
     }
   }
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, language: "en" | "ru" = "en") => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -296,19 +323,29 @@ export function BrandingSettings() {
     try {
       // Upload file but don't save to database yet - just store for preview
       const newLogoUrl = await uploadLogo(file)
-      setPendingLogoFile(file)
-      setPendingLogoUrl(newLogoUrl)
-      
-      // Update preview immediately
-      setLogoUrl(newLogoUrl)
-      
-      // Update ref immediately to show in preview
-      logoSrcRef.current = newLogoUrl
-      if (logoImgRef.current) {
-        logoImgRef.current.src = newLogoUrl
-        logoImgRef.current.style.display = "block"
+      if (language === "ru") {
+        setPendingLogoFileRu(file)
+        setPendingLogoUrlRu(newLogoUrl)
+        setLogoUrlRu(newLogoUrl)
+      } else {
+        setPendingLogoFileEn(file)
+        setPendingLogoUrlEn(newLogoUrl)
+        setLogoUrlEn(newLogoUrl)
+        // Also update generic logo_url for backward compatibility
+        setPendingLogoFile(file)
+        setPendingLogoUrl(newLogoUrl)
+        setLogoUrl(newLogoUrl)
       }
-      saveImageCache(newLogoUrl, faviconSrcRef.current)
+      
+      // Update ref immediately to show in preview (use English as default for preview)
+      if (language === "en") {
+        logoSrcRef.current = newLogoUrl
+        if (logoImgRef.current) {
+          logoImgRef.current.src = newLogoUrl
+          logoImgRef.current.style.display = "block"
+        }
+        saveImageCache(newLogoUrl, faviconSrcRef.current)
+      }
 
       toast({
         title: t("settings.toast.logoUploaded"),
@@ -332,15 +369,34 @@ export function BrandingSettings() {
       // Prepare updates for BrandContext
       const updates: {
         name?: string
+        name_ru?: string | null
         primary_color?: string
         logo_url?: string | null
+        logo_url_en?: string | null
+        logo_url_ru?: string | null
         favicon_url?: string | null
       } = {
         name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
+        name_ru: institutionNameRu.trim() || null,
         primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
       }
 
-      // Include logo URL if a new logo was uploaded, otherwise preserve existing
+      // Include logo URLs if new logos were uploaded, otherwise preserve existing
+      if (pendingLogoUrlEn) {
+        updates.logo_url_en = pendingLogoUrlEn
+        // Also update generic logo_url for backward compatibility
+        updates.logo_url = pendingLogoUrlEn
+      } else if (settings?.logo_url_en !== undefined) {
+        updates.logo_url_en = settings.logo_url_en
+      }
+
+      if (pendingLogoUrlRu) {
+        updates.logo_url_ru = pendingLogoUrlRu
+      } else if (settings?.logo_url_ru !== undefined) {
+        updates.logo_url_ru = settings.logo_url_ru
+      }
+
+      // Include generic logo_url if a new logo was uploaded (for backward compatibility)
       if (pendingLogoUrl) {
         updates.logo_url = pendingLogoUrl
       } else if (settings?.logo_url !== undefined) {
@@ -360,15 +416,20 @@ export function BrandingSettings() {
       // Update original values and clear pending changes
       setOriginalPrimaryColor(primaryColor)
       setOriginalInstitutionName(institutionName)
-      if (pendingLogoUrl) {
-        setLogoUrl(pendingLogoUrl)
+      setOriginalInstitutionNameRu(institutionNameRu)
+      if (pendingLogoUrlEn) {
+        setLogoUrlEn(pendingLogoUrlEn)
+        setLogoUrl(pendingLogoUrlEn)
         // Update ref immediately to show in preview
-        logoSrcRef.current = pendingLogoUrl
+        logoSrcRef.current = pendingLogoUrlEn
         if (logoImgRef.current) {
-          logoImgRef.current.src = pendingLogoUrl
+          logoImgRef.current.src = pendingLogoUrlEn
           logoImgRef.current.style.display = "block"
         }
-        saveImageCache(pendingLogoUrl, faviconSrcRef.current)
+        saveImageCache(pendingLogoUrlEn, faviconSrcRef.current)
+      }
+      if (pendingLogoUrlRu) {
+        setLogoUrlRu(pendingLogoUrlRu)
       }
       if (pendingFaviconUrl) {
         setFaviconUrl(pendingFaviconUrl)
@@ -381,8 +442,12 @@ export function BrandingSettings() {
         saveImageCache(logoSrcRef.current, pendingFaviconUrl)
       }
       setPendingLogoFile(null)
+      setPendingLogoFileEn(null)
+      setPendingLogoFileRu(null)
       setPendingFaviconFile(null)
       setPendingLogoUrl(null)
+      setPendingLogoUrlEn(null)
+      setPendingLogoUrlRu(null)
       setPendingFaviconUrl(null)
       setIsEditing(false)
 
@@ -451,9 +516,9 @@ export function BrandingSettings() {
           <CardDescription>{t("settings.branding.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Institution Name */}
+          {/* Institution Name - English */}
           <div className="space-y-2">
-            <Label htmlFor="institutionName">{t("settings.branding.institutionName")}</Label>
+            <Label htmlFor="institutionName">{t("settings.branding.institutionName")} (English)</Label>
             {isLoading ? (
               <Skeleton className="h-10 w-full" />
             ) : (
@@ -467,11 +532,27 @@ export function BrandingSettings() {
             )}
           </div>
 
+          {/* Institution Name - Russian */}
+          <div className="space-y-2">
+            <Label htmlFor="institutionNameRu">{t("settings.branding.institutionName")} (Russian)</Label>
+            {isLoading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Input
+                id="institutionNameRu"
+                value={institutionNameRu}
+                onChange={(e) => setInstitutionNameRu(e.target.value)}
+                placeholder={t("settings.branding.institutionNamePlaceholder")}
+                disabled={!isEditing}
+              />
+            )}
+          </div>
+
           {/* Logo, Favicon, and Color in one row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Logo Upload */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Logo Upload - English */}
             <div className="space-y-2">
-              <Label>{t("settings.branding.logo")}</Label>
+              <Label>{t("settings.branding.logo")} (English)</Label>
               <div className="flex items-center gap-2">
                 {isLoading ? (
                   <Skeleton className="h-10 w-16" />
@@ -496,14 +577,14 @@ export function BrandingSettings() {
                     />
                   </div>
                 )}
-                <label htmlFor="logo-upload" className="cursor-pointer">
+                <label htmlFor="logo-upload-en" className="cursor-pointer">
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-10"
                     type="button"
                     disabled={isLogoUploading || isLoading || !isEditing}
-                    onClick={() => document.getElementById("logo-upload")?.click()}
+                    onClick={() => document.getElementById("logo-upload-en")?.click()}
                   >
                     {isLogoUploading ? (
                       <>
@@ -515,11 +596,68 @@ export function BrandingSettings() {
                     )}
                   </Button>
                   <input
-                    id="logo-upload"
+                    id="logo-upload-en"
                     type="file"
                     accept="image/png,image/jpeg,image/svg+xml"
                     className="hidden"
-                    onChange={handleLogoUpload}
+                    onChange={(e) => handleLogoUpload(e, "en")}
+                    disabled={isLogoUploading || isLoading || !isEditing}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Logo Upload - Russian */}
+            <div className="space-y-2">
+              <Label>{t("settings.branding.logo")} (Russian)</Label>
+              <div className="flex items-center gap-2">
+                {isLoading ? (
+                  <Skeleton className="h-10 w-16" />
+                ) : (
+                  <div className="h-10 w-16 bg-muted rounded flex items-center justify-center overflow-hidden">
+                    {logoUrlRu ? (
+                      <img
+                        src={logoUrlRu}
+                        alt="Logo RU"
+                        className="h-full w-full object-contain"
+                        loading="eager"
+                        onError={(e) => {
+                          if (hasCustomBranding) {
+                            e.currentTarget.style.display = "none"
+                          } else if (e.currentTarget.src !== DEFAULT_LOGO_URL) {
+                            e.currentTarget.src = DEFAULT_LOGO_URL
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No logo</div>
+                    )}
+                  </div>
+                )}
+                <label htmlFor="logo-upload-ru" className="cursor-pointer">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10"
+                    type="button"
+                    disabled={isLogoUploading || isLoading || !isEditing}
+                    onClick={() => document.getElementById("logo-upload-ru")?.click()}
+                  >
+                    {isLogoUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("settings.branding.uploading")}
+                      </>
+                    ) : (
+                      t("settings.branding.upload")
+                    )}
+                  </Button>
+                  <input
+                    id="logo-upload-ru"
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml"
+                    className="hidden"
+                    onChange={(e) => handleLogoUpload(e, "ru")}
                     disabled={isLogoUploading || isLoading || !isEditing}
                   />
                 </label>

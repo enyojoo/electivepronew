@@ -12,8 +12,11 @@ import {
 
 interface BrandSettings {
   name: string | null
+  name_ru: string | null
   primary_color: string | null
   logo_url: string | null
+  logo_url_en: string | null
+  logo_url_ru: string | null
   favicon_url: string | null
 }
 
@@ -75,16 +78,27 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     // Apply cached settings immediately if they exist (before React renders)
     if (typeof document !== "undefined") {
       // Always set platform name in data attribute (even if no custom branding) to prevent flicker
-      const name = cached?.name || DEFAULT_PLATFORM_NAME
-      document.documentElement.setAttribute("data-platform-name", name)
-      document.title = name
-      
-      // Apply synchronously to prevent any default flash
-      const hasCustom = !!(cached?.name || cached?.primary_color || cached?.logo_url || cached?.favicon_url)
+      // If no custom branding, use defaults for both languages
+      const hasCustom = !!(cached?.name || cached?.name_ru || cached?.primary_color || cached?.logo_url || cached?.logo_url_en || cached?.logo_url_ru || cached?.favicon_url)
+      const nameEn = hasCustom && cached?.name ? cached.name : DEFAULT_PLATFORM_NAME
+      const nameRu = hasCustom && cached?.name_ru ? cached.name_ru : DEFAULT_PLATFORM_NAME
+      document.documentElement.setAttribute("data-platform-name-en", nameEn)
+      document.documentElement.setAttribute("data-platform-name-ru", nameRu)
+      document.documentElement.setAttribute("data-platform-name", nameEn)
+      document.title = nameEn
       if (hasCustom) {
         const primaryColor = cached.primary_color || DEFAULT_PRIMARY_COLOR
         const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : DEFAULT_FAVICON_URL
-        const logoUrl = cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL
+        // If no custom branding, use defaults for both languages
+        const logoUrlEn = hasCustom && cached.logo_url_en && /^https?:\/\//.test(cached.logo_url_en) ? cached.logo_url_en :
+                         (hasCustom && cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+        const logoUrlRu = hasCustom && cached.logo_url_ru && /^https?:\/\//.test(cached.logo_url_ru) ? cached.logo_url_ru :
+                         (hasCustom && cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+        
+        // Store logo URLs in data attributes
+        document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
+        document.documentElement.setAttribute("data-logo-url-ru", logoUrlRu)
+        document.documentElement.setAttribute("data-logo-url", logoUrlEn)
         
         // Apply immediately to prevent default flash
         document.documentElement.style.setProperty("--primary", primaryColor)
@@ -188,10 +202,25 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       // This ensures custom branding is always respected when it exists
       const primaryColor = brandSettings.primary_color || DEFAULT_PRIMARY_COLOR
       const faviconUrl = isValidUrl(brandSettings.favicon_url) ? brandSettings.favicon_url! : DEFAULT_FAVICON_URL
-      const logoUrl = isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL
-      const name = brandSettings.name || DEFAULT_PLATFORM_NAME
+      
+      // Check if any custom branding exists
+      const hasCustom = !!(brandSettings.name || brandSettings.name_ru || brandSettings.primary_color || 
+                          brandSettings.logo_url || brandSettings.logo_url_en || brandSettings.logo_url_ru || 
+                          brandSettings.favicon_url)
+      
+      // Logo URLs - prefer language-specific, fallback to generic logo_url, then default
+      // If no custom branding, use defaults for both languages
+      const logoUrlEn = hasCustom && isValidUrl(brandSettings.logo_url_en) ? brandSettings.logo_url_en! : 
+                       (hasCustom && isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL)
+      const logoUrlRu = hasCustom && isValidUrl(brandSettings.logo_url_ru) ? brandSettings.logo_url_ru! : 
+                       (hasCustom && isValidUrl(brandSettings.logo_url) ? brandSettings.logo_url! : DEFAULT_LOGO_URL)
+      
+      // Platform names - use language-specific or fallback to default
+      // If no custom branding, use defaults for both languages
+      const nameEn = hasCustom && brandSettings.name ? brandSettings.name : DEFAULT_PLATFORM_NAME
+      const nameRu = hasCustom && brandSettings.name_ru ? brandSettings.name_ru : DEFAULT_PLATFORM_NAME
 
-      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrl, name, brandSettings })
+      console.log("Applying branding:", { primaryColor, faviconUrl, logoUrlEn, logoUrlRu, nameEn, nameRu, brandSettings })
 
       // Apply primary color as CSS variable
       document.documentElement.style.setProperty("--primary", primaryColor)
@@ -213,14 +242,20 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         linkEl.href = faviconUrl
       })
 
-        // Store logo URL in data attribute for components to use
-        document.documentElement.setAttribute("data-logo-url", logoUrl)
+      // Store logo URLs in data attributes for components to use (language-specific)
+      document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
+      document.documentElement.setAttribute("data-logo-url-ru", logoUrlRu)
+      // Keep backward compatibility
+      document.documentElement.setAttribute("data-logo-url", logoUrlEn)
 
-        // Store platform name in data attribute for synchronous access (prevents flicker)
-        document.documentElement.setAttribute("data-platform-name", name)
+      // Store platform names in data attributes for synchronous access (prevents flicker)
+      document.documentElement.setAttribute("data-platform-name-en", nameEn)
+      document.documentElement.setAttribute("data-platform-name-ru", nameRu)
+      // Keep backward compatibility - use English as default
+      document.documentElement.setAttribute("data-platform-name", nameEn)
 
-        // Update page title with settings name
-        document.title = name
+      // Update page title with settings name (default to English)
+      document.title = nameEn
     },
     [isAdmin, hexToRgb, updateFavicon],
   )
@@ -243,7 +278,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from("settings")
-          .select("name, primary_color, logo_url, favicon_url")
+          .select("name, name_ru, primary_color, logo_url, logo_url_en, logo_url_ru, favicon_url")
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle()
@@ -256,8 +291,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
         const brandSettings: BrandSettings = {
           name: data?.name || null,
+          name_ru: data?.name_ru || null,
           primary_color: data?.primary_color || null,
-          logo_url: data?.logo_url || null,
+          logo_url: data?.logo_url || null, // Keep for backward compatibility
+          logo_url_en: data?.logo_url_en || null,
+          logo_url_ru: data?.logo_url_ru || null,
           favicon_url: data?.favicon_url || null,
         }
 
@@ -266,8 +304,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         setSettings((prev) => {
           const hasChanged =
             prev?.name !== brandSettings.name ||
+            prev?.name_ru !== brandSettings.name_ru ||
             prev?.primary_color !== brandSettings.primary_color ||
             prev?.logo_url !== brandSettings.logo_url ||
+            prev?.logo_url_en !== brandSettings.logo_url_en ||
+            prev?.logo_url_ru !== brandSettings.logo_url_ru ||
             prev?.favicon_url !== brandSettings.favicon_url
 
           // Always save to cache and apply branding when loading from DB
@@ -286,8 +327,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // On error, use defaults only if we don't have cached settings
         const defaultSettings: BrandSettings = {
           name: null,
+          name_ru: null,
           primary_color: null,
           logo_url: null,
+          logo_url_en: null,
+          logo_url_ru: null,
           favicon_url: null,
         }
         
@@ -350,8 +394,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // Prepare update data
         const updateData: {
           name?: string
+          name_ru?: string | null
           primary_color?: string
           logo_url?: string | null
+          logo_url_en?: string | null
+          logo_url_ru?: string | null
           favicon_url?: string | null
           updated_at: string
         } = {
@@ -362,11 +409,20 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         if (updates.name !== undefined) {
           updateData.name = updates.name || DEFAULT_PLATFORM_NAME
         }
+        if (updates.name_ru !== undefined) {
+          updateData.name_ru = updates.name_ru
+        }
         if (updates.primary_color !== undefined) {
           updateData.primary_color = updates.primary_color || DEFAULT_PRIMARY_COLOR
         }
         if (updates.logo_url !== undefined) {
           updateData.logo_url = updates.logo_url
+        }
+        if (updates.logo_url_en !== undefined) {
+          updateData.logo_url_en = updates.logo_url_en
+        }
+        if (updates.logo_url_ru !== undefined) {
+          updateData.logo_url_ru = updates.logo_url_ru
         }
         if (updates.favicon_url !== undefined) {
           updateData.favicon_url = updates.favicon_url
@@ -387,21 +443,24 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             .from("settings")
             .update(updateData)
             .eq("id", existingSettings.id)
-            .select("name, primary_color, logo_url, favicon_url")
+            .select("name, name_ru, primary_color, logo_url, logo_url_en, logo_url_ru, favicon_url")
             .single()
         } else {
           // Row doesn't exist - use INSERT
           const insertData = {
             name: updateData.name || DEFAULT_PLATFORM_NAME,
+            name_ru: updateData.name_ru || null,
             primary_color: updateData.primary_color || DEFAULT_PRIMARY_COLOR,
             logo_url: updateData.logo_url || null,
+            logo_url_en: updateData.logo_url_en || null,
+            logo_url_ru: updateData.logo_url_ru || null,
             favicon_url: updateData.favicon_url || null,
             updated_at: updateData.updated_at,
           }
           result = await supabase
             .from("settings")
             .insert(insertData)
-            .select("name, primary_color, logo_url, favicon_url")
+            .select("name, name_ru, primary_color, logo_url, logo_url_en, logo_url_ru, favicon_url")
             .single()
         }
 
@@ -412,8 +471,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // Update local state with merged settings
         const newSettings: BrandSettings = {
           name: result.data?.name || null,
+          name_ru: result.data?.name_ru || null,
           primary_color: result.data?.primary_color || null,
           logo_url: result.data?.logo_url || null,
+          logo_url_en: result.data?.logo_url_en || null,
+          logo_url_ru: result.data?.logo_url_ru || null,
           favicon_url: result.data?.favicon_url || null,
         }
 

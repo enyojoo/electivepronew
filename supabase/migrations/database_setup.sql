@@ -249,8 +249,11 @@ CREATE TABLE IF NOT EXISTS selection_universities (
 CREATE TABLE IF NOT EXISTS settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL DEFAULT 'ElectivePRO',
+  name_ru TEXT,
   primary_color TEXT NOT NULL DEFAULT '#027659',
   logo_url TEXT,
+  logo_url_en TEXT,
+  logo_url_ru TEXT,
   favicon_url TEXT,
   -- Email notification settings
   selection_notifications BOOLEAN DEFAULT true,
@@ -426,16 +429,22 @@ $func$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 CREATE OR REPLACE FUNCTION get_settings()
 RETURNS TABLE (
   name TEXT,
+  name_ru TEXT,
   primary_color TEXT,
   logo_url TEXT,
+  logo_url_en TEXT,
+  logo_url_ru TEXT,
   favicon_url TEXT
 ) AS $$
 BEGIN
   RETURN QUERY
   SELECT 
     s.name,
+    s.name_ru,
     s.primary_color,
     s.logo_url,
+    s.logo_url_en,
+    s.logo_url_ru,
     s.favicon_url
   FROM settings s
   ORDER BY s.created_at ASC

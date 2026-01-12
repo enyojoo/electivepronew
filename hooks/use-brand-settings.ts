@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useBrand } from "@/lib/brand-context"
+import { useLanguage } from "@/lib/language-context"
 import {
   DEFAULT_PLATFORM_NAME,
   DEFAULT_PLATFORM_DESCRIPTION,
@@ -27,6 +28,7 @@ export interface BrandSettings {
 
 export function useBrandSettings(): BrandSettings {
   const { settings, isLoading } = useBrand()
+  const { language } = useLanguage()
   const [hasConfirmedData, setHasConfirmedData] = useState(false)
 
   // Track when we've confirmed data from database
@@ -48,34 +50,43 @@ export function useBrandSettings(): BrandSettings {
     hasConfirmedData &&
     !!(
       settings?.name ||
+      settings?.name_ru ||
       settings?.logo_url ||
+      settings?.logo_url_en ||
+      settings?.logo_url_ru ||
       settings?.favicon_url ||
       settings?.primary_color
     )
 
-  // Helper function to get value with smart fallback
+  // Helper function to get value with smart fallback (language-aware)
   const getValue = (
-    customValue: string | null | undefined,
-    defaultValue: string
+    customValueEn: string | null | undefined,
+    customValueRu: string | null | undefined,
+    defaultValue: string,
+    dataAttrKey: string
   ): string => {
     // If we haven't confirmed data yet, try to read from data attribute (synchronous, prevents flicker)
     if (!hasConfirmedData && typeof document !== "undefined") {
-      const cachedName = document.documentElement.getAttribute("data-platform-name")
-      if (cachedName) {
-        return cachedName
+      const cachedValue = document.documentElement.getAttribute(dataAttrKey)
+      if (cachedValue) {
+        return cachedValue
       }
       // Return empty string to show skeleton if no cache
       return ""
     }
 
+    // If we've confirmed no custom branding exists, use default for both languages
+    if (hasConfirmedData && !hasCustomBranding) {
+      return defaultValue
+    }
+
+    // Determine which value to use based on language
+    // Only use custom values if custom branding exists
+    const customValue = language === "ru" && customValueRu ? customValueRu : customValueEn
+
     // If custom branding exists and we have a custom value, use it
     if (hasCustomBranding && customValue) {
       return customValue
-    }
-
-    // If we've confirmed no custom branding exists, use default
-    if (hasConfirmedData && !hasCustomBranding) {
-      return defaultValue
     }
 
     // If custom branding exists but this field is empty, use default
@@ -87,15 +98,72 @@ export function useBrandSettings(): BrandSettings {
     return defaultValue
   }
 
-  // Get platform name - use same logic as institutionName to prevent flicker
-  const platformNameValue = getValue(settings?.name, DEFAULT_PLATFORM_NAME)
+  // Helper function to get logo URL (language-aware with fallback chain)
+  const getLogoUrl = (): string => {
+    // If we haven't confirmed data yet, try to read from data attribute
+    if (!hasConfirmedData && typeof document !== "undefined") {
+      const cachedLogo = document.documentElement.getAttribute(
+        language === "ru" ? "data-logo-url-ru" : "data-logo-url-en"
+      ) || document.documentElement.getAttribute("data-logo-url")
+      if (cachedLogo) {
+        return cachedLogo
+      }
+      return ""
+    }
+
+    // If no custom branding exists, use default for both languages
+    if (hasConfirmedData && !hasCustomBranding) {
+      return DEFAULT_LOGO_URL
+    }
+
+    // Determine which logo URL to use based on language
+    // Priority: language-specific > generic logo_url > default
+    // Only use custom values if custom branding exists
+    let logoUrl: string | null = null
+    if (language === "ru") {
+      logoUrl = settings?.logo_url_ru || settings?.logo_url || null
+    } else {
+      logoUrl = settings?.logo_url_en || settings?.logo_url || null
+    }
+
+    // If custom branding exists and we have a logo URL, use it
+    if (hasCustomBranding && logoUrl) {
+      return logoUrl
+    }
+
+    // If custom branding exists but no logo URL, use default
+    if (hasCustomBranding && !logoUrl) {
+      return DEFAULT_LOGO_URL
+    }
+
+    // Fallback to default
+    return DEFAULT_LOGO_URL
+  }
+
+  // Get platform name - language-aware
+  const platformNameValue = getValue(
+    settings?.name,
+    settings?.name_ru,
+    DEFAULT_PLATFORM_NAME,
+    language === "ru" ? "data-platform-name-ru" : "data-platform-name-en"
+  )
 
   return {
     platformName: platformNameValue,
     platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
-    logo: getValue(settings?.logo_url, DEFAULT_LOGO_URL),
-    favicon: getValue(settings?.favicon_url, DEFAULT_FAVICON_URL),
-    primaryColor: getValue(settings?.primary_color, DEFAULT_PRIMARY_COLOR),
+    logo: getLogoUrl(),
+    favicon: getValue(
+      settings?.favicon_url,
+      null, // Favicon doesn't have language variants
+      DEFAULT_FAVICON_URL,
+      "data-favicon-url"
+    ),
+    primaryColor: getValue(
+      settings?.primary_color,
+      null, // Color doesn't have language variants
+      DEFAULT_PRIMARY_COLOR,
+      "data-primary-color"
+    ),
     institutionName: platformNameValue,
     contactEmail: DEFAULT_CONTACT_EMAIL,
     appUrl: DEFAULT_APP_URL,
