@@ -389,7 +389,7 @@ If you need to use ElectivePRO in a proprietary application or provide a hosted 
 
 <div align="center">
 
-**Made with ❤️ to power elective course and exchange program management**
+**Made with ❤️ to power education**
 
 <a href="https://www.electivepro.net" target="_blank" rel="noopener noreferrer">Website</a> • <a href="https://x.com/enyosaam" target="_blank" rel="noopener noreferrer">Twitter (X)</a>
 
