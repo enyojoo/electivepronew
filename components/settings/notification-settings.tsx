@@ -100,33 +100,89 @@ export function NotificationSettings() {
       }
 
       // Only include the notification setting being updated
-      // Don't preserve other fields - let them remain as they are in the database
+      // Explicitly set the value even if it's false (to ensure it's included in the request)
       if (updateData.selection_notifications !== undefined) {
-        upsertData.selection_notifications = updateData.selection_notifications
+        upsertData.selection_notifications = Boolean(updateData.selection_notifications)
       }
 
       if (updateData.status_update_notifications !== undefined) {
-        upsertData.status_update_notifications = updateData.status_update_notifications
+        upsertData.status_update_notifications = Boolean(updateData.status_update_notifications)
       }
 
       if (updateData.platform_announcements !== undefined) {
-        upsertData.platform_announcements = updateData.platform_announcements
+        upsertData.platform_announcements = Boolean(updateData.platform_announcements)
       }
 
       if (updateData.user_email_notifications !== undefined) {
-        upsertData.user_email_notifications = updateData.user_email_notifications
+        upsertData.user_email_notifications = Boolean(updateData.user_email_notifications)
       }
 
-      // Use upsert to create or update settings
-      const { data, error } = await supabase
-        .from("settings")
-        .upsert(upsertData, { onConflict: "id" })
-        .select()
-        .single()
+      // Validate that we have at least one notification field to update
+      const hasNotificationField = 
+        updateData.selection_notifications !== undefined ||
+        updateData.status_update_notifications !== undefined ||
+        updateData.platform_announcements !== undefined ||
+        updateData.user_email_notifications !== undefined
+
+      if (!hasNotificationField) {
+        console.error("No notification field to update")
+        setIsSaving(false)
+        return
+      }
+
+      // If row exists, use UPDATE (more efficient and avoids INSERT issues)
+      // If row doesn't exist, use INSERT with all required fields
+      let data, error
+      if (existingSettings?.id) {
+        // Row exists - use UPDATE with only the fields being changed
+        const updatePayload: any = {
+          updated_at: new Date().toISOString(),
+        }
+        
+        if (updateData.selection_notifications !== undefined) {
+          updatePayload.selection_notifications = Boolean(updateData.selection_notifications)
+        }
+        if (updateData.status_update_notifications !== undefined) {
+          updatePayload.status_update_notifications = Boolean(updateData.status_update_notifications)
+        }
+        if (updateData.platform_announcements !== undefined) {
+          updatePayload.platform_announcements = Boolean(updateData.platform_announcements)
+        }
+        if (updateData.user_email_notifications !== undefined) {
+          updatePayload.user_email_notifications = Boolean(updateData.user_email_notifications)
+        }
+
+        const result = await supabase
+          .from("settings")
+          .update(updatePayload)
+          .eq("id", settingsId)
+          .select()
+          .single()
+        
+        data = result.data
+        error = result.error
+      } else {
+        // Row doesn't exist - use INSERT with all required fields
+        const insertResult = await supabase
+          .from("settings")
+          .insert(upsertData)
+          .select()
+          .single()
+        
+        data = insertResult.data
+        error = insertResult.error
+      }
 
       if (error) {
-        console.error("Error saving notification settings:", error)
+        console.error("Error saving notification settings:", {
+          error,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          upsertData,
+        })
         // Silent fail - no toast notification
+        setIsSaving(false)
         return
       }
 
