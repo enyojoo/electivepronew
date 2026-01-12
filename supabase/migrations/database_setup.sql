@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   role TEXT NOT NULL CHECK (role IN ('admin', 'program_manager', 'student')),
   email TEXT NOT NULL,
   is_active BOOLEAN DEFAULT true,
+  -- Email notification preference
+  email_notifications BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -250,6 +252,11 @@ CREATE TABLE IF NOT EXISTS settings (
   primary_color TEXT,
   logo_url TEXT,
   favicon_url TEXT,
+  -- Email notification settings
+  selection_notifications BOOLEAN DEFAULT true,
+  status_update_notifications BOOLEAN DEFAULT true,
+  platform_announcements BOOLEAN DEFAULT true,
+  user_email_notifications BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT settings_single_row CHECK (id = '00000000-0000-0000-0000-000000000000'::uuid)

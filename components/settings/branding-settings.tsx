@@ -64,16 +64,8 @@ export function BrandingSettings() {
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [institutionName, setInstitutionName] = useState("")
-  const [platformName, setPlatformName] = useState("")
-  const [platformDescription, setPlatformDescription] = useState("")
-  const [contactEmail, setContactEmail] = useState("")
-  const [appUrl, setAppUrl] = useState("")
   const [originalPrimaryColor, setOriginalPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [originalInstitutionName, setOriginalInstitutionName] = useState("")
-  const [originalPlatformName, setOriginalPlatformName] = useState("")
-  const [originalPlatformDescription, setOriginalPlatformDescription] = useState("")
-  const [originalContactEmail, setOriginalContactEmail] = useState("")
-  const [originalAppUrl, setOriginalAppUrl] = useState("")
   const [faviconUrl, setFaviconUrl] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null)
@@ -171,16 +163,8 @@ export function BrandingSettings() {
       const name = settings.name || DEFAULT_PLATFORM_NAME
       setPrimaryColor(color)
       setInstitutionName(name)
-      setPlatformName(settings.platform_name || "")
-      setPlatformDescription(settings.platform_description || "")
-      setContactEmail(settings.contact_email || "")
-      setAppUrl(settings.app_url || "")
       setOriginalPrimaryColor(color)
       setOriginalInstitutionName(name)
-      setOriginalPlatformName(settings.platform_name || "")
-      setOriginalPlatformDescription(settings.platform_description || "")
-      setOriginalContactEmail(settings.contact_email || "")
-      setOriginalAppUrl(settings.app_url || "")
     } else if (!isLoading) {
       // Only initialize with defaults if we're done loading and there's no settings
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
@@ -317,17 +301,9 @@ export function BrandingSettings() {
         primary_color?: string
         logo_url?: string | null
         favicon_url?: string | null
-        platform_name?: string | null
-        platform_description?: string | null
-        contact_email?: string | null
-        app_url?: string | null
       } = {
         name: institutionName,
         primary_color: primaryColor,
-        platform_name: platformName || null,
-        platform_description: platformDescription || null,
-        contact_email: contactEmail || null,
-        app_url: appUrl || null,
       }
 
       // Include logo URL if a new logo was uploaded
@@ -356,20 +332,12 @@ export function BrandingSettings() {
         primary_color: primaryColor,
         logo_url: pendingLogoUrl || settings?.logo_url || null,
         favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
-        platform_name: platformName || null,
-        platform_description: platformDescription || null,
-        contact_email: contactEmail || null,
-        app_url: appUrl || null,
       }
       setCachedData("settings", SETTINGS_ID, updatedSettings)
 
       // Update original values and clear pending changes
       setOriginalPrimaryColor(primaryColor)
       setOriginalInstitutionName(institutionName)
-      setOriginalPlatformName(platformName)
-      setOriginalPlatformDescription(platformDescription)
-      setOriginalContactEmail(contactEmail)
-      setOriginalAppUrl(appUrl)
       if (pendingLogoUrl) {
         setLogoUrl(pendingLogoUrl)
       }
@@ -468,76 +436,6 @@ export function BrandingSettings() {
                 disabled={!isEditing}
               />
             )}
-          </div>
-
-          {/* Platform Name */}
-          <div className="space-y-2">
-            <Label htmlFor="platformName">Platform Name</Label>
-            {isLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Input
-                id="platformName"
-                value={platformName}
-                onChange={(e) => setPlatformName(e.target.value)}
-                placeholder="ElectivePRO"
-                disabled={!isEditing}
-              />
-            )}
-            <p className="text-xs text-muted-foreground">
-              Platform name for "Powered by" credits and copyright
-            </p>
-          </div>
-
-          {/* Platform Description */}
-          <div className="space-y-2">
-            <Label htmlFor="platformDescription">Platform Description</Label>
-            {isLoading ? (
-              <Skeleton className="h-20 w-full" />
-            ) : (
-              <textarea
-                id="platformDescription"
-                value={platformDescription}
-                onChange={(e) => setPlatformDescription(e.target.value)}
-                placeholder="The complete platform for managing the selection of elective courses, exchange programs, and academic pathways."
-                disabled={!isEditing}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            )}
-          </div>
-
-          {/* Contact Email and App URL */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact Email</Label>
-              {isLoading ? (
-                <Skeleton className="h-10 w-full" />
-              ) : (
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="support@electivepro.org"
-                  disabled={!isEditing}
-                />
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="appUrl">App URL</Label>
-              {isLoading ? (
-                <Skeleton className="h-10 w-full" />
-              ) : (
-                <Input
-                  id="appUrl"
-                  type="url"
-                  value={appUrl}
-                  onChange={(e) => setAppUrl(e.target.value)}
-                  placeholder="https://electivepro.org"
-                  disabled={!isEditing}
-                />
-              )}
-            </div>
           </div>
 
           {/* Logo, Favicon, and Color in one row */}

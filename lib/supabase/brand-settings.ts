@@ -61,27 +61,23 @@ export async function getBrandSettings(): Promise<BrandSettings> {
   // Check if ANY custom brand setting has been set
   const hasCustomBranding = !!(
     platformSettings.name ||
-    platformSettings.platform_name ||
     platformSettings.logo_url ||
     platformSettings.favicon_url ||
-    platformSettings.primary_color ||
-    platformSettings.platform_description ||
-    platformSettings.contact_email ||
-    platformSettings.app_url
+    platformSettings.primary_color
   )
 
   // If admin has set custom branding, use custom values where set
   // Empty/null values fallback to defaults
   if (hasCustomBranding) {
     return {
-      platformName: platformSettings.platform_name || DEFAULT_PLATFORM_NAME,
-      platformDescription: platformSettings.platform_description || DEFAULT_PLATFORM_DESCRIPTION,
+      platformName: DEFAULT_PLATFORM_NAME,
+      platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
       logo: platformSettings.logo_url || DEFAULT_LOGO_URL,
       favicon: platformSettings.favicon_url || DEFAULT_FAVICON_URL,
       primaryColor: platformSettings.primary_color || DEFAULT_PRIMARY_COLOR,
       institutionName: platformSettings.name || DEFAULT_PLATFORM_NAME,
-      contactEmail: platformSettings.contact_email || getContactEmail(),
-      appUrl: platformSettings.app_url || getAppUrl(),
+      contactEmail: getContactEmail(),
+      appUrl: getAppUrl(),
     }
   }
 

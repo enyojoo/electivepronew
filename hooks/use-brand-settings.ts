@@ -41,13 +41,9 @@ export function useBrandSettings(): BrandSettings {
     hasConfirmedData &&
     !!(
       settings?.name ||
-      settings?.platform_name ||
       settings?.logo_url ||
       settings?.favicon_url ||
-      settings?.primary_color ||
-      settings?.platform_description ||
-      settings?.contact_email ||
-      settings?.app_url
+      settings?.primary_color
     )
 
   // Helper function to get value with smart fallback
@@ -79,17 +75,14 @@ export function useBrandSettings(): BrandSettings {
   }
 
   return {
-    platformName: getValue(settings?.platform_name, DEFAULT_PLATFORM_NAME),
-    platformDescription: getValue(
-      settings?.platform_description,
-      DEFAULT_PLATFORM_DESCRIPTION
-    ),
+    platformName: DEFAULT_PLATFORM_NAME,
+    platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
     logo: getValue(settings?.logo_url, DEFAULT_LOGO_URL),
     favicon: getValue(settings?.favicon_url, DEFAULT_FAVICON_URL),
     primaryColor: getValue(settings?.primary_color, DEFAULT_PRIMARY_COLOR),
     institutionName: getValue(settings?.name, DEFAULT_PLATFORM_NAME),
-    contactEmail: getValue(settings?.contact_email, DEFAULT_CONTACT_EMAIL),
-    appUrl: getValue(settings?.app_url, DEFAULT_APP_URL),
+    contactEmail: DEFAULT_CONTACT_EMAIL,
+    appUrl: DEFAULT_APP_URL,
     isLoading,
     hasData: hasConfirmedData,
   }

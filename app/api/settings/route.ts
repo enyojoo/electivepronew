@@ -93,16 +93,12 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
 
-    // Prepare update data - support both old and new fields
+    // Prepare update data
     const updateData: {
       name?: string
       primary_color?: string
       logo_url?: string | null
       favicon_url?: string | null
-      platform_name?: string | null
-      platform_description?: string | null
-      contact_email?: string | null
-      app_url?: string | null
     } = {}
 
     if (body.name !== undefined) updateData.name = body.name
@@ -111,13 +107,6 @@ export async function PUT(request: NextRequest) {
     if (body.logo_url !== undefined) updateData.logo_url = body.logo_url
     if (body.favicon_url !== undefined)
       updateData.favicon_url = body.favicon_url
-    if (body.platform_name !== undefined)
-      updateData.platform_name = body.platform_name
-    if (body.platform_description !== undefined)
-      updateData.platform_description = body.platform_description
-    if (body.contact_email !== undefined)
-      updateData.contact_email = body.contact_email
-    if (body.app_url !== undefined) updateData.app_url = body.app_url
 
     // Update settings
     const { data, error } = await supabase
