@@ -1103,6 +1103,12 @@ CREATE POLICY "Allow public read access to settings"
   TO authenticated, anon
   USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated users to insert settings" ON settings;
+CREATE POLICY "Allow authenticated users to insert settings"
+  ON settings FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Allow authenticated users to update settings" ON settings;
 CREATE POLICY "Allow authenticated users to update settings"
   ON settings FOR UPDATE
@@ -1116,6 +1122,7 @@ CREATE POLICY "Allow authenticated users to update settings"
 
 GRANT SELECT ON settings TO authenticated;
 GRANT SELECT ON settings TO anon;
+GRANT INSERT ON settings TO authenticated;
 GRANT UPDATE ON settings TO authenticated;
 
 -- ====================================================
