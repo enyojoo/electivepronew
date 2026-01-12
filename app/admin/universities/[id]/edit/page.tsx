@@ -49,6 +49,7 @@ export default function EditUniversityPage() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const supabase = getSupabaseBrowserClient()
   const [university, setUniversity] = useState<University | null>(null)
   const [formData, setFormData] = useState({
@@ -68,6 +69,7 @@ export default function EditUniversityPage() {
   // Fetch university data
   useEffect(() => {
     const fetchUniversity = async () => {
+      setIsLoading(true)
       try {
         const { data, error } = await supabase
           .from("exchange_universities")
@@ -101,6 +103,8 @@ export default function EditUniversityPage() {
           variant: "destructive",
         })
         router.push("/admin/universities")
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -128,8 +132,8 @@ export default function EditUniversityPage() {
     setIsSubmitting(true)
 
     try {
-      if (!university || !institution?.id) {
-        throw new Error("University or institution not found")
+      if (!university?.id) {
+        throw new Error("University not found")
       }
 
       const { error } = await supabase
@@ -274,6 +278,7 @@ export default function EditUniversityPage() {
                     language={language}
                     placeholder={t("admin.newUniversity.selectCountry", "Select country")}
                     required
+                    disabled={isLoading || isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">

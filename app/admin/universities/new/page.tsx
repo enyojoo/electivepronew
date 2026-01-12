@@ -206,6 +206,7 @@ export default function NewUniversityPage() {
                     language={language}
                     placeholder={t("admin.newUniversity.selectCountry", "Select country")}
                     required
+                    disabled={isSubmitting}
                   />
                 </div>
                 <div className="space-y-2">
