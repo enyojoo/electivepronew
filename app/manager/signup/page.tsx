@@ -38,6 +38,7 @@ export default function ManagerSignupPage() {
   // Data states
   const [degrees, setDegrees] = useState<any[]>([])
   const [years, setYears] = useState<string[]>([])
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
 
   // Ref to prevent multiple fetches
   const dataFetchedRef = useRef(false)
@@ -50,6 +51,7 @@ export default function ManagerSignupPage() {
 
     async function loadDegrees() {
       try {
+        setIsLoadingDegrees(true)
         dataFetchedRef.current = true
 
         const { data, error } = await supabase
@@ -79,6 +81,8 @@ export default function ManagerSignupPage() {
         console.error("Error loading degrees:", error)
         dataFetchedRef.current = false // Allow retry on error
         setDegrees([])
+      } finally {
+        setIsLoadingDegrees(false)
       }
     }
 
@@ -87,10 +91,18 @@ export default function ManagerSignupPage() {
 
   // Fetch academic years when degree changes
   useEffect(() => {
-    if (!formData.degreeId) return
+    if (!formData.degreeId) {
+      setYears([])
+      setFormData((prev) => ({
+        ...prev,
+        academicYear: "",
+      }))
+      return
+    }
 
     async function fetchAcademicYears() {
       try {
+        console.log("Fetching academic years for degree:", formData.degreeId)
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
@@ -98,10 +110,16 @@ export default function ManagerSignupPage() {
           .eq("is_active", true)
           .order("year", { ascending: false })
 
-        if (error) throw error
+        if (error) {
+          console.error("Error fetching academic years:", error)
+          throw error
+        }
+
+        console.log("Academic years data:", data)
 
         if (data && data.length > 0) {
           const yearValues = data.map((ay) => ay.year).filter(Boolean)
+          console.log("Year values extracted:", yearValues)
           setYears(yearValues)
 
           // Set default year
@@ -118,6 +136,7 @@ export default function ManagerSignupPage() {
             }))
           }
         } else {
+          console.warn("No academic years found for degree:", formData.degreeId)
           setYears([])
           setFormData((prev) => ({
             ...prev,
@@ -226,9 +245,8 @@ export default function ManagerSignupPage() {
     }
   }
 
-  // Generate enrollment years if no years are available from the database
-  const enrollmentYears =
-    years.length > 0 ? years : Array.from({ length: 5 }, (_, i) => (new Date().getFullYear() - 2 + i).toString())
+  // Use years from database only (no fallback)
+  const enrollmentYears = years
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
@@ -281,7 +299,7 @@ export default function ManagerSignupPage() {
                     value={formData.degreeId}
                     onValueChange={(value) => handleSelectChange("degreeId", value)}
                     required
-                    disabled={degrees.length === 0}
+                    disabled={isLoadingDegrees}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={t("admin.users.selectDegree")}>
@@ -317,11 +335,17 @@ export default function ManagerSignupPage() {
                       <SelectValue placeholder={t("auth.signup.selectYear")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {enrollmentYears.map((year) => (
-                        <SelectItem key={year} value={year}>
-                          {year}
+                      {enrollmentYears.length === 0 ? (
+                        <SelectItem value="no-years" disabled>
+                          {t("auth.signup.noYears", "No years available")}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        enrollmentYears.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

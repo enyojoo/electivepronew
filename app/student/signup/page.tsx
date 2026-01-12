@@ -37,6 +37,7 @@ export default function StudentSignupPage() {
   const [degrees, setDegrees] = useState<any[]>([])
   const [years, setYears] = useState<string[]>([])
   const [filteredGroups, setFilteredGroups] = useState<any[]>([])
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
 
   // Refs to prevent multiple fetches
   const dataFetchedRef = useRef(false)
@@ -49,6 +50,7 @@ export default function StudentSignupPage() {
 
     async function loadDegrees() {
       try {
+        setIsLoadingDegrees(true)
         dataFetchedRef.current = true
 
         // Fetch degrees
@@ -75,6 +77,8 @@ export default function StudentSignupPage() {
         console.error("Error loading degrees:", error)
         dataFetchedRef.current = false // Allow retry on error
         setDegrees([])
+      } finally {
+        setIsLoadingDegrees(false)
       }
     }
 
@@ -83,10 +87,15 @@ export default function StudentSignupPage() {
 
   // Fetch academic years when degree changes
   useEffect(() => {
-    if (!degree) return
+    if (!degree) {
+      setYears([])
+      setYear("")
+      return
+    }
 
     async function fetchAcademicYears() {
       try {
+        console.log("Fetching academic years for degree:", degree)
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
@@ -94,10 +103,16 @@ export default function StudentSignupPage() {
           .eq("is_active", true)
           .order("year", { ascending: false })
 
-        if (error) throw error
+        if (error) {
+          console.error("Error fetching academic years:", error)
+          throw error
+        }
+
+        console.log("Academic years data:", data)
 
         if (data && data.length > 0) {
           const yearValues = data.map((ay) => ay.year).filter(Boolean)
+          console.log("Year values extracted:", yearValues)
           setYears(yearValues)
 
           // Set default year
@@ -108,6 +123,7 @@ export default function StudentSignupPage() {
             setYear(yearValues[0])
           }
         } else {
+          console.warn("No academic years found for degree:", degree)
           setYears([])
           setYear("")
         }
@@ -131,6 +147,8 @@ export default function StudentSignupPage() {
 
     async function fetchGroups() {
       try {
+        console.log("Fetching groups for degree:", degree, "year:", year)
+        
         // First, get the academic_year_id for the selected year and degree
         const { data: academicYearData, error: academicYearError } = await supabase
           .from("academic_years")
@@ -138,14 +156,23 @@ export default function StudentSignupPage() {
           .eq("degree_id", degree)
           .eq("year", year)
           .eq("is_active", true)
-          .single()
+          .maybeSingle()
 
-        if (academicYearError || !academicYearData) {
+        if (academicYearError) {
           console.error("Error fetching academic year:", academicYearError)
           setFilteredGroups([])
           setGroup("")
           return
         }
+
+        if (!academicYearData) {
+          console.warn("No academic year found for degree:", degree, "year:", year)
+          setFilteredGroups([])
+          setGroup("")
+          return
+        }
+
+        console.log("Academic year ID found:", academicYearData.id)
 
         // Fetch groups directly from database for this academic_year_id and degree
         const { data: groupsData, error: groupsError } = await supabase
@@ -163,6 +190,8 @@ export default function StudentSignupPage() {
           return
         }
 
+        console.log("Groups data:", groupsData)
+
         if (groupsData && groupsData.length > 0) {
           setFilteredGroups(groupsData)
 
@@ -171,6 +200,7 @@ export default function StudentSignupPage() {
             setGroup(groupsData[0].id?.toString() || "")
           }
         } else {
+          console.warn("No groups found for academic_year_id:", academicYearData.id, "degree_id:", degree)
           setFilteredGroups([])
           setGroup("")
         }
@@ -311,7 +341,7 @@ export default function StudentSignupPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="degree">{t("auth.signup.degree")}</Label>
-                <Select value={degree} onValueChange={setDegree} required disabled={degrees.length === 0}>
+                <Select value={degree} onValueChange={setDegree} required disabled={isLoadingDegrees}>
                   <SelectTrigger id="degree" className="w-full">
                     <SelectValue placeholder={t("auth.signup.selectDegree")}>
                       {degree && degrees.length > 0
@@ -343,27 +373,39 @@ export default function StudentSignupPage() {
                       <SelectValue placeholder={t("auth.signup.selectYear")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {years.map((y) => (
-                        <SelectItem key={y} value={y}>
-                          {y}
+                      {years.length === 0 ? (
+                        <SelectItem value="no-years" disabled>
+                          {t("auth.signup.noYears", "No years available")}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        years.map((y) => (
+                          <SelectItem key={y} value={y}>
+                            {y}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="group">{t("auth.signup.group")}</Label>
-                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year}>
+                  <Select value={group} onValueChange={setGroup} required disabled={!degree || !year || filteredGroups.length === 0}>
                     <SelectTrigger id="group" className="w-full">
                       <SelectValue placeholder={t("auth.signup.selectGroup")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredGroups.map((g) => (
-                        <SelectItem key={g.id} value={g.id?.toString() || ""}>
-                          {getGroupName(g)}
+                      {filteredGroups.length === 0 ? (
+                        <SelectItem value="no-groups" disabled>
+                          {t("auth.signup.noGroups", "No groups available")}
                         </SelectItem>
-                      ))}
+                      ) : (
+                        filteredGroups.map((g) => (
+                          <SelectItem key={g.id} value={g.id?.toString() || ""}>
+                            {getGroupName(g)}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
