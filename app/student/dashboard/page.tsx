@@ -465,7 +465,7 @@ export default function StudentDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("student.dashboard.degree")}:</dt>
-                    <dd>{profile?.degree?.name || "-"}</dd>
+                    <dd>{profile?.degree ? (language === "ru" && profile.degree.name_ru ? profile.degree.name_ru : profile.degree.name) : "-"}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("student.dashboard.year")}:</dt>

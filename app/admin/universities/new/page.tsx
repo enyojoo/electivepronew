@@ -17,7 +17,8 @@ import { useLanguage } from "@/lib/language-context"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import { getSortedCountries, getCountryName, type Country } from "@/lib/countries"
+import { getSortedCountries, type Country } from "@/lib/countries"
+import { CountrySelect } from "@/components/ui/country-select"
 
 // University status options
 const statusOptions = [
@@ -257,21 +258,14 @@ export default function NewUniversityPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="country">{t("admin.newUniversity.country", "Country")}</Label>
-                  <Select value={university.country} onValueChange={handleCountryChange} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("admin.newUniversity.selectCountry", "Select country")} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {getSortedCountries(language).map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          <span className="flex items-center gap-2">
-                            <span>{country.flag}</span>
-                            <span>{getCountryName(country, language)}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CountrySelect
+                    value={university.country}
+                    onValueChange={handleCountryChange}
+                    countries={getSortedCountries(language)}
+                    language={language}
+                    placeholder={t("admin.newUniversity.selectCountry", "Select country")}
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="website">{t("admin.newUniversity.website", "Website")}</Label>

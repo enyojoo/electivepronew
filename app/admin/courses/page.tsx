@@ -563,9 +563,9 @@ export default function CoursesPage() {
                           <TableCell>
                             {course.degree && (
                               <Badge variant="outline">
-                                {language === "ru" && course.degree.name_ru
+                                {course.degree ? (language === "ru" && course.degree.name_ru
                                   ? course.degree.name_ru
-                                  : course.degree.name}
+                                  : course.degree.name) : "Unknown"}
                               </Badge>
                             )}
                           </TableCell>

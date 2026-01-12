@@ -68,6 +68,15 @@ export function UsersSettings() {
 
   const supabase = getSupabaseBrowserClient()
 
+  // Helper function to get localized degree name
+  const getLocalizedDegreeName = (degree: any) => {
+    if (!degree) return ""
+    if (language === "ru" && degree.name_ru) {
+      return degree.name_ru
+    }
+    return degree.name || ""
+  }
+
   // Initialize filteredUsers with users data when it becomes available
   useEffect(() => {
     if (users && users.length > 0) {
@@ -456,7 +465,7 @@ export function UsersSettings() {
             groupId: editingUser.groupId || "",
             year: editingUser.year || "",
             // Update related display fields
-            degreeName: degrees.find((d) => d.id === editingUser.degreeId)?.name || "",
+            degreeName: getLocalizedDegreeName(degrees.find((d) => d.id === editingUser.degreeId)),
             groupName: groups.find((g) => g.id === editingUser.groupId)?.name || "",
           }
         }
@@ -477,7 +486,7 @@ export function UsersSettings() {
               groupId: editingUser.groupId || "",
               year: editingUser.year || "",
               // Update related display fields
-              degreeName: degrees.find((d) => d.id === editingUser.degreeId)?.name || "",
+              degreeName: getLocalizedDegreeName(degrees.find((d) => d.id === editingUser.degreeId)),
               groupName: groups.find((g) => g.id === editingUser.groupId)?.name || "",
             }
           }
@@ -827,7 +836,7 @@ export function UsersSettings() {
                           <SelectContent>
                             {degrees.map((degree) => (
                               <SelectItem key={degree.id} value={degree.id.toString()}>
-                                {degree.name}
+                                {getLocalizedDegreeName(degree)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -898,7 +907,7 @@ export function UsersSettings() {
                           <SelectContent>
                             {degrees.map((degree) => (
                               <SelectItem key={degree.id} value={degree.id.toString()}>
-                                {degree.name}
+                                {getLocalizedDegreeName(degree)}
                               </SelectItem>
                             ))}
                           </SelectContent>

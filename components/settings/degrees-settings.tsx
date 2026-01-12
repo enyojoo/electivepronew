@@ -29,7 +29,7 @@ interface DegreeFormData {
 }
 
 export function DegreesSettings() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { invalidateCache } = useDataCache()
   const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
   const [degrees, setDegrees] = useState<any[]>([])
@@ -380,8 +380,7 @@ export function DegreesSettings() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("admin.degrees.nameEn")}</TableHead>
-                    <TableHead>{t("admin.degrees.nameRu")}</TableHead>
+                    <TableHead>{t("admin.degrees.name", "Name")}</TableHead>
                     <TableHead>{t("admin.degrees.code")}</TableHead>
                     <TableHead>{t("admin.degrees.status")}</TableHead>
                     <TableHead className="w-[80px]">{t("admin.degrees.action")}</TableHead>
@@ -391,7 +390,7 @@ export function DegreesSettings() {
                   {isLoadingDegrees ? (
                     <>
                       <TableRow>
-                        <TableCell colSpan={5}>
+                        <TableCell colSpan={4}>
                           <Skeleton className="w-full h-10" />
                         </TableCell>
                       </TableRow>
@@ -407,16 +406,17 @@ export function DegreesSettings() {
                       </TableRow>
                     </>
                   ) : filteredDegrees.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        {t("admin.degrees.noDegreesFound")}
-                      </TableCell>
-                    </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {t("admin.degrees.noDegreesFound")}
+                        </TableCell>
+                      </TableRow>
                   ) : (
                     filteredDegrees.map((degree) => (
                       <TableRow key={degree.id}>
-                        <TableCell className="font-medium">{degree.name}</TableCell>
-                        <TableCell>{degree.nameRu}</TableCell>
+                        <TableCell className="font-medium">
+                          {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
+                        </TableCell>
                         <TableCell>{degree.code}</TableCell>
                         <TableCell>{getStatusBadge(degree.status)}</TableCell>
                         <TableCell>

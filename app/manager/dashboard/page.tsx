@@ -344,7 +344,7 @@ export default function ManagerDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.degree")}:</dt>
-                    <dd>{profile?.degrees?.name || "-"}</dd>
+                    <dd>{profile?.degrees ? (language === "ru" && profile.degrees.name_ru ? profile.degrees.name_ru : profile.degrees.name) : "-"}</dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.year")}:</dt>

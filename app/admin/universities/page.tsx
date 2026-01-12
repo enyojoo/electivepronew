@@ -33,7 +33,8 @@ import { useToast } from "@/hooks/use-toast"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
 import { useDialogState } from "@/hooks/use-dialog-state"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
-import { countries, getCountryName, type Country } from "@/lib/countries"
+import { countries, getCountryName, getSortedCountries, type Country } from "@/lib/countries"
+import { CountrySelect } from "@/components/ui/country-select"
 
 // Define the University type
 interface University {
@@ -416,23 +417,25 @@ export default function UniversitiesPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={countryFilter} onValueChange={setCountryFilter}>
-                    <SelectTrigger className="w-[180px]">
-                      <Globe className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder={t("admin.universities.country", "Country")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t("admin.universities.allCountries", "All Countries")}</SelectItem>
-                      {countries.map((country) => (
-                        <SelectItem key={country.code} value={country.code}>
-                          <span className="flex items-center gap-2">
-                            <span>{country.flag}</span>
-                            <span>{getCountryName(country, language)}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-[180px]">
+                    <Select value={countryFilter} onValueChange={setCountryFilter}>
+                      <SelectTrigger className="w-full">
+                        <Globe className="mr-2 h-4 w-4" />
+                        <SelectValue placeholder={t("admin.universities.country", "Country")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("admin.universities.allCountries", "All Countries")}</SelectItem>
+                        {getSortedCountries(language).map((country) => (
+                          <SelectItem key={country.code} value={country.code}>
+                            <span className="flex items-center gap-2">
+                              <span>{country.flag}</span>
+                              <span>{getCountryName(country, language)}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 

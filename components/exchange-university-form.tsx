@@ -16,6 +16,8 @@ import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import type { ExchangeUniversity, ExchangeUniversityFormData } from "@/types/exchange-university"
 import { createExchangeUniversity, updateExchangeUniversity } from "@/actions/exchange-universities"
+import { getSortedCountries, type Country } from "@/lib/countries"
+import { CountrySelect } from "@/components/ui/country-select"
 
 interface ExchangeUniversityFormProps {
   university?: ExchangeUniversity
@@ -165,20 +167,16 @@ export function ExchangeUniversityForm({ university, electivePacks, countries }:
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t("country")}</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("select_country")} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {countries.map((country) => (
-                          <SelectItem key={country.code} value={country.code}>
-                            {language === "ru" && country.name_ru ? country.name_ru : country.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <CountrySelect
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        countries={getSortedCountries(language)}
+                        language={language}
+                        placeholder={t("select_country")}
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

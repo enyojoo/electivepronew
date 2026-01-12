@@ -49,6 +49,7 @@ export default function UniversityDetailsPage() {
   }
 
   const getLocalizedCity = (university: University) => {
+    // Note: city_ru was removed from schema, so we only have city
     return university.city
   }
 
@@ -137,26 +138,16 @@ export default function UniversityDetailsPage() {
             <CardTitle>{t("admin.universities.details", "University Details")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                  {t("admin.universities.nameEn", "Name (English)")}
-                </h3>
-                <p className="text-lg">{university.name}</p>
-              </div>
-              {university.name_ru && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("admin.universities.nameRu", "Name (Russian)")}
-                  </h3>
-                  <p className="text-lg">{university.name_ru}</p>
-                </div>
-              )}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                {t("admin.universities.name", "Name")}
+              </h3>
+              <p className="text-lg">{getLocalizedName(university)}</p>
             </div>
 
             <Separator />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-1">
                   {t("admin.universities.country", "Country")}
@@ -165,18 +156,10 @@ export default function UniversityDetailsPage() {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                  {t("admin.universities.cityEn", "City (English)")}
+                  {t("admin.universities.city", "City")}
                 </h3>
-                <p>{university.city}</p>
+                <p>{getLocalizedCity(university)}</p>
               </div>
-              {university.city_ru && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("admin.universities.cityRu", "City (Russian)")}
-                  </h3>
-                  <p>{university.city_ru}</p>
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

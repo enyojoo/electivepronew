@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserRole } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
+import { useLanguage } from "@/lib/language-context"
 import { createClient } from "@supabase/supabase-js"
-import { useTranslation } from "react-i18next"
 
 export default function UserEditPage() {
   const params = useParams()
@@ -24,8 +24,8 @@ export default function UserEditPage() {
   const userId = params.id
   const isNewUser = userId === "new"
   const { toast } = useToast()
+  const { t, language } = useLanguage()
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-  const { t } = useTranslation()
 
   // Initialize all state variables with default values
   const [user, setUser] = useState({
@@ -48,6 +48,14 @@ export default function UserEditPage() {
 
   const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i)
 
+  // Helper function to get localized degree name
+  const getLocalizedDegreeName = (degree: any) => {
+    if (language === "ru" && degree.name_ru) {
+      return degree.name_ru
+    }
+    return degree.name
+  }
+
   // Fetch reference data (degrees, groups)
   useEffect(() => {
     const fetchReferenceData = async () => {
@@ -55,7 +63,7 @@ export default function UserEditPage() {
         // Fetch degrees
         const { data: degreesData, error: degreesError } = await supabase
           .from("degrees")
-          .select("id, name")
+          .select("id, name, name_ru")
           .eq("status", "active")
 
         if (degreesError) throw degreesError
@@ -304,7 +312,7 @@ export default function UserEditPage() {
                       <SelectContent>
                         {degrees.map((degree) => (
                           <SelectItem key={degree.id} value={degree.id.toString()}>
-                            {degree.name}
+                            {getLocalizedDegreeName(degree)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -361,7 +369,7 @@ export default function UserEditPage() {
                       <SelectContent>
                         {degrees.map((degree) => (
                           <SelectItem key={degree.id} value={degree.id.toString()}>
-                            {degree.name}
+                            {getLocalizedDegreeName(degree)}
                           </SelectItem>
                         ))}
                       </SelectContent>
