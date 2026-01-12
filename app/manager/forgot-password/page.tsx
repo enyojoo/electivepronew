@@ -9,11 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import Link from "next/link"
-import Image from "next/image"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/components/ui/use-toast"
-import { DEFAULT_LOGO_URL } from "@/lib/constants"
+import Logo from "@/components/logo"
 import Indicator from "@/components/indicator"
 
 export default function ForgotPasswordPage() {
@@ -69,14 +68,7 @@ export default function ForgotPasswordPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 bg-background">
         <div className="mx-auto max-w-md space-y-6 w-full">
           <div className="flex justify-center mb-6">
-            <Image
-              src={DEFAULT_LOGO_URL}
-              alt="ElectivePRO Logo"
-              width={160}
-              height={45}
-              className="h-10 w-auto"
-              priority
-            />
+            <Logo className="h-8 w-auto max-w-[160px]" />
           </div>
           <Card>
             <CardHeader>
@@ -106,14 +98,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 bg-background">
       <div className="mx-auto max-w-md space-y-6 w-full">
         <div className="flex justify-center mb-6">
-          <Image
-            src={DEFAULT_LOGO_URL}
-            alt="ElectivePRO Logo"
-            width={160}
-            height={45}
-            className="h-10 w-auto"
-            priority
-          />
+          <Logo className="h-8 w-auto max-w-[160px]" />
         </div>
         <Card>
           <CardHeader>
