@@ -85,6 +85,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // Apply immediately to prevent default flash
         document.documentElement.style.setProperty("--primary", primaryColor)
         document.documentElement.style.setProperty("--color-primary", primaryColor)
+        
+        // Set RGB values for components that need them
+        const hex = primaryColor.replace('#', '')
+        const r = parseInt(hex.substr(0, 2), 16)
+        const g = parseInt(hex.substr(2, 2), 16)
+        const b = parseInt(hex.substr(4, 2), 16)
+        document.documentElement.style.setProperty("--primary-rgb", `${r}, ${g}, ${b}`)
+        
         document.title = name
         
         // Update favicon immediately

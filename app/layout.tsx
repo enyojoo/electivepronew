@@ -41,6 +41,56 @@ export default async function RootLayout({
         <link rel="icon" href={faviconUrl} />
         <link rel="shortcut icon" href={faviconUrl} />
         <link rel="apple-touch-icon" href={faviconUrl} />
+        {/* Inline script to apply cached brand settings immediately, before React loads */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const cached = localStorage.getItem('epro-brand-settings');
+                  if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed.version === '1' && parsed.settings) {
+                      const s = parsed.settings;
+                      const hasCustom = !!(s.name || s.primary_color || s.logo_url || s.favicon_url);
+                      if (hasCustom) {
+                        const primaryColor = s.primary_color || '#027659';
+                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : 'https://cldup.com/aRNSwxLaVk.png';
+                        const name = s.name || 'ElectivePRO';
+                        
+                        // Apply CSS variables immediately
+                        document.documentElement.style.setProperty('--primary', primaryColor);
+                        document.documentElement.style.setProperty('--color-primary', primaryColor);
+                        
+                        // Convert hex to RGB for --primary-rgb
+                        const hex = primaryColor.replace('#', '');
+                        if (hex.length === 6) {
+                          const r = parseInt(hex.substring(0, 2), 16);
+                          const g = parseInt(hex.substring(2, 4), 16);
+                          const b = parseInt(hex.substring(4, 6), 16);
+                          if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                            document.documentElement.style.setProperty('--primary-rgb', r + ', ' + g + ', ' + b);
+                          }
+                        }
+                        
+                        // Update title
+                        document.title = name;
+                        
+                        // Update favicon links immediately
+                        var faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+                        for (var i = 0; i < faviconLinks.length; i++) {
+                          faviconLinks[i].href = faviconUrl;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // Silently fail if localStorage is unavailable or corrupted
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={inter.className}>
         <Providers>
