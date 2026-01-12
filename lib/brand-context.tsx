@@ -29,6 +29,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [settings, setSettings] = useState<BrandSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Create Supabase client once at component level
+  const supabase = getSupabaseBrowserClient()
 
   // Determine if we're in the admin section
   const isAdmin = pathname?.includes("/admin") || false
@@ -130,22 +133,24 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadSettings() {
       try {
-        // Use public API route for reading (no auth required, works reliably)
-        const response = await fetch("/api/brand-settings")
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch brand settings: ${response.statusText}`)
+        const { data, error } = await supabase
+          .from("settings")
+          .select("name, primary_color, logo_url, favicon_url")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle()
+
+        if (error && error.code !== "PGRST116") {
+          // PGRST116 is "not found" - that's okay, we'll use defaults
+          console.error("Error loading brand settings:", error)
+          throw error
         }
 
-        const data = await response.json()
-
-        // Map API response to BrandSettings format
-        // API returns: { platformName, institutionName, logo, favicon, primaryColor, ... }
         const brandSettings: BrandSettings = {
-          name: data.institutionName || null,
-          primary_color: data.primaryColor || null,
-          logo_url: data.logo || null,
-          favicon_url: data.favicon || null,
+          name: data?.name || null,
+          primary_color: data?.primary_color || null,
+          logo_url: data?.logo_url || null,
+          favicon_url: data?.favicon_url || null,
         }
 
         setSettings(brandSettings)
@@ -167,7 +172,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
 
     loadSettings()
-  }, [applyBranding])
+  }, [applyBranding, supabase])
 
   // Re-apply branding when pathname changes (to handle admin page detection)
   useEffect(() => {
@@ -180,17 +185,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     async (updates: Partial<BrandSettings>) => {
       try {
-        const supabase = getSupabaseBrowserClient()
-
         // Get existing settings to preserve ID and other fields
-        // Use API route for reading to avoid API key issues
-        const existingResponse = await fetch("/api/settings")
-        let existingSettings: any = null
-        
-        if (existingResponse.ok) {
-          const existingData = await existingResponse.json()
-          existingSettings = existingData.rawSettings
-        }
+        const { data: existingSettings } = await supabase
+          .from("settings")
+          .select("*")
+          .limit(1)
+          .maybeSingle()
 
         // Prepare update data
         const updateData: {
@@ -198,7 +198,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           primary_color?: string
           logo_url?: string | null
           favicon_url?: string | null
-        } = {}
+          updated_at: string
+        } = {
+          updated_at: new Date().toISOString(),
+        }
 
         // Include only the fields being updated
         if (updates.name !== undefined) {
@@ -222,32 +225,41 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           updateData.primary_color = existingSettings.primary_color || DEFAULT_PRIMARY_COLOR
         }
 
-        // Use API route for updates (handles auth properly)
-        const response = await fetch("/api/settings", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(updateData),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || `Failed to update settings: ${response.statusText}`)
+        let result
+        if (existingSettings?.id) {
+          // Row exists - use UPDATE
+          result = await supabase
+            .from("settings")
+            .update(updateData)
+            .eq("id", existingSettings.id)
+            .select("name, primary_color, logo_url, favicon_url")
+            .single()
+        } else {
+          // Row doesn't exist - use INSERT
+          const insertData = {
+            name: updateData.name || DEFAULT_PLATFORM_NAME,
+            primary_color: updateData.primary_color || DEFAULT_PRIMARY_COLOR,
+            logo_url: updateData.logo_url || null,
+            favicon_url: updateData.favicon_url || null,
+            updated_at: updateData.updated_at,
+          }
+          result = await supabase
+            .from("settings")
+            .insert(insertData)
+            .select("name, primary_color, logo_url, favicon_url")
+            .single()
         }
 
-        const result = await response.json()
+        if (result.error) {
+          throw result.error
+        }
 
         // Update local state with merged settings
-        // The API returns { success: true, settings: data }
-        const updatedSettings = result.settings || existingSettings
-        
         const newSettings: BrandSettings = {
-          name: updatedSettings?.name || null,
-          primary_color: updatedSettings?.primary_color || null,
-          logo_url: updatedSettings?.logo_url || null,
-          favicon_url: updatedSettings?.favicon_url || null,
+          name: result.data?.name || null,
+          primary_color: result.data?.primary_color || null,
+          logo_url: result.data?.logo_url || null,
+          favicon_url: result.data?.favicon_url || null,
         }
 
         setSettings(newSettings)
@@ -259,7 +271,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         throw error
       }
     },
-    [applyBranding],
+    [applyBranding, supabase],
   )
 
   return <BrandContext.Provider value={{ settings, updateSettings, isLoading }}>{children}</BrandContext.Provider>
