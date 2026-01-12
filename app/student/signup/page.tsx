@@ -258,18 +258,24 @@ export default function StudentSignupPage() {
 
       if (authError) throw new Error(authError.message)
 
-      // Create student profile - using the correct column names
+      // Create profile (basic info only)
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user!.id,
         full_name: name,
         role: "student",
         email: email,
-        degree_id: degree,
-        academic_year: year,
-        group_id: group,
       })
 
       if (profileError) throw new Error(profileError.message)
+
+      // Create student profile with role-specific data
+      const { error: studentProfileError } = await supabase.from("student_profiles").insert({
+        profile_id: authData.user!.id,
+        group_id: group,
+        enrollment_year: year,
+      })
+
+      if (studentProfileError) throw new Error(studentProfileError.message)
 
       // Send welcome email (non-blocking)
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin

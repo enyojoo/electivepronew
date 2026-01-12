@@ -206,17 +206,40 @@ export default function ManagerSignupPage() {
 
       if (authError) throw new Error(authError.message)
 
-      // Create manager profile
+      // Create profile (basic info only)
       const { error: profileError } = await supabase.from("profiles").insert({
         id: authData.user!.id,
         full_name: formData.name,
         role: "program_manager",
         email: formData.email,
-        degree_id: formData.degreeId,
-        academic_year: formData.academicYear,
       })
 
       if (profileError) throw new Error(profileError.message)
+
+      // Get academic_year_id from the year string
+      let academicYearId = null
+      if (formData.academicYear && formData.degreeId) {
+        const { data: academicYearData } = await supabase
+          .from("academic_years")
+          .select("id")
+          .eq("degree_id", formData.degreeId)
+          .eq("year", formData.academicYear)
+          .eq("is_active", true)
+          .maybeSingle()
+
+        if (academicYearData) {
+          academicYearId = academicYearData.id
+        }
+      }
+
+      // Create manager profile with role-specific data
+      const { error: managerProfileError } = await supabase.from("manager_profiles").insert({
+        profile_id: authData.user!.id,
+        degree_id: formData.degreeId || null,
+        academic_year_id: academicYearId,
+      })
+
+      if (managerProfileError) throw new Error(managerProfileError.message)
 
       // Send welcome email (non-blocking)
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
