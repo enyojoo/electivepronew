@@ -11,6 +11,7 @@ interface DataCacheContextType {
   getCachedData: <T>(cacheKey: string, id: string) => T | null
   setCachedData: <T>(cacheKey: string, id: string, data: T) => void
   invalidateCache: (cacheKey: string, id?: string) => void
+  getCacheVersion: (cacheKey: string, id: string) => number
 }
 
 const DataCacheContext = createContext<DataCacheContextType | undefined>(undefined)
@@ -80,8 +81,13 @@ export function DataCacheProvider({ children }: DataCacheProviderProps) {
     })
   }, [])
 
+  const getCacheVersion = useCallback((cacheKey: string, id: string): number => {
+    const cachedItem = cache[cacheKey]?.[id]
+    return cachedItem?.timestamp || 0
+  }, [cache])
+
   return (
-    <DataCacheContext.Provider value={{ getCachedData, setCachedData, invalidateCache }}>
+    <DataCacheContext.Provider value={{ getCachedData, setCachedData, invalidateCache, getCacheVersion }}>
       {children}
     </DataCacheContext.Provider>
   )

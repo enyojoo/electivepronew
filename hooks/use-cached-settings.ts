@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -11,10 +11,30 @@ export function useCachedSettings() {
   const [settings, setSettings] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { getCachedData, setCachedData } = useDataCache()
+  const { getCachedData, setCachedData, getCacheVersion } = useDataCache()
   const { toast } = useToast()
+  const cacheVersionRef = useRef<number>(0)
+  const hasInitializedRef = useRef(false)
+
+  // Watch for cache updates by monitoring cache version
+  // getCacheVersion depends on cache, so when cache changes, this effect will run
+  useEffect(() => {
+    const currentVersion = getCacheVersion("settings", SETTINGS_ID)
+    if (currentVersion !== cacheVersionRef.current && currentVersion > 0) {
+      cacheVersionRef.current = currentVersion
+      const cachedSettings = getCachedData<any>("settings", SETTINGS_ID)
+      if (cachedSettings && JSON.stringify(cachedSettings) !== JSON.stringify(settings)) {
+        console.log("Cache updated, refreshing settings")
+        setSettings(cachedSettings)
+        setIsLoading(false)
+      }
+    }
+  }, [getCacheVersion, getCachedData, settings])
 
   useEffect(() => {
+    if (hasInitializedRef.current) return
+    hasInitializedRef.current = true
+
     const fetchSettings = async () => {
       // Try to get data from cache first
       const cachedSettings = getCachedData<any>("settings", SETTINGS_ID)
@@ -22,6 +42,7 @@ export function useCachedSettings() {
       if (cachedSettings) {
         console.log("Using cached settings")
         setSettings(cachedSettings)
+        cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
         setIsLoading(false)
         return
       }
@@ -58,13 +79,16 @@ export function useCachedSettings() {
             // Even if insert fails, use defaults
             setSettings(defaultSettings)
             setCachedData("settings", SETTINGS_ID, defaultSettings)
+            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
           } else {
             setSettings(defaultSettings)
             setCachedData("settings", SETTINGS_ID, defaultSettings)
+            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
           }
         } else {
           // Save to cache
           setCachedData("settings", SETTINGS_ID, data)
+          cacheVersionRef.current = getCacheVersion("settings", SETTINGS_ID)
 
           // Update state
           setSettings(data)
@@ -94,7 +118,7 @@ export function useCachedSettings() {
     }
 
     fetchSettings()
-  }, [getCachedData, setCachedData, toast])
+  }, [getCachedData, setCachedData, getCacheVersion, toast])
 
   return { settings, isLoading, error }
 }

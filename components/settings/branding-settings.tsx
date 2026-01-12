@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useRouter } from "next/navigation"
 
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -55,6 +56,7 @@ if (typeof window !== "undefined") {
 export function BrandingSettings() {
   const { t } = useLanguage()
   const { toast } = useToast()
+  const router = useRouter()
   const { invalidateCache, setCachedData } = useDataCache()
   const { settings, isLoading } = useCachedSettings()
   const [isSaving, setIsSaving] = useState(false)
@@ -179,10 +181,6 @@ export function BrandingSettings() {
   const handleCancelEdit = () => {
     setPrimaryColor(originalPrimaryColor)
     setInstitutionName(originalInstitutionName)
-    setPlatformName(originalPlatformName)
-    setPlatformDescription(originalPlatformDescription)
-    setContactEmail(originalContactEmail)
-    setAppUrl(originalAppUrl)
     setPendingLogoFile(null)
     setPendingFaviconFile(null)
     setPendingLogoUrl(null)
@@ -295,43 +293,51 @@ export function BrandingSettings() {
   const handleSaveChanges = async () => {
     setIsSaving(true)
     try {
-      // Prepare update object with all changes
+      // Prepare update data - ensure NOT NULL constraints are satisfied
       const updateData: {
-        name?: string
-        primary_color?: string
+        name: string
+        primary_color: string
         logo_url?: string | null
         favicon_url?: string | null
+        updated_at: string
       } = {
-        name: institutionName,
-        primary_color: primaryColor,
+        name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
+        primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
+        updated_at: new Date().toISOString(),
       }
 
-      // Include logo URL if a new logo was uploaded
+      // Include logo URL if a new logo was uploaded, otherwise keep existing
       if (pendingLogoUrl) {
         updateData.logo_url = pendingLogoUrl
+      } else if (settings?.logo_url !== undefined) {
+        updateData.logo_url = settings.logo_url
       }
 
-      // Include favicon URL if a new favicon was uploaded
+      // Include favicon URL if a new favicon was uploaded, otherwise keep existing
       if (pendingFaviconUrl) {
         updateData.favicon_url = pendingFaviconUrl
+      } else if (settings?.favicon_url !== undefined) {
+        updateData.favicon_url = settings.favicon_url
       }
 
-      const { error } = await supabase
+      // Use upsert to ensure the row exists and update it
+      const { error: upsertError } = await supabase
         .from("settings")
-        .update(updateData)
-        .eq("id", SETTINGS_ID)
+        .upsert(updateData, { onConflict: "id" })
 
-      if (error) {
-        throw error
+      if (upsertError) {
+        console.error("Error updating settings:", upsertError)
+        throw upsertError
       }
 
       // Update cache with new settings immediately
       const updatedSettings = {
         ...settings,
-        name: institutionName,
-        primary_color: primaryColor,
+        name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
+        primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
         logo_url: pendingLogoUrl || settings?.logo_url || null,
         favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
+        updated_at: new Date().toISOString(),
       }
       setCachedData("settings", SETTINGS_ID, updatedSettings)
 
@@ -349,6 +355,9 @@ export function BrandingSettings() {
       setPendingLogoUrl(null)
       setPendingFaviconUrl(null)
       setIsEditing(false)
+
+      // Force a refresh to update all components using the settings
+      router.refresh()
 
       toast({
         title: t("settings.toast.changesSaved"),
