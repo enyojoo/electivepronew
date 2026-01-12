@@ -28,6 +28,7 @@ function getSupabaseConfig() {
 
 // Create a singleton for the browser client
 let browserClient: ReturnType<typeof createClient<Database>> | null = null
+let browserClientConfig: { url: string; anonKey: string } | null = null
 
 // Function to get the browser client (singleton pattern)
 export function getSupabaseBrowserClient() {
@@ -38,12 +39,31 @@ export function getSupabaseBrowserClient() {
     return createClient<Database>(config.url, config.anonKey)
   }
 
-  // Client-side - use singleton pattern
-  if (!browserClient) {
-    browserClient = createClient<Database>(config.url, config.anonKey)
+  // Client-side - use singleton pattern, but recreate if config changed
+  // This handles the case where client was created with placeholder values during build
+  if (!browserClient || 
+      browserClientConfig?.url !== config.url || 
+      browserClientConfig?.anonKey !== config.anonKey ||
+      config.url === "https://placeholder.supabase.co" ||
+      config.anonKey === "placeholder-key") {
+    // Only recreate if we have real values (not placeholders)
+    if (config.url !== "https://placeholder.supabase.co" && config.anonKey !== "placeholder-key") {
+      browserClient = createClient<Database>(config.url, config.anonKey, {
+        global: {
+          headers: {
+            'apikey': config.anonKey,
+          },
+        },
+      })
+      browserClientConfig = { url: config.url, anonKey: config.anonKey }
+    } else if (!browserClient) {
+      // Fallback: create with placeholders if no client exists yet
+      browserClient = createClient<Database>(config.url, config.anonKey)
+      browserClientConfig = { url: config.url, anonKey: config.anonKey }
+    }
   }
 
-  return browserClient
+  return browserClient!
 }
 
 // Function to create a server client with cookies (for server components and server actions)
