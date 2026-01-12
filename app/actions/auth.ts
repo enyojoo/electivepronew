@@ -129,12 +129,40 @@ export async function signUp(formData: FormData) {
 
       // For program managers, create manager profile
       if (role === "program_manager") {
-        const programId = formData.get("programId") as string
+        const degreeId = formData.get("degreeId") as string
+        const year = formData.get("year") as string
+        
+        // Get academic_year_id from year and degree_id if provided
+        let academicYearId = null
+        if (year && degreeId) {
+          const { data: academicYearData } = await supabaseAdmin
+            .from("academic_years")
+            .select("id")
+            .eq("degree_id", degreeId)
+            .eq("year", year)
+            .limit(1)
+            .single()
+          
+          if (academicYearData) {
+            academicYearId = academicYearData.id
+          }
+        }
 
-        const { error: managerError } = await supabaseAdmin.from("manager_profiles").insert({
+        const managerProfileData: any = {
           profile_id: authData.user.id,
-          program_id: programId,
-        })
+        }
+        
+        if (degreeId) {
+          managerProfileData.degree_id = degreeId
+        }
+        
+        if (academicYearId) {
+          managerProfileData.academic_year_id = academicYearId
+        }
+
+        const { error: managerError } = await supabaseAdmin
+          .from("manager_profiles")
+          .insert(managerProfileData)
 
         if (managerError) {
           console.error("Manager profile creation error:", managerError)

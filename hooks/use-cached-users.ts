@@ -29,17 +29,16 @@ const transformUserData = (data: any[], currentLanguage: string) => {
       if (group) {
         groupName = group.name || ""
         
-        // Get degree from program - programs could be object or array
-        const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
-        if (program) {
-          degreeId = program.degree_id || ""
-          // degrees could be object or array
-          const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
-          if (degree) {
-            degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
-          }
+        // Groups directly reference degrees (not through programs)
+        degreeId = group.degree_id || ""
+        // degrees could be object or array
+        const degree = Array.isArray(group.degrees) ? group.degrees[0] : group.degrees
+        if (degree) {
+          degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
         }
       }
+      
+      console.log(`[Transform] Student ${profile.id}:`, { degreeId, degreeName, groupId, groupName, year })
     } else if (profile.role === "program_manager" && profile.manager_profiles && profile.manager_profiles.length > 0) {
       const managerProfile = profile.manager_profiles[0]
       degreeId = managerProfile.degree_id || ""
@@ -57,6 +56,8 @@ const transformUserData = (data: any[], currentLanguage: string) => {
       if (academicYear) {
         year = academicYear.year || ""
       }
+      
+      console.log(`[Transform] Manager ${profile.id}:`, { degreeId, degreeName, year })
     }
 
     return {
@@ -165,7 +166,7 @@ export function useCachedUsers() {
 
         if (profilesError) throw profilesError
 
-        // Fetch student profiles with groups
+        // Fetch student profiles with groups (groups directly reference degrees)
         const { data: studentProfilesData } = await supabase
           .from("student_profiles")
           .select(`
@@ -175,10 +176,8 @@ export function useCachedUsers() {
             groups(
               id,
               name,
-              programs(
-                degree_id,
-                degrees(id, name, name_ru)
-              )
+              degree_id,
+              degrees(id, name, name_ru)
             )
           `)
 
@@ -197,12 +196,27 @@ export function useCachedUsers() {
         const profilesWithDetails = (profilesData || []).map((profile) => {
           if (profile.role === "student") {
             const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+            if (studentProfile) {
+              console.log(`[Users Hook] Student ${profile.id}:`, {
+                group_id: studentProfile.group_id,
+                enrollment_year: studentProfile.enrollment_year,
+                group: studentProfile.groups,
+              })
+            }
             return {
               ...profile,
               student_profiles: studentProfile ? [studentProfile] : [],
             }
           } else if (profile.role === "program_manager") {
             const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+            if (managerProfile) {
+              console.log(`[Users Hook] Manager ${profile.id}:`, {
+                degree_id: managerProfile.degree_id,
+                academic_year_id: managerProfile.academic_year_id,
+                degree: managerProfile.degrees,
+                academic_year: managerProfile.academic_years,
+              })
+            }
             return {
               ...profile,
               manager_profiles: managerProfile ? [managerProfile] : [],
@@ -317,10 +331,8 @@ export function useCachedUsers() {
                 groups(
                   id,
                   name,
-                  programs(
-                    degree_id,
-                    degrees(id, name, name_ru)
-                  )
+                  degree_id,
+                  degrees(id, name, name_ru)
                 )
               `)
 
@@ -334,23 +346,42 @@ export function useCachedUsers() {
                 academic_years(id, year)
               `)
 
-            // Combine the data
-            const profilesWithDetails = (profilesData || []).map((profile) => {
-              if (profile.role === "student") {
-                const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
-                return {
-                  ...profile,
-                  student_profiles: studentProfile ? [studentProfile] : [],
-                }
-              } else if (profile.role === "program_manager") {
-                const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
-                return {
-                  ...profile,
-                  manager_profiles: managerProfile ? [managerProfile] : [],
-                }
-              }
-              return profile
-            })
+        // Combine the data
+        console.log(`[Users Hook] Fetched ${profilesData?.length || 0} profiles`)
+        console.log(`[Users Hook] Fetched ${studentProfilesData?.length || 0} student profiles`)
+        console.log(`[Users Hook] Fetched ${managerProfilesData?.length || 0} manager profiles`)
+        
+        const profilesWithDetails = (profilesData || []).map((profile) => {
+          if (profile.role === "student") {
+            const studentProfile = studentProfilesData?.find((sp) => sp.profile_id === profile.id)
+            if (studentProfile) {
+              console.log(`[Users Hook] Student ${profile.id}:`, {
+                group_id: studentProfile.group_id,
+                enrollment_year: studentProfile.enrollment_year,
+                group: studentProfile.groups,
+              })
+            }
+            return {
+              ...profile,
+              student_profiles: studentProfile ? [studentProfile] : [],
+            }
+          } else if (profile.role === "program_manager") {
+            const managerProfile = managerProfilesData?.find((mp) => mp.profile_id === profile.id)
+            if (managerProfile) {
+              console.log(`[Users Hook] Manager ${profile.id}:`, {
+                degree_id: managerProfile.degree_id,
+                academic_year_id: managerProfile.academic_year_id,
+                degree: managerProfile.degrees,
+                academic_year: managerProfile.academic_years,
+              })
+            }
+            return {
+              ...profile,
+              manager_profiles: managerProfile ? [managerProfile] : [],
+            }
+          }
+          return profile
+        })
 
             rawDataRef.current = profilesWithDetails
             
@@ -395,10 +426,8 @@ export function useCachedUsers() {
                 groups(
                   id,
                   name,
-                  programs(
-                    degree_id,
-                    degrees(id, name, name_ru)
-                  )
+                  degree_id,
+                  degrees(id, name, name_ru)
                 )
               `)
 
@@ -472,10 +501,8 @@ export function useCachedUsers() {
                 groups(
                   id,
                   name,
-                  programs(
-                    degree_id,
-                    degrees(id, name, name_ru)
-                  )
+                  degree_id,
+                  degrees(id, name, name_ru)
                 )
               `)
 

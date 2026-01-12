@@ -79,6 +79,14 @@ export function UsersSettings() {
   // Initialize filteredUsers with users data when it becomes available
   useEffect(() => {
     if (users && users.length > 0) {
+      console.log(`[Users Settings] Received ${users.length} users:`, users.map(u => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        degreeName: u.degreeName,
+        groupName: u.groupName,
+        year: u.year,
+      })))
       setFilteredUsers(users)
       setTotalPages(Math.ceil(users.length / itemsPerPage))
     }
