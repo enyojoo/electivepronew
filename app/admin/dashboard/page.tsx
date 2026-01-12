@@ -10,6 +10,7 @@ import { useLanguage } from "@/lib/language-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 // Cache keys
 const DASHBOARD_STATS_CACHE_KEY = "admin_dashboard_stats_cache"
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   const { t } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
+  const router = useRouter()
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     users: { count: 0, isLoading: true },
@@ -62,9 +64,48 @@ export default function AdminDashboard() {
     loadCachedData()
   }, [])
 
+  // Check authentication first
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error || !session) {
+          console.error("Auth error:", error)
+          router.push("/admin/login")
+          return
+        }
+
+        // Verify user is admin
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single()
+
+        if (profileError || !profile || profile.role !== "admin") {
+          console.error("Not an admin user:", profileError)
+          router.push("/admin/login")
+          return
+        }
+      } catch (error) {
+        console.error("Error checking auth:", error)
+        router.push("/admin/login")
+      }
+    }
+
+    checkAuth()
+  }, [supabase, router])
+
   // Fetch dashboard stats from Supabase
   useEffect(() => {
     const fetchDashboardStats = async () => {
+      // Check authentication first
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        return // Auth check will handle redirect
+      }
+
       // Check if we already have valid cached data
       const cachedStats = localStorage.getItem(DASHBOARD_STATS_CACHE_KEY)
       if (cachedStats) {
@@ -106,13 +147,35 @@ export default function AdminDashboard() {
           supabase.from("exchange_universities").select("*", { count: "exact", head: true }),
         ])
 
-        if (usersResult.error) throw usersResult.error
-        if (programsResult.error) throw programsResult.error
-        if (coursesResult.error) throw coursesResult.error
-        if (groupsResult.error) throw groupsResult.error
-        if (electivesResult.error) throw electivesResult.error
-        if (exchangeResult.error) throw exchangeResult.error
-        if (universitiesResult.error) throw universitiesResult.error
+        // Log errors for debugging
+        if (usersResult.error) {
+          console.error("Error fetching users count:", usersResult.error)
+          throw usersResult.error
+        }
+        if (programsResult.error) {
+          console.error("Error fetching programs count:", programsResult.error)
+          throw programsResult.error
+        }
+        if (coursesResult.error) {
+          console.error("Error fetching courses count:", coursesResult.error)
+          throw coursesResult.error
+        }
+        if (groupsResult.error) {
+          console.error("Error fetching groups count:", groupsResult.error)
+          throw groupsResult.error
+        }
+        if (electivesResult.error) {
+          console.error("Error fetching elective courses count:", electivesResult.error)
+          throw electivesResult.error
+        }
+        if (exchangeResult.error) {
+          console.error("Error fetching exchange programs count:", exchangeResult.error)
+          throw exchangeResult.error
+        }
+        if (universitiesResult.error) {
+          console.error("Error fetching universities count:", universitiesResult.error)
+          throw universitiesResult.error
+        }
 
         const newStats: DashboardStats = {
           users: { count: usersResult.count || 0, isLoading: false },
@@ -124,6 +187,7 @@ export default function AdminDashboard() {
           universities: { count: universitiesResult.count || 0, isLoading: false },
         }
 
+        console.log("Dashboard stats loaded:", newStats)
         setDashboardStats(newStats)
 
         // Cache the stats
@@ -136,9 +200,15 @@ export default function AdminDashboard() {
         )
       } catch (error: any) {
         console.error("Error fetching dashboard stats:", error)
+        console.error("Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        })
         toast({
           title: "Error",
-          description: "Failed to load dashboard statistics",
+          description: error.message || "Failed to load dashboard statistics. Please check your connection and try again.",
           variant: "destructive",
         })
 
@@ -156,7 +226,7 @@ export default function AdminDashboard() {
     }
 
     fetchDashboardStats()
-  }, [supabase, toast])
+  }, [supabase, toast, router])
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
