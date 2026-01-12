@@ -100,9 +100,7 @@ export default function StudentLoginPage() {
         <Card>
           <CardHeader>
             <CardTitle>{t("auth.login.title")}</CardTitle>
-            <CardDescription>
-              {t("auth.login.description")}
-            </CardDescription>
+            <CardDescription>{t("auth.login.description")}</CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4">
