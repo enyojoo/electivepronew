@@ -108,14 +108,17 @@ export async function PUT(request: NextRequest) {
     if (body.favicon_url !== undefined)
       updateData.favicon_url = body.favicon_url
 
-    // Update settings
+    // Use upsert to ensure the row exists and update it
     const { data, error } = await supabase
       .from("settings")
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", SETTINGS_ID)
+      .upsert(
+        {
+          id: SETTINGS_ID,
+          ...updateData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      )
       .select()
       .single()
 

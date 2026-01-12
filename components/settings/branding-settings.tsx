@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast"
 import { uploadLogo, uploadFavicon } from "@/lib/file-utils"
 import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 import { Loader2, Copy, Check } from "lucide-react"
-import { supabase } from "@/lib/supabase"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -299,11 +298,9 @@ export function BrandingSettings() {
         primary_color: string
         logo_url?: string | null
         favicon_url?: string | null
-        updated_at: string
       } = {
         name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
         primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-        updated_at: new Date().toISOString(),
       }
 
       // Include logo URL if a new logo was uploaded, otherwise keep existing
@@ -320,24 +317,32 @@ export function BrandingSettings() {
         updateData.favicon_url = settings.favicon_url
       }
 
-      // Use upsert to ensure the row exists and update it
-      const { error: upsertError } = await supabase
-        .from("settings")
-        .upsert(updateData, { onConflict: "id" })
+      // Use API route to update settings (handles authentication and authorization)
+      const response = await fetch("/api/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      })
 
-      if (upsertError) {
-        console.error("Error updating settings:", upsertError)
-        throw upsertError
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to save settings" }))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
-      // Update cache with new settings immediately
+      const result = await response.json()
+
+      // Update cache with new settings immediately using the response data
       const updatedSettings = {
         ...settings,
-        name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
-        primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
-        logo_url: pendingLogoUrl || settings?.logo_url || null,
-        favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
-        updated_at: new Date().toISOString(),
+        ...(result.settings || {
+          name: institutionName.trim() || DEFAULT_PLATFORM_NAME,
+          primary_color: primaryColor.trim() || DEFAULT_PRIMARY_COLOR,
+          logo_url: pendingLogoUrl || settings?.logo_url || null,
+          favicon_url: pendingFaviconUrl || settings?.favicon_url || null,
+          updated_at: new Date().toISOString(),
+        }),
       }
       setCachedData("settings", SETTINGS_ID, updatedSettings)
 
