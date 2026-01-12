@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import Logo from "@/components/logo"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -64,6 +65,9 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen grid place-items-center p-4 md:p-6 bg-background">
       <div className="mx-auto max-w-md space-y-6 w-full">
+        <div className="flex justify-center mb-6">
+          <Logo className="mb-4 h-8 w-auto max-w-[160px]" />
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>Reset Password</CardTitle>
