@@ -58,7 +58,7 @@ export function useBrandSettings(): BrandSettings {
     customValue: string | null | undefined,
     defaultValue: string
   ): string => {
-    // If we haven't confirmed data yet, return empty string (no defaults)
+    // If we haven't confirmed data yet, return empty string to show skeleton
     if (!hasConfirmedData) {
       return ""
     }
@@ -78,7 +78,8 @@ export function useBrandSettings(): BrandSettings {
       return defaultValue
     }
 
-    return ""
+    // Fallback to default
+    return defaultValue
   }
 
   return {

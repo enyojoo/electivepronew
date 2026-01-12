@@ -102,22 +102,17 @@ export function BrandingSettings() {
 
   // Update images when settings load or URLs change (but only if different from current)
   useEffect(() => {
-    // If custom branding exists, only show custom logos/favicons, not defaults
-    // If no custom branding exists yet, show defaults
-    const finalLogoSrc = isValidUrl(logoUrl) 
-      ? logoUrl 
-      : (hasCustomBranding ? null : DEFAULT_LOGO_URL)
-    const finalFaviconSrc = isValidUrl(faviconUrl) 
-      ? faviconUrl 
-      : (hasCustomBranding ? null : DEFAULT_FAVICON_URL)
+    // If custom branding exists and we have a valid custom logo/favicon, use it
+    // Otherwise, always show defaults (better UX than showing nothing)
+    const finalLogoSrc = (hasCustomBranding && isValidUrl(logoUrl))
+      ? logoUrl
+      : DEFAULT_LOGO_URL
+    const finalFaviconSrc = (hasCustomBranding && isValidUrl(faviconUrl))
+      ? faviconUrl
+      : DEFAULT_FAVICON_URL
     
     // Only update if the URL actually changed
     if (logoSrcRef.current !== finalLogoSrc && logoImgRef.current) {
-      if (finalLogoSrc === null) {
-        // No logo to show (custom branding exists but no custom logo)
-        logoSrcRef.current = null
-        logoImgRef.current.style.display = "none"
-      } else {
         // Preload the new image before switching
         const img = new Image()
         img.onload = () => {
@@ -129,18 +124,12 @@ export function BrandingSettings() {
           }
         }
         img.onerror = () => {
-          // If custom image fails and we have custom branding, hide it
-          // Otherwise fall back to default only if no custom branding exists
-          if (logoImgRef.current) {
-            if (hasCustomBranding) {
-              logoImgRef.current.style.display = "none"
-              logoSrcRef.current = null
-            } else if (logoSrcRef.current !== DEFAULT_LOGO_URL) {
-              logoSrcRef.current = DEFAULT_LOGO_URL
-              logoImgRef.current.src = DEFAULT_LOGO_URL
-              logoImgRef.current.style.display = "block"
-              imageCache.logo = DEFAULT_LOGO_URL
-            }
+          // If image fails, fall back to default
+          if (logoImgRef.current && logoSrcRef.current !== DEFAULT_LOGO_URL) {
+            logoSrcRef.current = DEFAULT_LOGO_URL
+            logoImgRef.current.src = DEFAULT_LOGO_URL
+            logoImgRef.current.style.display = "block"
+            imageCache.logo = DEFAULT_LOGO_URL
           }
         }
         img.src = finalLogoSrc
@@ -148,11 +137,6 @@ export function BrandingSettings() {
     }
     
     if (faviconSrcRef.current !== finalFaviconSrc && faviconImgRef.current) {
-      if (finalFaviconSrc === null) {
-        // No favicon to show (custom branding exists but no custom favicon)
-        faviconSrcRef.current = null
-        faviconImgRef.current.style.display = "none"
-      } else {
         // Preload the new image before switching
         const img = new Image()
         img.onload = () => {
@@ -164,18 +148,12 @@ export function BrandingSettings() {
           }
         }
         img.onerror = () => {
-          // If custom image fails and we have custom branding, hide it
-          // Otherwise fall back to default only if no custom branding exists
-          if (faviconImgRef.current) {
-            if (hasCustomBranding) {
-              faviconImgRef.current.style.display = "none"
-              faviconSrcRef.current = null
-            } else if (faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
-              faviconSrcRef.current = DEFAULT_FAVICON_URL
-              faviconImgRef.current.src = DEFAULT_FAVICON_URL
-              faviconImgRef.current.style.display = "block"
-              imageCache.favicon = DEFAULT_FAVICON_URL
-            }
+          // If image fails, fall back to default
+          if (faviconImgRef.current && faviconSrcRef.current !== DEFAULT_FAVICON_URL) {
+            faviconSrcRef.current = DEFAULT_FAVICON_URL
+            faviconImgRef.current.src = DEFAULT_FAVICON_URL
+            faviconImgRef.current.style.display = "block"
+            imageCache.favicon = DEFAULT_FAVICON_URL
           }
         }
         img.src = finalFaviconSrc

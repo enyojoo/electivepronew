@@ -22,7 +22,7 @@ export default function Logo({ className = "", variant = "full" }: LogoProps) {
 
   // Get logo source - use brand settings or defaults
   const getLogoSrc = (): string | null => {
-    // While loading, return null to show placeholder
+    // While loading, return null to show skeleton
     if (brandSettings.isLoading || !brandSettings.hasData) {
       return null
     }
@@ -39,7 +39,7 @@ export default function Logo({ className = "", variant = "full" }: LogoProps) {
   const logoSrc = getLogoSrc()
   const platformName = brandSettings.platformName || ""
 
-  // Show placeholder/skeleton while loading
+  // Show placeholder/skeleton while loading or if no logo source
   if (!mounted || brandSettings.isLoading || !brandSettings.hasData || !logoSrc) {
     return (
       <div

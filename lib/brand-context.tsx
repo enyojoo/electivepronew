@@ -256,7 +256,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           favicon_url: data?.favicon_url || null,
         }
 
-        // Only update if settings have changed (prevents unnecessary re-renders)
+        // Always update settings from database (even if same as cache)
+        // This ensures custom settings are applied even after cache clear
         setSettings((prev) => {
           const hasChanged =
             prev?.name !== brandSettings.name ||
@@ -264,11 +265,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             prev?.logo_url !== brandSettings.logo_url ||
             prev?.favicon_url !== brandSettings.favicon_url
 
-          if (hasChanged) {
-            // Save to cache for next page load
-            saveCachedSettings(brandSettings)
-            // Apply updated branding
-            applyBranding(brandSettings)
+          // Always save to cache and apply branding when loading from DB
+          // This ensures cache is populated even if settings haven't changed
+          saveCachedSettings(brandSettings)
+          applyBranding(brandSettings)
+          
+          if (hasChanged || !prev) {
+            // Settings changed or this is first load - update state
             return brandSettings
           }
           return prev
@@ -285,7 +288,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         
         setSettings((prev) => {
           // If we have cached settings, keep them. Otherwise use defaults.
-          if (prev) return prev
+          if (prev) {
+            // Keep existing settings but ensure branding is applied
+            applyBranding(prev)
+            return prev
+          }
           
           saveCachedSettings(defaultSettings)
           applyBranding(defaultSettings)
