@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
 import { useToast } from "@/hooks/use-toast"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 // Use a constant cache key since there's only one settings row
 const SETTINGS_CACHE_KEY = "settings"
@@ -47,37 +48,26 @@ export function useCachedSettings() {
         return
       }
 
-      // If not in cache, fetch from API route
+      // If not in cache, fetch directly from Supabase (settings are publicly readable)
       setIsLoading(true)
       setError(null)
-      console.log("Fetching settings from API")
+      console.log("Fetching settings from Supabase")
       try {
-        const response = await fetch("/api/settings", {
-          credentials: "include", // Include cookies for authentication
-        })
+        const supabase = getSupabaseBrowserClient()
         
-        if (!response.ok) {
-          // If unauthorized or forbidden, use defaults
-          if (response.status === 401 || response.status === 403) {
-            console.log("Not authenticated, using default settings")
-            const defaultSettings = {
-              name: null,
-              primary_color: null,
-              logo_url: null,
-              favicon_url: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }
-            setSettings(defaultSettings)
-            setCachedData("settings", SETTINGS_CACHE_KEY, defaultSettings)
-            cacheVersionRef.current = getCacheVersion("settings", SETTINGS_CACHE_KEY)
-            return
-          }
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
+        // Fetch settings directly - RLS allows public read access
+        const { data, error: fetchError } = await supabase
+          .from("settings")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle()
 
-        const result = await response.json()
-        const data = result.rawSettings
+        if (fetchError && fetchError.code !== "PGRST116") {
+          // PGRST116 is "not found" - that's okay, we'll use defaults
+          console.error("Error fetching settings:", fetchError)
+          throw fetchError
+        }
 
         if (!data) {
           // No settings found - use defaults

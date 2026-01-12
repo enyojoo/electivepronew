@@ -3,49 +3,20 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 import { getBrandSettings } from "@/lib/supabase/brand-settings"
 
 /**
- * GET: Returns settings for admin
+ * GET: Returns settings (public access - settings are publicly readable per RLS)
  * Works with existing settings table structure
  */
 export async function GET(request: NextRequest) {
   try {
-    // Use createServerComponentClient which properly reads cookies in API routes
-    const supabase = await createServerComponentClient()
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-    }
-
-    if (!session) {
-      console.error("No session found")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Check if user is admin using admin client to bypass RLS
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single()
-
-    if (!profile || profile.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden - Admin access required" },
-        { status: 403 }
-      )
-    }
-
-    // Get brand settings with smart fallback
+    // Get brand settings with smart fallback (uses public access)
     const brandSettings = await getBrandSettings()
 
-    // Also get raw settings for admin editing using admin client to bypass RLS
+    // Get raw settings using admin client to bypass RLS (for admin editing)
     // Since there's only one settings row, we can select without filtering by ID
     const { data: settings, error } = await supabaseAdmin
       .from("settings")
       .select("*")
+      .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle()
 
