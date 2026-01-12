@@ -99,8 +99,18 @@ export function NotificationSettings() {
         updated_at: new Date().toISOString(),
       }
 
-      // Only include the notification setting being updated
-      // Explicitly set the value even if it's false (to ensure it's included in the request)
+      // Set all notification fields explicitly to avoid database defaults
+      // When inserting, we need to set all fields to false by default, except the one being updated
+      // When updating, we only include the field being changed
+      if (!existingSettings?.id) {
+        // For INSERT: Set all fields to false by default, then override with the one being updated
+        upsertData.selection_notifications = false
+        upsertData.status_update_notifications = false
+        upsertData.platform_announcements = false
+        upsertData.user_email_notifications = false
+      }
+      
+      // Override with the specific field being updated (works for both INSERT and UPDATE)
       if (updateData.selection_notifications !== undefined) {
         upsertData.selection_notifications = Boolean(updateData.selection_notifications)
       }
