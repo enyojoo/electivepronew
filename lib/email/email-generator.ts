@@ -1,8 +1,10 @@
 import { getBrandSettings } from "@/lib/supabase/brand-settings"
 import { DEFAULT_APP_URL, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
+import { getEmailTranslation } from "./email-translations"
 
 // Powered by logo for emails (black version for light backgrounds)
-const POWERED_BY_LOGO_URL_BLACK = "https://cldup.com/XP1QkOrY2d.png"
+const POWERED_BY_LOGO_URL_BLACK_EN = "https://cldup.com/XP1QkOrY2d.png"
+const POWERED_BY_LOGO_URL_BLACK_RU = "https://cldup.com/8RX9GenGPk.png"
 const POWERED_BY_LOGO_URL_WHITE = "https://cldup.com/JV3FsweqaQ.png"
 const PLATFORM_WEBSITE = "https://www.electivepro.net/"
 
@@ -11,6 +13,7 @@ export interface EmailBrandSettings {
   primaryColor: string
   contactEmail: string
   appUrl: string
+  language?: "en" | "ru"
 }
 
 /**
@@ -21,13 +24,15 @@ export async function generateBaseEmailTemplate(
   subtitle: string,
   content: string,
   ctaButton?: { text: string; url: string },
-  brandSettings?: EmailBrandSettings
+  brandSettings?: EmailBrandSettings,
+  language: "en" | "ru" = "en"
 ): Promise<string> {
   const settings = brandSettings || (await getBrandSettingsForEmail())
   const platformName = settings.platformName || "ElectivePRO"
   const contactEmail = settings.contactEmail || "support@electivepro.org"
   const appUrl = settings.appUrl || DEFAULT_APP_URL
   const primaryColor = settings.primaryColor || "#027659"
+  const poweredByLogoUrl = language === "ru" ? POWERED_BY_LOGO_URL_BLACK_RU : POWERED_BY_LOGO_URL_BLACK_EN
 
   const ctaButtonHtml = ctaButton
     ? `
@@ -47,7 +52,7 @@ export async function generateBaseEmailTemplate(
 
   return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${language}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -83,14 +88,16 @@ export async function generateBaseEmailTemplate(
               <div class="powered-by-container" style="margin-bottom: 12px;">
                 <a href="${PLATFORM_WEBSITE}" target="_blank" rel="noopener noreferrer">
                   <img 
-                    src="${POWERED_BY_LOGO_URL_BLACK}" 
+                    src="${poweredByLogoUrl}" 
                     alt="Powered by ${DEFAULT_PLATFORM_NAME}" 
                     style="height: 12px; width: auto; display: block; margin: 0 auto;"
                   />
                 </a>
               </div>
               <p style="margin: 0; color: #999999; font-size: 11px; line-height: 1.5;">
-                You are receiving this email because you created an account on ${platformName} platform.
+                ${language === "ru" 
+                  ? `Вы получаете это письмо, потому что создали аккаунт на платформе ${platformName}.`
+                  : `You are receiving this email because you created an account on ${platformName} platform.`}
               </p>
             </td>
           </tr>
@@ -127,17 +134,21 @@ export function generateSelectionDetails(
     universities?: Array<{ name: string; country: string; city: string; preferenceOrder: number }>
     submittedAt: string
   },
-  primaryColor: string = "#027659"
+  primaryColor: string = "#027659",
+  language: "en" | "ru" = "en"
 ): string {
+  const t = getEmailTranslation(language)
+  const locale = language === "ru" ? "ru-RU" : "en-US"
+
   if (selectionType === "course" && details.courses) {
     return `
       <div style="background-color: #f9f9f9; border-left: 4px solid ${primaryColor}; padding: 16px; margin: 16px 0; border-radius: 4px;">
-        <h3 style="margin: 0 0 12px; color: #1a1a1a; font-size: 18px; font-weight: 600;">Program: ${details.programName}</h3>
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Selected Courses:</strong></p>
+        <h3 style="margin: 0 0 12px; color: #1a1a1a; font-size: 18px; font-weight: 600;">${t.courseSelectionSubmitted.programLabel} ${details.programName}</h3>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.courseSelectionSubmitted.coursesLabel}</strong></p>
         <ul style="margin: 0; padding-left: 20px; color: #333333; font-size: 14px;">
           ${details.courses.map((course) => `<li>${course}</li>`).join("")}
         </ul>
-        <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">Submitted: ${new Date(details.submittedAt).toLocaleString()}</p>
+        <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">${t.courseSelectionSubmitted.submittedLabel} ${new Date(details.submittedAt).toLocaleString(locale)}</p>
       </div>
     `
   }
@@ -145,15 +156,15 @@ export function generateSelectionDetails(
   if (selectionType === "exchange" && details.universities) {
     return `
       <div style="background-color: #f9f9f9; border-left: 4px solid ${primaryColor}; padding: 16px; margin: 16px 0; border-radius: 4px;">
-        <h3 style="margin: 0 0 12px; color: #1a1a1a; font-size: 18px; font-weight: 600;">Program: ${details.programName}</h3>
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Selected Universities:</strong></p>
+        <h3 style="margin: 0 0 12px; color: #1a1a1a; font-size: 18px; font-weight: 600;">${t.exchangeSelectionSubmitted.programLabel} ${details.programName}</h3>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.exchangeSelectionSubmitted.universitiesLabel}</strong></p>
         <ol style="margin: 0; padding-left: 20px; color: #333333; font-size: 14px;">
           ${details.universities
             .sort((a, b) => a.preferenceOrder - b.preferenceOrder)
             .map((uni) => `<li>${uni.name} - ${uni.city}, ${uni.country}</li>`)
             .join("")}
         </ol>
-        <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">Submitted: ${new Date(details.submittedAt).toLocaleString()}</p>
+        <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">${t.exchangeSelectionSubmitted.submittedLabel} ${new Date(details.submittedAt).toLocaleString(locale)}</p>
       </div>
     `
   }
@@ -168,17 +179,22 @@ export function generateStatusDetails(
   status: "approved" | "rejected",
   programName: string,
   updatedAt: string,
-  rejectionReason?: string
+  rejectionReason?: string,
+  language: "en" | "ru" = "en"
 ): string {
+  const t = getEmailTranslation(language)
+  const locale = language === "ru" ? "ru-RU" : "en-US"
   const statusColor = status === "approved" ? "#10b981" : "#ef4444"
-  const statusText = status === "approved" ? "Approved" : "Rejected"
+  const statusText = status === "approved" 
+    ? (language === "ru" ? t.selectionApproved.statusApproved : "Approved")
+    : (language === "ru" ? t.selectionRejected.statusRejected : "Rejected")
 
   return `
     <div style="background-color: #f9f9f9; border-left: 4px solid ${statusColor}; padding: 16px; margin: 16px 0; border-radius: 4px;">
-      <h3 style="margin: 0 0 8px; color: #1a1a1a; font-size: 18px; font-weight: 600;">Status: <span style="color: ${statusColor};">${statusText}</span></h3>
-      <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Program:</strong> ${programName}</p>
-      ${rejectionReason ? `<p style="margin: 8px 0; color: #666666; font-size: 14px;"><strong>Reason:</strong> ${rejectionReason}</p>` : ""}
-      <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">Updated: ${new Date(updatedAt).toLocaleString()}</p>
+      <h3 style="margin: 0 0 8px; color: #1a1a1a; font-size: 18px; font-weight: 600;">${t.selectionApproved.statusLabel} <span style="color: ${statusColor};">${statusText}</span></h3>
+      <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.selectionApproved.programLabel}</strong> ${programName}</p>
+      ${rejectionReason ? `<p style="margin: 8px 0; color: #666666; font-size: 14px;"><strong>${t.selectionRejected.reasonLabel}</strong> ${rejectionReason}</p>` : ""}
+      <p style="margin: 12px 0 0; color: #666666; font-size: 12px;">${t.selectionApproved.updatedLabel} ${new Date(updatedAt).toLocaleString(locale)}</p>
     </div>
   `
 }

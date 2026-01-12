@@ -31,7 +31,8 @@ const APP_URL = getAppUrl()
  */
 export async function sendWelcomeEmailNotification(
   userEmail: string,
-  firstName: string
+  firstName: string,
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     const nameParts = firstName.split(" ")
@@ -43,6 +44,7 @@ export async function sendWelcomeEmailNotification(
       lastName,
       email: userEmail,
       dashboardUrl,
+      language,
     }
 
     await sendWelcomeEmail(emailData)
@@ -56,7 +58,8 @@ export async function sendWelcomeEmailNotification(
  * Send course selection submitted email
  */
 export async function sendCourseSelectionSubmittedEmailNotification(
-  selectionId: string
+  selectionId: string,
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     // Fetch selection with related data
@@ -104,6 +107,7 @@ export async function sendCourseSelectionSubmittedEmailNotification(
       selectedCourses,
       submittedAt: selection.created_at,
       selectionUrl: `${APP_URL}/student/courses`,
+      language,
     }
 
     await sendCourseSelectionSubmittedEmail(emailData)
@@ -116,7 +120,8 @@ export async function sendCourseSelectionSubmittedEmailNotification(
  * Send exchange selection submitted email
  */
 export async function sendExchangeSelectionSubmittedEmailNotification(
-  selectionId: string
+  selectionId: string,
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     // Fetch selection with related data
@@ -168,6 +173,7 @@ export async function sendExchangeSelectionSubmittedEmailNotification(
       selectedUniversities,
       submittedAt: selection.created_at,
       selectionUrl: `${APP_URL}/student/exchange`,
+      language,
     }
 
     await sendExchangeSelectionSubmittedEmail(emailData)
@@ -181,7 +187,8 @@ export async function sendExchangeSelectionSubmittedEmailNotification(
  */
 export async function sendSelectionApprovedEmailNotification(
   selectionId: string,
-  selectionType: "course" | "exchange"
+  selectionType: "course" | "exchange",
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     const tableName =
@@ -222,6 +229,7 @@ export async function sendSelectionApprovedEmailNotification(
       programName: program?.name || program?.name_ru || "Unknown Program",
       approvedAt: selection.updated_at,
       selectionUrl: `${APP_URL}/student/${selectionType === "course" ? "courses" : "exchange"}`,
+      language,
     }
 
     await sendSelectionApprovedEmail(emailData)
@@ -235,7 +243,8 @@ export async function sendSelectionApprovedEmailNotification(
  */
 export async function sendSelectionRejectedEmailNotification(
   selectionId: string,
-  selectionType: "course" | "exchange"
+  selectionType: "course" | "exchange",
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     const tableName =
@@ -276,6 +285,8 @@ export async function sendSelectionRejectedEmailNotification(
       programName: program?.name || program?.name_ru || "Unknown Program",
       rejectedAt: selection.updated_at,
       selectionUrl: `${APP_URL}/student/${selectionType === "course" ? "courses" : "exchange"}`,
+      rejectionReason: (selection as any).rejection_reason,
+      language,
     }
 
     await sendSelectionRejectedEmail(emailData)
@@ -289,7 +300,8 @@ export async function sendSelectionRejectedEmailNotification(
  */
 export async function sendNewSelectionNotificationEmailNotification(
   selectionId: string,
-  selectionType: "course" | "exchange"
+  selectionType: "course" | "exchange",
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     const tableName =
@@ -340,6 +352,7 @@ export async function sendNewSelectionNotificationEmailNotification(
       programName: program?.name || program?.name_ru || "Unknown Program",
       submittedAt: selection.created_at,
       selectionUrl: `${APP_URL}/${selectionType === "course" ? "manager/electives/course" : "manager/electives/exchange"}/${selectionType === "course" ? (selection as any).elective_courses_id : (selection as any).elective_exchange_id}`,
+      language,
     }
 
     await sendNewSelectionNotificationEmail(emailData)
@@ -355,7 +368,8 @@ export async function sendUserInvitationEmailNotification(
   email: string,
   name: string,
   role: "admin" | "program_manager" | "student",
-  tempPassword: string
+  tempPassword: string,
+  language: "en" | "ru" = "en"
 ): Promise<void> {
   try {
     const roleRoute =
@@ -371,6 +385,7 @@ export async function sendUserInvitationEmailNotification(
       role,
       tempPassword,
       loginUrl: `${APP_URL}${roleRoute}`,
+      language,
     }
 
     await sendUserInvitationEmail(emailData)

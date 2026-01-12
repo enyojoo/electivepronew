@@ -144,6 +144,10 @@ export async function signUp(formData: FormData) {
 
       // Send welcome email (non-blocking)
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+      // Get language from localStorage if available
+      const language = typeof window !== "undefined" 
+        ? (localStorage.getItem("epro-language") === "ru" ? "ru" : "en")
+        : "en"
       fetch(`${baseUrl}/api/send-email-notification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,6 +155,7 @@ export async function signUp(formData: FormData) {
           type: "welcome",
           userEmail: email,
           firstName: name.split(" ")[0],
+          language,
         }),
       }).catch((error) => {
         console.error("Failed to send welcome email:", error)

@@ -37,9 +37,11 @@ export async function POST(request: NextRequest) {
           )
         }
         // Send async, don't wait
-        sendWelcomeEmailNotification(params.userEmail, params.firstName).catch(
-          console.error
-        )
+        sendWelcomeEmailNotification(
+          params.userEmail,
+          params.firstName,
+          params.language || "en"
+        ).catch(console.error)
         return NextResponse.json({ success: true, message: "Welcome email queued" })
 
       case "course-selection-submitted":
@@ -49,9 +51,10 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           )
         }
-        sendCourseSelectionSubmittedEmailNotification(params.selectionId).catch(
-          console.error
-        )
+        sendCourseSelectionSubmittedEmailNotification(
+          params.selectionId,
+          params.language || "en"
+        ).catch(console.error)
         return NextResponse.json({
           success: true,
           message: "Course selection email queued",
@@ -64,9 +67,10 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           )
         }
-        sendExchangeSelectionSubmittedEmailNotification(params.selectionId).catch(
-          console.error
-        )
+        sendExchangeSelectionSubmittedEmailNotification(
+          params.selectionId,
+          params.language || "en"
+        ).catch(console.error)
         return NextResponse.json({
           success: true,
           message: "Exchange selection email queued",
@@ -81,7 +85,8 @@ export async function POST(request: NextRequest) {
         }
         sendSelectionApprovedEmailNotification(
           params.selectionId,
-          params.selectionType
+          params.selectionType,
+          params.language || "en"
         ).catch(console.error)
         return NextResponse.json({
           success: true,
@@ -97,7 +102,8 @@ export async function POST(request: NextRequest) {
         }
         sendSelectionRejectedEmailNotification(
           params.selectionId,
-          params.selectionType
+          params.selectionType,
+          params.language || "en"
         ).catch(console.error)
         return NextResponse.json({
           success: true,
@@ -113,7 +119,8 @@ export async function POST(request: NextRequest) {
         }
         sendNewSelectionNotificationEmailNotification(
           params.selectionId,
-          params.selectionType
+          params.selectionType,
+          params.language || "en"
         ).catch(console.error)
         return NextResponse.json({
           success: true,
@@ -133,7 +140,8 @@ export async function POST(request: NextRequest) {
           params.email,
           params.name,
           params.role,
-          params.tempPassword
+          params.tempPassword,
+          params.language || "en"
         ).catch(console.error)
         return NextResponse.json({
           success: true,

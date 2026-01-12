@@ -180,6 +180,7 @@ export default function StudentSignupPage() {
           type: "welcome",
           userEmail: email,
           firstName: name.split(" ")[0],
+          language,
         }),
       }).catch((error) => {
         console.error("Failed to send welcome email:", error)

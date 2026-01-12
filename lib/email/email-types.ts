@@ -7,6 +7,7 @@ export interface WelcomeEmailData {
   lastName: string
   email: string
   dashboardUrl: string
+  language?: "en" | "ru"
 }
 
 export interface CourseSelectionSubmittedEmailData {
@@ -18,6 +19,7 @@ export interface CourseSelectionSubmittedEmailData {
   selectedCourses: string[]
   submittedAt: string
   selectionUrl: string
+  language?: "en" | "ru"
 }
 
 export interface ExchangeSelectionSubmittedEmailData {
@@ -34,6 +36,7 @@ export interface ExchangeSelectionSubmittedEmailData {
   }>
   submittedAt: string
   selectionUrl: string
+  language?: "en" | "ru"
 }
 
 export interface SelectionApprovedEmailData {
@@ -45,6 +48,7 @@ export interface SelectionApprovedEmailData {
   programName: string
   approvedAt: string
   selectionUrl: string
+  language?: "en" | "ru"
 }
 
 export interface SelectionRejectedEmailData {
@@ -57,6 +61,7 @@ export interface SelectionRejectedEmailData {
   rejectedAt: string
   selectionUrl: string
   rejectionReason?: string
+  language?: "en" | "ru"
 }
 
 export interface NewSelectionNotificationEmailData {
@@ -68,6 +73,7 @@ export interface NewSelectionNotificationEmailData {
   programName: string
   submittedAt: string
   selectionUrl: string
+  language?: "en" | "ru"
 }
 
 export interface UserInvitationEmailData {
@@ -76,4 +82,5 @@ export interface UserInvitationEmailData {
   role: "admin" | "program_manager" | "student"
   tempPassword: string
   loginUrl: string
+  language?: "en" | "ru"
 }

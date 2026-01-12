@@ -168,6 +168,7 @@ export default function ManagerSignupPage() {
           type: "welcome",
           userEmail: formData.email,
           firstName: formData.name.split(" ")[0],
+          language,
         }),
       }).catch((error) => {
         console.error("Failed to send welcome email:", error)

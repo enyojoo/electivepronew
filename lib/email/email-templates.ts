@@ -12,6 +12,7 @@ import {
   generateSelectionDetails,
   generateStatusDetails,
 } from "./email-generator"
+import { getEmailTranslation } from "./email-translations"
 
 export interface EmailTemplate {
   subject: string | ((data: any) => string | Promise<string>)
@@ -26,43 +27,52 @@ export const welcomeTemplate: EmailTemplate = {
   subject: async (data: WelcomeEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
-    return `Welcome to ${brandSettings.platformName}!`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.welcome.subject(brandSettings.platformName)
   },
   html: async (data: WelcomeEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     const content = `
-      <p>Hi ${data.firstName},</p>
-      <p>Welcome to ${brandSettings.platformName}! We're excited to have you on board.</p>
-      <p>Your account has been successfully created. You can now start exploring elective courses and exchange programs.</p>
-      <p>Get started by visiting your dashboard to browse available programs and make your selections.</p>
+      <p>${t.welcome.greeting(data.firstName)}</p>
+      <p>${t.welcome.body1(brandSettings.platformName)}</p>
+      <p>${t.welcome.body2}</p>
+      <p>${t.welcome.body3}</p>
     `
     return generateBaseEmailTemplate(
-      `Welcome to ${brandSettings.platformName}!`,
-      "Your learning journey starts here",
+      t.welcome.title(brandSettings.platformName),
+      t.welcome.subtitle,
       content,
-      { text: "Go to Dashboard", url: data.dashboardUrl },
-      emailBrandSettings
+      { text: t.welcome.cta, url: data.dashboardUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: WelcomeEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     return `
-Welcome to ${brandSettings.platformName}!
+${t.welcome.title(brandSettings.platformName)}
 
-Hi ${data.firstName},
+${t.welcome.greeting(data.firstName)}
 
-Welcome to ${brandSettings.platformName}! We're excited to have you on board.
+${t.welcome.body1(brandSettings.platformName)}
 
-Your account has been successfully created. You can now start exploring elective courses and exchange programs.
+${t.welcome.body2}
 
-Get started by visiting your dashboard: ${data.dashboardUrl}
+${t.welcome.body3}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${t.welcome.cta}: ${data.dashboardUrl}
+
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -72,53 +82,58 @@ The ${brandSettings.platformName} Team
  */
 export const courseSelectionSubmittedTemplate: EmailTemplate = {
   subject: async (data: CourseSelectionSubmittedEmailData) => {
-    const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
-    const brandSettings = await getBrandSettings()
-    return `Course Selection Submitted - ${data.programName}`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.courseSelectionSubmitted.subject(data.programName)
   },
   html: async (data: CourseSelectionSubmittedEmailData) => {
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     const content = `
-      <p>Hi ${data.firstName},</p>
-      <p>Your course selection has been successfully submitted!</p>
+      <p>${t.courseSelectionSubmitted.greeting(data.firstName)}</p>
+      <p>${t.courseSelectionSubmitted.body1}</p>
       ${generateSelectionDetails("course", {
         programName: data.programName,
         courses: data.selectedCourses,
         submittedAt: data.submittedAt,
-      }, emailBrandSettings.primaryColor)}
-      <p>Your selection is now pending review. You will be notified once a decision has been made.</p>
+      }, emailBrandSettings.primaryColor, lang)}
+      <p>${t.courseSelectionSubmitted.body2}</p>
     `
     return generateBaseEmailTemplate(
-      "Course Selection Submitted",
-      "Your selection has been received",
+      t.courseSelectionSubmitted.title,
+      t.courseSelectionSubmitted.subtitle,
       content,
-      { text: "View Selection", url: data.selectionUrl },
-      emailBrandSettings
+      { text: t.courseSelectionSubmitted.cta, url: data.selectionUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: CourseSelectionSubmittedEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     return `
-Course Selection Submitted
+${t.courseSelectionSubmitted.title}
 
-Hi ${data.firstName},
+${t.courseSelectionSubmitted.greeting(data.firstName)}
 
-Your course selection has been successfully submitted!
+${t.courseSelectionSubmitted.body1}
 
-Program: ${data.programName}
-Selected Courses:
+${t.courseSelectionSubmitted.programLabel} ${data.programName}
+${t.courseSelectionSubmitted.coursesLabel}
 ${data.selectedCourses.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 
-Submitted: ${new Date(data.submittedAt).toLocaleString()}
+${t.courseSelectionSubmitted.submittedLabel} ${new Date(data.submittedAt).toLocaleString(lang === "ru" ? "ru-RU" : "en-US")}
 
-Your selection is now pending review. You will be notified once a decision has been made.
+${t.courseSelectionSubmitted.body2}
 
-View your selection: ${data.selectionUrl}
+${t.courseSelectionSubmitted.cta}: ${data.selectionUrl}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -128,56 +143,62 @@ The ${brandSettings.platformName} Team
  */
 export const exchangeSelectionSubmittedTemplate: EmailTemplate = {
   subject: async (data: ExchangeSelectionSubmittedEmailData) => {
-    const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
-    const brandSettings = await getBrandSettings()
-    return `Exchange Selection Submitted - ${data.programName}`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.exchangeSelectionSubmitted.subject(data.programName)
   },
   html: async (data: ExchangeSelectionSubmittedEmailData) => {
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     const content = `
-      <p>Hi ${data.firstName},</p>
-      <p>Your exchange program selection has been successfully submitted!</p>
+      <p>${t.exchangeSelectionSubmitted.greeting(data.firstName)}</p>
+      <p>${t.exchangeSelectionSubmitted.body1}</p>
       ${generateSelectionDetails("exchange", {
         programName: data.programName,
         universities: data.selectedUniversities,
         submittedAt: data.submittedAt,
-      }, emailBrandSettings.primaryColor)}
-      <p>Your selection is now pending review. You will be notified once a decision has been made.</p>
+      }, emailBrandSettings.primaryColor, lang)}
+      <p>${t.exchangeSelectionSubmitted.body2}</p>
     `
     return generateBaseEmailTemplate(
-      "Exchange Selection Submitted",
-      "Your selection has been received",
+      t.exchangeSelectionSubmitted.title,
+      t.exchangeSelectionSubmitted.subtitle,
       content,
-      { text: "View Selection", url: data.selectionUrl },
-      emailBrandSettings
+      { text: t.exchangeSelectionSubmitted.cta, url: data.selectionUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: ExchangeSelectionSubmittedEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const locale = lang === "ru" ? "ru-RU" : "en-US"
     return `
-Exchange Selection Submitted
+${t.exchangeSelectionSubmitted.title}
 
-Hi ${data.firstName},
+${t.exchangeSelectionSubmitted.greeting(data.firstName)}
 
-Your exchange program selection has been successfully submitted!
+${t.exchangeSelectionSubmitted.body1}
 
-Program: ${data.programName}
-Selected Universities:
+${t.exchangeSelectionSubmitted.programLabel} ${data.programName}
+${t.exchangeSelectionSubmitted.universitiesLabel}
 ${data.selectedUniversities
   .sort((a, b) => a.preferenceOrder - b.preferenceOrder)
   .map((u, i) => `${i + 1}. ${u.name} - ${u.city}, ${u.country}`)
   .join("\n")}
 
-Submitted: ${new Date(data.submittedAt).toLocaleString()}
+${t.exchangeSelectionSubmitted.submittedLabel} ${new Date(data.submittedAt).toLocaleString(locale)}
 
-Your selection is now pending review. You will be notified once a decision has been made.
+${t.exchangeSelectionSubmitted.body2}
 
-View your selection: ${data.selectionUrl}
+${t.exchangeSelectionSubmitted.cta}: ${data.selectionUrl}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -187,47 +208,59 @@ The ${brandSettings.platformName} Team
  */
 export const selectionApprovedTemplate: EmailTemplate = {
   subject: async (data: SelectionApprovedEmailData) => {
-    const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
-    const brandSettings = await getBrandSettings()
-    return `Selection Approved - ${data.programName}`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.selectionApproved.subject(data.programName)
   },
   html: async (data: SelectionApprovedEmailData) => {
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const selectionTypeText = data.selectionType === "course" 
+      ? (lang === "ru" ? "курса" : "course")
+      : (lang === "ru" ? "программы обмена" : "exchange")
     const content = `
-      <p>Hi ${data.firstName},</p>
-      <p>Great news! Your ${data.selectionType === "course" ? "course" : "exchange"} selection has been approved.</p>
-      ${generateStatusDetails("approved", data.programName, data.approvedAt)}
-      <p>Congratulations! You can now proceed with the next steps in the process.</p>
+      <p>${t.selectionApproved.greeting(data.firstName)}</p>
+      <p>${t.selectionApproved.body1(selectionTypeText)}</p>
+      ${generateStatusDetails("approved", data.programName, data.approvedAt, undefined, lang)}
+      <p>${t.selectionApproved.body2}</p>
     `
     return generateBaseEmailTemplate(
-      "Selection Approved",
-      "Congratulations!",
+      t.selectionApproved.title,
+      t.selectionApproved.subtitle,
       content,
-      { text: "View Selection", url: data.selectionUrl },
-      emailBrandSettings
+      { text: t.selectionApproved.cta, url: data.selectionUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: SelectionApprovedEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const locale = lang === "ru" ? "ru-RU" : "en-US"
+    const selectionTypeText = data.selectionType === "course" 
+      ? (lang === "ru" ? "курса" : "course")
+      : (lang === "ru" ? "программы обмена" : "exchange")
     return `
-Selection Approved
+${t.selectionApproved.title}
 
-Hi ${data.firstName},
+${t.selectionApproved.greeting(data.firstName)}
 
-Great news! Your ${data.selectionType === "course" ? "course" : "exchange"} selection has been approved.
+${t.selectionApproved.body1(selectionTypeText)}
 
-Program: ${data.programName}
-Status: Approved
-Updated: ${new Date(data.approvedAt).toLocaleString()}
+${t.selectionApproved.programLabel} ${data.programName}
+${t.selectionApproved.statusLabel} ${t.selectionApproved.statusApproved}
+${t.selectionApproved.updatedLabel} ${new Date(data.approvedAt).toLocaleString(locale)}
 
-Congratulations! You can now proceed with the next steps in the process.
+${t.selectionApproved.body2}
 
-View your selection: ${data.selectionUrl}
+${t.selectionApproved.cta}: ${data.selectionUrl}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -237,48 +270,60 @@ The ${brandSettings.platformName} Team
  */
 export const selectionRejectedTemplate: EmailTemplate = {
   subject: async (data: SelectionRejectedEmailData) => {
-    const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
-    const brandSettings = await getBrandSettings()
-    return `Selection Update - ${data.programName}`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.selectionRejected.subject(data.programName)
   },
   html: async (data: SelectionRejectedEmailData) => {
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const selectionTypeText = data.selectionType === "course" 
+      ? (lang === "ru" ? "курса" : "course")
+      : (lang === "ru" ? "программы обмена" : "exchange")
     const content = `
-      <p>Hi ${data.firstName},</p>
-      <p>We regret to inform you that your ${data.selectionType === "course" ? "course" : "exchange"} selection has been rejected.</p>
-      ${generateStatusDetails("rejected", data.programName, data.rejectedAt, data.rejectionReason)}
-      <p>If you have any questions or would like to discuss this decision, please contact your program manager.</p>
+      <p>${t.selectionRejected.greeting(data.firstName)}</p>
+      <p>${t.selectionRejected.body1(selectionTypeText)}</p>
+      ${generateStatusDetails("rejected", data.programName, data.rejectedAt, data.rejectionReason, lang)}
+      <p>${t.selectionRejected.body2}</p>
     `
     return generateBaseEmailTemplate(
-      "Selection Update",
-      "Important update regarding your selection",
+      t.selectionRejected.title,
+      t.selectionRejected.subtitle,
       content,
-      { text: "View Selection", url: data.selectionUrl },
-      emailBrandSettings
+      { text: t.selectionRejected.cta, url: data.selectionUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: SelectionRejectedEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const locale = lang === "ru" ? "ru-RU" : "en-US"
+    const selectionTypeText = data.selectionType === "course" 
+      ? (lang === "ru" ? "курса" : "course")
+      : (lang === "ru" ? "программы обмена" : "exchange")
     return `
-Selection Update
+${t.selectionRejected.title}
 
-Hi ${data.firstName},
+${t.selectionRejected.greeting(data.firstName)}
 
-We regret to inform you that your ${data.selectionType === "course" ? "course" : "exchange"} selection has been rejected.
+${t.selectionRejected.body1(selectionTypeText)}
 
-Program: ${data.programName}
-Status: Rejected
-${data.rejectionReason ? `Reason: ${data.rejectionReason}` : ""}
-Updated: ${new Date(data.rejectedAt).toLocaleString()}
+${t.selectionRejected.programLabel} ${data.programName}
+${t.selectionRejected.statusLabel} ${t.selectionRejected.statusRejected}
+${data.rejectionReason ? `${t.selectionRejected.reasonLabel} ${data.rejectionReason}` : ""}
+${t.selectionRejected.updatedLabel} ${new Date(data.rejectedAt).toLocaleString(locale)}
 
-If you have any questions or would like to discuss this decision, please contact your program manager.
+${t.selectionRejected.body2}
 
-View your selection: ${data.selectionUrl}
+${t.selectionRejected.cta}: ${data.selectionUrl}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -288,51 +333,63 @@ The ${brandSettings.platformName} Team
  */
 export const newSelectionNotificationTemplate: EmailTemplate = {
   subject: async (data: NewSelectionNotificationEmailData) => {
-    const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
-    const brandSettings = await getBrandSettings()
-    return `New ${data.selectionType === "course" ? "Course" : "Exchange"} Selection - ${data.programName}`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const selectionTypeText = data.selectionType === "course" ? "Course" : "Exchange"
+    return t.newSelectionNotification.subject(selectionTypeText, data.programName)
   },
   html: async (data: NewSelectionNotificationEmailData) => {
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const locale = lang === "ru" ? "ru-RU" : "en-US"
+    const selectionTypeText = data.selectionType === "course" ? "course" : "exchange"
+    const selectionTypeTitle = data.selectionType === "course" ? "Course" : "Exchange"
     const content = `
-      <p>Hello,</p>
-      <p>A new ${data.selectionType === "course" ? "course" : "exchange"} selection has been submitted and requires your review.</p>
+      <p>${t.newSelectionNotification.greeting}</p>
+      <p>${t.newSelectionNotification.body1(selectionTypeText)}</p>
       <div style="background-color: #f9f9f9; border-left: 4px solid ${emailBrandSettings.primaryColor}; padding: 16px; margin: 16px 0; border-radius: 4px;">
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Student:</strong> ${data.studentName} (${data.studentEmail})</p>
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Program:</strong> ${data.programName}</p>
-        <p style="margin: 0; color: #666666; font-size: 12px;">Submitted: ${new Date(data.submittedAt).toLocaleString()}</p>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.newSelectionNotification.studentLabel}</strong> ${data.studentName} (${data.studentEmail})</p>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.newSelectionNotification.programLabel}</strong> ${data.programName}</p>
+        <p style="margin: 0; color: #666666; font-size: 12px;">${t.newSelectionNotification.submittedLabel} ${new Date(data.submittedAt).toLocaleString(locale)}</p>
       </div>
-      <p>Please review the selection and update its status accordingly.</p>
+      <p>${t.newSelectionNotification.body2}</p>
     `
     return generateBaseEmailTemplate(
-      `New ${data.selectionType === "course" ? "Course" : "Exchange"} Selection`,
-      "Action required",
+      t.newSelectionNotification.title(selectionTypeTitle),
+      t.newSelectionNotification.subtitle,
       content,
-      { text: "Review Selection", url: data.selectionUrl },
-      emailBrandSettings
+      { text: t.newSelectionNotification.cta, url: data.selectionUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: NewSelectionNotificationEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    const locale = lang === "ru" ? "ru-RU" : "en-US"
+    const selectionTypeText = data.selectionType === "course" ? "course" : "exchange"
+    const selectionTypeTitle = data.selectionType === "course" ? "Course" : "Exchange"
     return `
-New ${data.selectionType === "course" ? "Course" : "Exchange"} Selection
+${t.newSelectionNotification.title(selectionTypeTitle)}
 
-Hello,
+${t.newSelectionNotification.greeting}
 
-A new ${data.selectionType === "course" ? "course" : "exchange"} selection has been submitted and requires your review.
+${t.newSelectionNotification.body1(selectionTypeText)}
 
-Student: ${data.studentName} (${data.studentEmail})
-Program: ${data.programName}
-Submitted: ${new Date(data.submittedAt).toLocaleString()}
+${t.newSelectionNotification.studentLabel} ${data.studentName} (${data.studentEmail})
+${t.newSelectionNotification.programLabel} ${data.programName}
+${t.newSelectionNotification.submittedLabel} ${new Date(data.submittedAt).toLocaleString(locale)}
 
-Please review the selection and update its status accordingly.
+${t.newSelectionNotification.body2}
 
-Review selection: ${data.selectionUrl}
+${t.newSelectionNotification.cta}: ${data.selectionUrl}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }
@@ -344,62 +401,71 @@ export const userInvitationTemplate: EmailTemplate = {
   subject: async (data: UserInvitationEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
-    return `Welcome to ${brandSettings.platformName} - Account Created`
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
+    return t.userInvitation.subject(brandSettings.platformName)
   },
   html: async (data: UserInvitationEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const { getBrandSettingsForEmail } = await import("./email-generator")
     const brandSettings = await getBrandSettings()
     const emailBrandSettings = await getBrandSettingsForEmail()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     const roleText =
       data.role === "admin"
-        ? "Administrator"
+        ? (lang === "ru" ? "Администратор" : "Administrator")
         : data.role === "program_manager"
-          ? "Program Manager"
-          : "Student"
+          ? (lang === "ru" ? "Менеджер программы" : "Program Manager")
+          : (lang === "ru" ? "Студент" : "Student")
     const content = `
-      <p>Hi ${data.name},</p>
-      <p>An account has been created for you on ${brandSettings.platformName} as a ${roleText}.</p>
+      <p>${t.userInvitation.greeting(data.name)}</p>
+      <p>${t.userInvitation.body1(brandSettings.platformName, roleText)}</p>
       <div style="background-color: #f9f9f9; border-left: 4px solid ${emailBrandSettings.primaryColor}; padding: 16px; margin: 16px 0; border-radius: 4px;">
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Email:</strong> ${data.email}</p>
-        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>Temporary Password:</strong> <code style="background-color: #e5e5e5; padding: 2px 6px; border-radius: 3px; font-family: monospace;">${data.tempPassword}</code></p>
-        <p style="margin: 12px 0 0; color: #ef4444; font-size: 12px; font-weight: 600;">⚠️ Please change your password after first login for security.</p>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.userInvitation.emailLabel}</strong> ${data.email}</p>
+        <p style="margin: 0 0 8px; color: #666666; font-size: 14px;"><strong>${t.userInvitation.passwordLabel}</strong> <code style="background-color: #e5e5e5; padding: 2px 6px; border-radius: 3px; font-family: monospace;">${data.tempPassword}</code></p>
+        <p style="margin: 12px 0 0; color: #ef4444; font-size: 12px; font-weight: 600;">${t.userInvitation.warning}</p>
       </div>
-      <p>You can now log in to your account and start using ${brandSettings.platformName}.</p>
+      <p>${t.userInvitation.body2(brandSettings.platformName)}</p>
     `
     return generateBaseEmailTemplate(
-      `Welcome to ${brandSettings.platformName}`,
-      "Your account has been created",
+      t.userInvitation.title(brandSettings.platformName),
+      t.userInvitation.subtitle,
       content,
-      { text: "Log In", url: data.loginUrl },
-      emailBrandSettings
+      { text: t.userInvitation.cta, url: data.loginUrl },
+      emailBrandSettings,
+      lang
     )
   },
   text: async (data: UserInvitationEmailData) => {
     const { getBrandSettings } = await import("@/lib/supabase/brand-settings")
     const brandSettings = await getBrandSettings()
+    const lang = data.language || "en"
+    const t = getEmailTranslation(lang)
     const roleText =
       data.role === "admin"
-        ? "Administrator"
+        ? (lang === "ru" ? "Администратор" : "Administrator")
         : data.role === "program_manager"
-          ? "Program Manager"
-          : "Student"
+          ? (lang === "ru" ? "Менеджер программы" : "Program Manager")
+          : (lang === "ru" ? "Студент" : "Student")
     return `
-Welcome to ${brandSettings.platformName}
+${t.userInvitation.title(brandSettings.platformName)}
 
-Hi ${data.name},
+${t.userInvitation.greeting(data.name)}
 
-An account has been created for you on ${brandSettings.platformName} as a ${roleText}.
+${t.userInvitation.body1(brandSettings.platformName, roleText)}
 
-Email: ${data.email}
-Temporary Password: ${data.tempPassword}
+${t.userInvitation.emailLabel} ${data.email}
+${t.userInvitation.passwordLabel} ${data.tempPassword}
 
-⚠️ IMPORTANT: Please change your password after first login for security.
+${t.userInvitation.warning}
 
-You can now log in to your account: ${data.loginUrl}
+${t.userInvitation.body2(brandSettings.platformName)}
 
-Best regards,
-The ${brandSettings.platformName} Team
+${t.userInvitation.cta}: ${data.loginUrl}
+
+${lang === "ru" ? "С уважением," : "Best regards,"}
+${brandSettings.platformName} ${lang === "ru" ? "Команда" : "Team"}
     `.trim()
   },
 }

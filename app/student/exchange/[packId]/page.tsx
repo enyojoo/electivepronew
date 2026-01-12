@@ -260,6 +260,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
           body: JSON.stringify({
             type: "exchange-selection-submitted",
             selectionId: newSelection.id,
+            language,
           }),
         }).catch((error) => {
           console.error("Failed to send exchange selection email:", error)
@@ -273,6 +274,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
             type: "new-selection-notification",
             selectionId: newSelection.id,
             selectionType: "exchange",
+            language,
           }),
         }).catch((error) => {
           console.error("Failed to send admin notification:", error)

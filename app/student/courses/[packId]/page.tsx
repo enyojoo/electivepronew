@@ -339,6 +339,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
           body: JSON.stringify({
             type: "course-selection-submitted",
             selectionId: newSelection.id,
+            language,
           }),
         }).catch((error) => {
           console.error("Failed to send course selection email:", error)
@@ -352,6 +353,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
             type: "new-selection-notification",
             selectionId: newSelection.id,
             selectionType: "course",
+            language,
           }),
         }).catch((error) => {
           console.error("Failed to send admin notification:", error)
