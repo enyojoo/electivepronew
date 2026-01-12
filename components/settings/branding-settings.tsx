@@ -353,15 +353,40 @@ export function BrandingSettings() {
         upsertData.favicon_url = existingSettings.favicon_url
       }
 
-      // Use upsert to create or update settings
-      const { data, error } = await supabase
-        .from("settings")
-        .upsert(upsertData, { onConflict: "id" })
-        .select()
-        .single()
+      // If row exists, use UPDATE (more efficient and avoids API key issues)
+      // If row doesn't exist, use INSERT with all required fields
+      let data, error
+      if (existingSettings?.id) {
+        // Row exists - use UPDATE
+        const result = await supabase
+          .from("settings")
+          .update(upsertData)
+          .eq("id", settingsId)
+          .select()
+          .single()
+        
+        data = result.data
+        error = result.error
+      } else {
+        // Row doesn't exist - use INSERT
+        const insertResult = await supabase
+          .from("settings")
+          .insert(upsertData)
+          .select()
+          .single()
+        
+        data = insertResult.data
+        error = insertResult.error
+      }
 
       if (error) {
-        console.error("Settings save error:", error)
+        console.error("Settings save error:", {
+          error,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          upsertData,
+        })
         throw error
       }
 
