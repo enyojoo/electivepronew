@@ -75,7 +75,6 @@ export default function ManagerSignupPage() {
             ...prev,
             degreeId: firstDegreeId,
           }))
-          console.log("Degrees loaded, default degree set to:", firstDegreeId)
         } else {
           console.warn("No degrees found in database")
           setDegrees([])
@@ -109,7 +108,7 @@ export default function ManagerSignupPage() {
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
-          .eq("degree_id", Number(formData.degreeId))
+          .eq("degree_id", formData.degreeId)
           .eq("is_active", true)
           .order("year", { ascending: false })
 

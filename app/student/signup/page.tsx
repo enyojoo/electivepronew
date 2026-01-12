@@ -71,7 +71,6 @@ export default function StudentSignupPage() {
           // Set first degree as default - this will trigger academic years fetch
           const firstDegreeId = String(data[0].id)
           setDegree(firstDegreeId)
-          console.log("Degrees loaded, default degree set to:", firstDegreeId)
         } else {
           console.warn("No degrees found in database")
           setDegrees([])
@@ -102,7 +101,7 @@ export default function StudentSignupPage() {
         const { data, error } = await supabase
           .from("academic_years")
           .select("id, year, degree_id")
-          .eq("degree_id", Number(degree))
+          .eq("degree_id", degree)
           .eq("is_active", true)
           .order("year", { ascending: false })
 
@@ -156,7 +155,7 @@ export default function StudentSignupPage() {
         const { data: academicYearData, error: academicYearError } = await supabase
           .from("academic_years")
           .select("id")
-          .eq("degree_id", Number(degree))
+          .eq("degree_id", degree)
           .eq("year", year)
           .eq("is_active", true)
           .maybeSingle()
