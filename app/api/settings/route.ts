@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient } from "@/lib/supabase"
+import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 import { getBrandSettings } from "@/lib/supabase/brand-settings"
 
 const SETTINGS_ID = "00000000-0000-0000-0000-000000000000"
@@ -19,8 +19,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
+    // Check if user is admin using admin client to bypass RLS
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", session.user.id)
@@ -36,8 +36,8 @@ export async function GET() {
     // Get brand settings with smart fallback
     const brandSettings = await getBrandSettings()
 
-    // Also get raw settings for admin editing
-    const { data: settings, error } = await supabase
+    // Also get raw settings for admin editing using admin client to bypass RLS
+    const { data: settings, error } = await supabaseAdmin
       .from("settings")
       .select("*")
       .eq("id", SETTINGS_ID)
@@ -77,8 +77,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is admin
-    const { data: profile } = await supabase
+    // Check if user is admin using admin client to bypass RLS
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", session.user.id)
@@ -99,6 +99,10 @@ export async function PUT(request: NextRequest) {
       primary_color?: string
       logo_url?: string | null
       favicon_url?: string | null
+      selection_notifications?: boolean
+      status_update_notifications?: boolean
+      platform_announcements?: boolean
+      user_email_notifications?: boolean
     } = {}
 
     if (body.name !== undefined) updateData.name = body.name
@@ -107,9 +111,18 @@ export async function PUT(request: NextRequest) {
     if (body.logo_url !== undefined) updateData.logo_url = body.logo_url
     if (body.favicon_url !== undefined)
       updateData.favicon_url = body.favicon_url
+    if (body.selection_notifications !== undefined)
+      updateData.selection_notifications = body.selection_notifications
+    if (body.status_update_notifications !== undefined)
+      updateData.status_update_notifications = body.status_update_notifications
+    if (body.platform_announcements !== undefined)
+      updateData.platform_announcements = body.platform_announcements
+    if (body.user_email_notifications !== undefined)
+      updateData.user_email_notifications = body.user_email_notifications
 
     // Use upsert to ensure the row exists and update it
-    const { data, error } = await supabase
+    // Use supabaseAdmin to bypass RLS policies
+    const { data, error } = await supabaseAdmin
       .from("settings")
       .upsert(
         {

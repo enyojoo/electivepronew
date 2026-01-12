@@ -11,7 +11,7 @@ import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { uploadLogo, uploadFavicon } from "@/lib/file-utils"
 import { DEFAULT_LOGO_URL, DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
-import { Loader2, Copy, Check } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useCachedSettings } from "@/hooks/use-cached-settings"
 import { useDataCache } from "@/lib/data-cache-context"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -62,7 +62,6 @@ export function BrandingSettings() {
   const [isLogoUploading, setIsLogoUploading] = useState(false)
   const [isFaviconUploading, setIsFaviconUploading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
   const [institutionName, setInstitutionName] = useState("")
   const [originalPrimaryColor, setOriginalPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR)
@@ -395,38 +394,6 @@ export function BrandingSettings() {
     })
   }
 
-  // Get base URL for login links
-  const getBaseUrl = () => {
-    if (typeof window !== "undefined") {
-      return `${window.location.protocol}//${window.location.host}`
-    }
-    return ""
-  }
-
-  const studentLoginUrl = `${getBaseUrl()}/student/login`
-  const managerLoginUrl = `${getBaseUrl()}/manager/login`
-
-  const handleCopyLink = async (url: string, linkType: "student" | "manager") => {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopiedLink(linkType)
-      toast({
-        title: t("settings.toast.linkCopied"),
-        description: t("settings.toast.linkCopiedDesc"),
-      })
-      // Reset copied state after 2 seconds
-      setTimeout(() => {
-        setCopiedLink(null)
-      }, 2000)
-    } catch (error) {
-      console.error("Failed to copy link:", error)
-      toast({
-        title: t("settings.toast.copyError"),
-        description: t("settings.toast.copyErrorDesc"),
-        variant: "destructive",
-      })
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -641,74 +608,6 @@ export function BrandingSettings() {
         </CardContent>
       </Card>
 
-      {/* Login Links Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("settings.branding.loginLinks")}</CardTitle>
-          <CardDescription>{t("settings.branding.loginLinksDescription", "Share these login URLs with students and program managers")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Student Login URL */}
-          <div className="space-y-2">
-            <Label>{t("settings.branding.studentLogin")}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={studentLoginUrl}
-                readOnly
-                className="flex-1 font-mono text-sm"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleCopyLink(studentLoginUrl, "student")}
-                className="shrink-0"
-              >
-                {copiedLink === "student" ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    {t("settings.toast.copied", "Copied")}
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    {t("settings.toast.copy", "Copy")}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Program Manager Login URL */}
-          <div className="space-y-2">
-            <Label>{t("settings.branding.managerLogin")}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                value={managerLoginUrl}
-                readOnly
-                className="flex-1 font-mono text-sm"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleCopyLink(managerLoginUrl, "manager")}
-                className="shrink-0"
-              >
-                {copiedLink === "manager" ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    {t("settings.toast.copied", "Copied")}
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    {t("settings.toast.copy", "Copy")}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

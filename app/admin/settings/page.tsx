@@ -3,21 +3,21 @@
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { BrandingSettings } from "@/components/settings/branding-settings"
+import { SettingsTabs } from "@/components/settings/settings-tabs"
 import { DegreesSettings } from "@/components/settings/degrees-settings"
+import { UsersSettings } from "@/components/settings/users-settings"
 import { useLanguage } from "@/lib/language-context"
 import { Card, CardContent } from "@/components/ui/card"
-import { UsersSettings } from "@/components/settings/users-settings"
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("branding")
+  const [activeTab, setActiveTab] = useState("settings")
   const { t } = useLanguage()
 
   // Check for tab parameter in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const tabParam = urlParams.get("tab")
-    if (tabParam && ["branding", "degrees", "users"].includes(tabParam)) {
+    if (tabParam && ["settings", "degrees", "users"].includes(tabParam)) {
       setActiveTab(tabParam)
     }
   }, [])
@@ -36,13 +36,13 @@ export default function SettingsPage() {
           <CardContent className="pt-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
               <TabsList className="grid w-full grid-cols-3 md:w-auto">
-                <TabsTrigger value="branding">{t("admin.settings.tabs.branding")}</TabsTrigger>
+                <TabsTrigger value="settings">{t("admin.settings.tabs.settings", "Settings")}</TabsTrigger>
                 <TabsTrigger value="degrees">{t("admin.settings.tabs.degrees")}</TabsTrigger>
                 <TabsTrigger value="users">{t("admin.settings.tabs.users")}</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="branding" className="space-y-6">
-                <BrandingSettings />
+              <TabsContent value="settings" className="space-y-6">
+                <SettingsTabs />
               </TabsContent>
 
               <TabsContent value="degrees" className="space-y-6">
