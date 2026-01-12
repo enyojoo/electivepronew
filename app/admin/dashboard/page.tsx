@@ -128,15 +128,15 @@ export default function AdminDashboard() {
       }))
 
       try {
-        // Fetch all counts in parallel
+        // Fetch all counts in parallel - destructure count directly like manager dashboard
         const [
-          usersResult,
-          programsResult,
-          coursesResult,
-          groupsResult,
-          electivesResult,
-          exchangeResult,
-          universitiesResult,
+          { count: usersCount, error: usersError },
+          { count: programsCount, error: programsError },
+          { count: coursesCount, error: coursesError },
+          { count: groupsCount, error: groupsError },
+          { count: electivesCount, error: electivesError },
+          { count: exchangeCount, error: exchangeError },
+          { count: universitiesCount, error: universitiesError },
         ] = await Promise.all([
           supabase.from("profiles").select("*", { count: "exact", head: true }),
           supabase.from("programs").select("*", { count: "exact", head: true }),
@@ -148,43 +148,43 @@ export default function AdminDashboard() {
         ])
 
         // Log errors for debugging
-        if (usersResult.error) {
-          console.error("Error fetching users count:", usersResult.error)
-          throw usersResult.error
+        if (usersError) {
+          console.error("Error fetching users count:", usersError)
+          throw usersError
         }
-        if (programsResult.error) {
-          console.error("Error fetching programs count:", programsResult.error)
-          throw programsResult.error
+        if (programsError) {
+          console.error("Error fetching programs count:", programsError)
+          throw programsError
         }
-        if (coursesResult.error) {
-          console.error("Error fetching courses count:", coursesResult.error)
-          throw coursesResult.error
+        if (coursesError) {
+          console.error("Error fetching courses count:", coursesError)
+          throw coursesError
         }
-        if (groupsResult.error) {
-          console.error("Error fetching groups count:", groupsResult.error)
-          throw groupsResult.error
+        if (groupsError) {
+          console.error("Error fetching groups count:", groupsError)
+          throw groupsError
         }
-        if (electivesResult.error) {
-          console.error("Error fetching elective courses count:", electivesResult.error)
-          throw electivesResult.error
+        if (electivesError) {
+          console.error("Error fetching elective courses count:", electivesError)
+          throw electivesError
         }
-        if (exchangeResult.error) {
-          console.error("Error fetching exchange programs count:", exchangeResult.error)
-          throw exchangeResult.error
+        if (exchangeError) {
+          console.error("Error fetching exchange programs count:", exchangeError)
+          throw exchangeError
         }
-        if (universitiesResult.error) {
-          console.error("Error fetching universities count:", universitiesResult.error)
-          throw universitiesResult.error
+        if (universitiesError) {
+          console.error("Error fetching universities count:", universitiesError)
+          throw universitiesError
         }
 
         const newStats: DashboardStats = {
-          users: { count: usersResult.count || 0, isLoading: false },
-          programs: { count: programsResult.count || 0, isLoading: false },
-          courses: { count: coursesResult.count || 0, isLoading: false },
-          groups: { count: groupsResult.count || 0, isLoading: false },
-          courseElectives: { count: electivesResult.count || 0, isLoading: false },
-          exchangePrograms: { count: exchangeResult.count || 0, isLoading: false },
-          universities: { count: universitiesResult.count || 0, isLoading: false },
+          users: { count: usersCount || 0, isLoading: false },
+          programs: { count: programsCount || 0, isLoading: false },
+          courses: { count: coursesCount || 0, isLoading: false },
+          groups: { count: groupsCount || 0, isLoading: false },
+          courseElectives: { count: electivesCount || 0, isLoading: false },
+          exchangePrograms: { count: exchangeCount || 0, isLoading: false },
+          universities: { count: universitiesCount || 0, isLoading: false },
         }
 
         console.log("Dashboard stats loaded:", newStats)
