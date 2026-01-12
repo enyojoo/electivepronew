@@ -54,10 +54,14 @@ export default function ManagerSignupPage() {
 
         const { data, error } = await supabase
           .from("degrees")
-          .select("*")
+          .select("id, name, name_ru, code, status")
           .eq("status", "active")
+          .order("name", { ascending: true })
 
-        if (error) throw error
+        if (error) {
+          console.error("Error fetching degrees:", error)
+          throw error
+        }
 
         // Process degrees
         if (data && data.length > 0) {
@@ -66,6 +70,9 @@ export default function ManagerSignupPage() {
             ...prev,
             degreeId: data[0].id.toString(),
           }))
+        } else {
+          console.warn("No degrees found in database")
+          setDegrees([])
         }
       } catch (error) {
         console.error("Error loading degrees:", error)
@@ -129,7 +136,8 @@ export default function ManagerSignupPage() {
 
   // Helper function to get localized degree name
   const getDegreeName = (degreeItem: any) => {
-    return language === "ru" && degreeItem.name_ru ? degreeItem.name_ru : degreeItem.name
+    if (!degreeItem) return ""
+    return language === "ru" && degreeItem.name_ru ? degreeItem.name_ru : degreeItem.name || ""
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,46 +270,58 @@ export default function ManagerSignupPage() {
                 />
               </div>
 
-              {/* Degree Assignment */}
-              <div className="space-y-2">
-                <Label htmlFor="degree">{t("admin.users.degree")}</Label>
-                <Select
-                  value={formData.degreeId}
-                  onValueChange={(value) => handleSelectChange("degreeId", value)}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("admin.users.selectDegree")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {degrees.map((degree) => (
-                      <SelectItem key={degree.id} value={degree.id.toString()}>
-                        {getDegreeName(degree)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Degree and Year */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="degree">{t("admin.users.degree")}</Label>
+                  <Select
+                    value={formData.degreeId}
+                    onValueChange={(value) => handleSelectChange("degreeId", value)}
+                    required
+                    disabled={degrees.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("admin.users.selectDegree")}>
+                        {formData.degreeId && degrees.length > 0
+                          ? getDegreeName(degrees.find((d) => d.id?.toString() === formData.degreeId))
+                          : null}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {degrees.length === 0 ? (
+                        <SelectItem value="no-degrees" disabled>
+                          {t("auth.signup.noDegrees", "No degrees available")}
+                        </SelectItem>
+                      ) : (
+                        degrees.map((degree) => (
+                          <SelectItem key={degree.id} value={degree.id.toString()}>
+                            {getDegreeName(degree)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Year */}
-              <div className="space-y-2">
-                <Label htmlFor="academicYear">{t("year.enrollment")}</Label>
-                <Select
-                  value={formData.academicYear}
-                  onValueChange={(value) => handleSelectChange("academicYear", value)}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("auth.signup.selectYear")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {enrollmentYears.map((year) => (
-                      <SelectItem key={year} value={year}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="academicYear">Year</Label>
+                  <Select
+                    value={formData.academicYear}
+                    onValueChange={(value) => handleSelectChange("academicYear", value)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("auth.signup.selectYear")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {enrollmentYears.map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Password */}

@@ -54,14 +54,25 @@ export default function StudentSignupPage() {
 
         // Fetch degrees and groups in parallel
         const [degreesResponse, groupsResponse] = await Promise.all([
-          supabase.from("degrees").select("*").eq("status", "active"),
+          supabase
+            .from("degrees")
+            .select("id, name, name_ru, code, status")
+            .eq("status", "active")
+            .order("name", { ascending: true }),
           supabase.from("groups").select("*").eq("status", "active"),
         ])
 
         // Process degrees
+        if (degreesResponse.error) {
+          console.error("Error fetching degrees:", degreesResponse.error)
+        }
+
         if (degreesResponse.data && degreesResponse.data.length > 0) {
           setDegrees(degreesResponse.data)
           setDegree(degreesResponse.data[0].id.toString())
+        } else {
+          console.warn("No degrees found in database")
+          setDegrees([])
         }
 
         // Process groups
@@ -163,7 +174,8 @@ export default function StudentSignupPage() {
 
   // Helper function to get localized degree name
   const getDegreeName = (degreeItem: any) => {
-    return language === "ru" && degreeItem.name_ru ? degreeItem.name_ru : degreeItem.name
+    if (!degreeItem) return ""
+    return language === "ru" && degreeItem.name_ru ? degreeItem.name_ru : degreeItem.name || ""
   }
 
   // Helper function to get localized group name
@@ -287,16 +299,26 @@ export default function StudentSignupPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="degree">{t("auth.signup.degree")}</Label>
-                <Select value={degree} onValueChange={setDegree} required>
+                <Select value={degree} onValueChange={setDegree} required disabled={degrees.length === 0}>
                   <SelectTrigger id="degree" className="w-full">
-                    <SelectValue placeholder={t("auth.signup.selectDegree")} />
+                    <SelectValue placeholder={t("auth.signup.selectDegree")}>
+                      {degree && degrees.length > 0
+                        ? getDegreeName(degrees.find((d) => d.id?.toString() === degree))
+                        : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {degrees.map((d) => (
-                      <SelectItem key={d.id} value={d.id?.toString() || ""}>
-                        {getDegreeName(d)}
+                    {degrees.length === 0 ? (
+                      <SelectItem value="no-degrees" disabled>
+                        {t("auth.signup.noDegrees", "No degrees available")}
                       </SelectItem>
-                    ))}
+                    ) : (
+                      degrees.map((d) => (
+                        <SelectItem key={d.id} value={d.id?.toString() || ""}>
+                          {getDegreeName(d)}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
