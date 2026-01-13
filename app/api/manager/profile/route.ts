@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 export async function GET(request: NextRequest) {
   try {
     // Get the current user's session using createRouteHandlerClient for API routes
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createRouteHandlerClient({ cookies: cookies() })
     const {
       data: { session },
       error: sessionError,
