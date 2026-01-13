@@ -246,7 +246,7 @@ export default function ManagerSignupPage() {
           .select("id")
           .eq("degree_id", formData.degreeId)
           .eq("is_active", true)
-          .order("start_year", { ascending: false }) // Get the most recent active year
+          .order("created_at", { ascending: false }) // Get the most recent active year
           .limit(1)
           .maybeSingle()
 
@@ -258,7 +258,7 @@ export default function ManagerSignupPage() {
             .from("academic_years")
             .select("id")
             .eq("degree_id", formData.degreeId)
-            .order("start_year", { ascending: false })
+            .order("created_at", { ascending: false })
             .limit(1)
             .maybeSingle()
 

@@ -44,9 +44,8 @@ interface ElectivePack {
   group_id: string | null
   academic_year: {
     id: string
-    name: string
-    start_year: number
-    end_year: number
+    year: string
+    is_active: boolean
   } | null
   group: {
     id: string
@@ -408,7 +407,7 @@ export default function ManagerExchangeElectivesPage() {
                           </TableCell>
                           <TableCell>
                             {pack.academic_year ? (
-                              `${pack.academic_year.start_year}-${pack.academic_year.end_year}`
+                              pack.academic_year.year
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}

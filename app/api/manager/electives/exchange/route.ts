@@ -42,9 +42,8 @@ export async function GET(request: NextRequest) {
         *,
         academic_year:academic_year(
           id,
-          name,
-          start_year,
-          end_year
+          year,
+          is_active
         ),
         group:group_id(
           id,

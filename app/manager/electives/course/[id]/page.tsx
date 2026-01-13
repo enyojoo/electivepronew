@@ -138,9 +138,8 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
           *,
           academic_year:academic_year(
             id,
-            name,
-            start_year,
-            end_year
+            year,
+            is_active
           ),
           group:group_id(
             id,
