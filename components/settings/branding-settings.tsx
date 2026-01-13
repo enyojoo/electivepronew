@@ -470,25 +470,36 @@ export function BrandingSettings() {
   const handleResetDefaults = async () => {
     try {
       setIsSaving(true)
-      
+
       // Reset all brand settings to defaults in the database
       await updateSettings({
         name: DEFAULT_PLATFORM_NAME,
+        name_ru: null,
         primary_color: DEFAULT_PRIMARY_COLOR,
         logo_url: null,
+        logo_url_en: null,
+        logo_url_ru: null,
         favicon_url: null,
       })
 
       // Update local state to reflect defaults
       setPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setInstitutionName(DEFAULT_PLATFORM_NAME)
+      setInstitutionNameRu("")
       setOriginalPrimaryColor(DEFAULT_PRIMARY_COLOR)
       setOriginalInstitutionName(DEFAULT_PLATFORM_NAME)
+      setOriginalInstitutionNameRu("")
       setLogoUrl(null)
+      setLogoUrlEn(null)
+      setLogoUrlRu(null)
       setFaviconUrl(null)
       setPendingLogoFile(null)
+      setPendingLogoFileEn(null)
+      setPendingLogoFileRu(null)
       setPendingFaviconFile(null)
       setPendingLogoUrl(null)
+      setPendingLogoUrlEn(null)
+      setPendingLogoUrlRu(null)
       setPendingFaviconUrl(null)
 
       toast({
