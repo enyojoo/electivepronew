@@ -36,10 +36,25 @@ interface ElectivePack {
   updated_at: string
   max_selections: number
   semester: string | null
-  academic_year: string | null
   syllabus_template_url: string | null
   courses: string[] | null
   course_count?: number
+  group_id: string | null
+  requires_statement: boolean | null
+  academic_year: {
+    id: string
+    name: string
+    start_year: number
+    end_year: number
+  } | null
+  group: {
+    id: string
+    name: string
+  } | null
+  created_by_profile: {
+    id: string
+    full_name: string
+  } | null
 }
 
 export default function ManagerCourseElectivesPage() {
@@ -72,7 +87,23 @@ export default function ManagerCourseElectivesPage() {
 
         const { data: packs, error } = await supabase
           .from("elective_courses")
-          .select("*")
+          .select(`
+            *,
+            academic_year:academic_year(
+              id,
+              name,
+              start_year,
+              end_year
+            ),
+            group:group_id(
+              id,
+              name
+            ),
+            created_by_profile:created_by(
+              id,
+              full_name
+            )
+          `)
           .order("created_at", { ascending: false })
 
         if (error) throw error
@@ -129,7 +160,23 @@ export default function ManagerCourseElectivesPage() {
 
         const { data, error } = await supabase
           .from("elective_courses")
-          .select("*")
+          .select(`
+            *,
+            academic_year:academic_year(
+              id,
+              name,
+              start_year,
+              end_year
+            ),
+            group:group_id(
+              id,
+              name
+            ),
+            created_by_profile:created_by(
+              id,
+              full_name
+            )
+          `)
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -333,7 +380,9 @@ export default function ManagerCourseElectivesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[30%]">{t("manager.electives.name", "Name")}</TableHead>
+                      <TableHead className="w-[20%]">{t("manager.electives.name", "Name")}</TableHead>
+                      <TableHead>{t("manager.electives.academicYear", "Academic Year")}</TableHead>
+                      <TableHead>{t("manager.electives.group", "Group")}</TableHead>
                       <TableHead>{t("manager.electives.deadline", "Deadline")}</TableHead>
                       <TableHead>{t("manager.electives.courses", "Courses")}</TableHead>
                       <TableHead>{t("manager.electives.status", "Status")}</TableHead>
@@ -342,11 +391,21 @@ export default function ManagerCourseElectivesPage() {
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
-                      <TableSkeleton columns={5} rows={5} />
+                      <TableSkeleton columns={7} rows={5} />
                     ) : filteredPacks.length > 0 ? (
                       filteredPacks.map((pack) => (
                         <TableRow key={pack.id}>
                           <TableCell className="font-medium">{getLocalizedName(pack)}</TableCell>
+                          <TableCell>
+                            {pack.academic_year ? (
+                              `${pack.academic_year.start_year}-${pack.academic_year.end_year}`
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {pack.group?.name || <span className="text-muted-foreground">—</span>}
+                          </TableCell>
                           <TableCell>
                             {pack.deadline ? (
                               formatDate(pack.deadline)
@@ -395,7 +454,7 @@ export default function ManagerCourseElectivesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                           {t("manager.electives.noCourseElectives", "No course elective packs found.")}
                         </TableCell>
                       </TableRow>

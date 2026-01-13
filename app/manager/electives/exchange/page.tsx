@@ -32,12 +32,30 @@ interface ElectivePack {
   id: string
   name: string
   name_ru: string | null
+  semester: string
   status: string
   deadline: string | null
   created_at: string
   updated_at: string
   max_selections: number
+  statement_template_url: string | null
+  universities: string[] | null
   university_count?: number
+  group_id: string | null
+  academic_year: {
+    id: string
+    name: string
+    start_year: number
+    end_year: number
+  } | null
+  group: {
+    id: string
+    name: string
+  } | null
+  created_by_profile: {
+    id: string
+    full_name: string
+  } | null
 }
 
 export default function ManagerExchangeElectivesPage() {
@@ -76,7 +94,23 @@ export default function ManagerExchangeElectivesPage() {
 
         const { data: packs, error } = await supabase
           .from("elective_exchange")
-          .select("*")
+          .select(`
+            *,
+            academic_year:academic_year(
+              id,
+              name,
+              start_year,
+              end_year
+            ),
+            group:group_id(
+              id,
+              name
+            ),
+            created_by_profile:created_by(
+              id,
+              full_name
+            )
+          `)
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -136,7 +170,23 @@ export default function ManagerExchangeElectivesPage() {
 
         const { data, error } = await supabase
           .from("elective_exchange")
-          .select("*")
+          .select(`
+            *,
+            academic_year:academic_year(
+              id,
+              name,
+              start_year,
+              end_year
+            ),
+            group:group_id(
+              id,
+              name
+            ),
+            created_by_profile:created_by(
+              id,
+              full_name
+            )
+          `)
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -349,7 +399,9 @@ export default function ManagerExchangeElectivesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[30%]">{t("manager.electives.name", "Name")}</TableHead>
+                      <TableHead className="w-[20%]">{t("manager.electives.name", "Name")}</TableHead>
+                      <TableHead>{t("manager.electives.academicYear", "Academic Year")}</TableHead>
+                      <TableHead>{t("manager.electives.group", "Group")}</TableHead>
                       <TableHead>{t("manager.electives.deadline", "Deadline")}</TableHead>
                       <TableHead>{t("manager.electives.universities", "Universities")}</TableHead>
                       <TableHead>{t("manager.electives.status", "Status")}</TableHead>
@@ -358,7 +410,7 @@ export default function ManagerExchangeElectivesPage() {
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
-                      <TableSkeleton columns={5} rows={5} />
+                      <TableSkeleton columns={7} rows={5} />
                     ) : filteredPacks.length > 0 ? (
                       filteredPacks.map((pack) => (
                         <TableRow key={pack.id}>
@@ -366,6 +418,16 @@ export default function ManagerExchangeElectivesPage() {
                             <Link href={`/manager/electives/exchange/${pack.id}`} className="hover:underline">
                               {getLocalizedName(pack)}
                             </Link>
+                          </TableCell>
+                          <TableCell>
+                            {pack.academic_year ? (
+                              `${pack.academic_year.start_year}-${pack.academic_year.end_year}`
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {pack.group?.name || <span className="text-muted-foreground">—</span>}
                           </TableCell>
                           <TableCell>
                             {pack.deadline ? (
@@ -414,7 +476,7 @@ export default function ManagerExchangeElectivesPage() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                           {t("manager.electives.noExchangePrograms", "No exchange programs found.")}
                         </TableCell>
                       </TableRow>

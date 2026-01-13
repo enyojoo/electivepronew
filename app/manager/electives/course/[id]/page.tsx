@@ -134,7 +134,23 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
       // Load course program
       const { data: program, error: programError } = await supabase
         .from("elective_courses")
-        .select("*")
+        .select(`
+          *,
+          academic_year:academic_year(
+            id,
+            name,
+            start_year,
+            end_year
+          ),
+          group:group_id(
+            id,
+            name
+          ),
+          created_by_profile:created_by(
+            id,
+            full_name
+          )
+        `)
         .eq("id", params.id)
         .single()
 
