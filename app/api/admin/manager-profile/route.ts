@@ -1,12 +1,27 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get the current user's session using createRouteHandlerClient for API routes
-    const supabase = createRouteHandlerClient({ cookies: cookies() })
+    // Get the current user's session using createServerClient for API routes
+    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      cookies: {
+        getAll() {
+          return cookies().getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookies().set(name, value, options))
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    })
     const {
       data: { session },
       error: sessionError,
@@ -131,8 +146,23 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user's session using createRouteHandlerClient for API routes
-    const supabase = createRouteHandlerClient({ cookies: cookies() })
+    // Get the current user's session using createServerClient for API routes
+    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      cookies: {
+        getAll() {
+          return cookies().getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookies().set(name, value, options))
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    })
     const {
       data: { session },
       error: sessionError,
