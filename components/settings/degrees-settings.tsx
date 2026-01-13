@@ -35,9 +35,40 @@ export function DegreesSettings() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  const [degrees, setDegrees] = useState<any[]>([])
-  const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
-  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
+  
+  // Initialize from cache synchronously to prevent flicker
+  const [degrees, setDegrees] = useState<any[]>(() => {
+    if (typeof window === "undefined") return []
+    try {
+      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data)) {
+          return data
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached degrees in initializer:", error)
+    }
+    return []
+  })
+  
+  const [filteredDegrees, setFilteredDegrees] = useState<any[]>(degrees)
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(() => {
+    if (typeof window === "undefined") return true
+    try {
+      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data) && data.length > 0) {
+          return false // Already have cached data, not loading
+        }
+      }
+    } catch (error) {
+      // Ignore errors in initializer
+    }
+    return true
+  })
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentDegree, setCurrentDegree] = useState<DegreeFormData>({
@@ -73,26 +104,13 @@ export function DegreesSettings() {
     }
   }, [])
 
-  // Load cached data on initial render (instant display)
+  // Sync filteredDegrees with degrees when degrees change (from cache or fetch)
+  // This ensures filteredDegrees is always in sync with degrees when no search is active
   useEffect(() => {
-    const loadCachedData = () => {
-      try {
-        const cachedDegrees = localStorage.getItem(DEGREES_CACHE_KEY)
-        if (cachedDegrees) {
-          const { data, timestamp } = JSON.parse(cachedDegrees)
-          if (Date.now() - timestamp < CACHE_EXPIRY) {
-            setDegrees(data)
-            setFilteredDegrees(data)
-            setIsLoadingDegrees(false)
-          }
-        }
-      } catch (error) {
-        console.error("Error loading cached degrees:", error)
-      }
+    if (!searchTerm) {
+      setFilteredDegrees(degrees)
     }
-
-    loadCachedData()
-  }, [])
+  }, [degrees, searchTerm])
 
   // Fetch degrees from Supabase
   useEffect(() => {
@@ -150,15 +168,20 @@ export function DegreesSettings() {
       return
     }
 
+    if (degrees.length === 0) {
+      setFilteredDegrees([])
+      return
+    }
+
     const filtered = degrees.filter(
       (degree) =>
-        degree.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        degree.nameRu.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        degree.code.toLowerCase().includes(searchTerm.toLowerCase()),
+        (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
     )
 
     setFilteredDegrees(filtered)
-  }, [degrees, searchTerm])
+  }, [searchTerm, degrees])
 
   // Function to safely open the dialog
   const handleOpenDialog = (degree?: (typeof degrees)[0]) => {
@@ -446,8 +469,8 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code}</TableCell>
-                        <TableCell>{getStatusBadge(degree.status)}</TableCell>
+                        <TableCell>{degree.code || ""}</TableCell>
+                        <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
