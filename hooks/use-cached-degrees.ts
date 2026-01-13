@@ -18,12 +18,10 @@ export function useCachedDegrees() {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
         if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data)) {
-          // Ensure all fields including code are present - normalize properly
+          // Ensure all fields including code are present
           return data.map((degree: any) => ({
-            id: degree.id?.toString() || "",
-            name: degree.name || "",
-            name_ru: degree.name_ru || degree.nameRu || "",
-            code: degree.code ?? "", // Use nullish coalescing
+            ...degree,
+            code: degree.code || "",
             status: degree.status || "active",
           }))
         }
@@ -83,26 +81,8 @@ export function useCachedDegrees() {
           }),
         )
 
-        // Normalize degrees data before setting state
-        const normalizedDegrees = (degreesData || []).map((degree: any) => ({
-          id: degree.id?.toString() || "",
-          name: degree.name || "",
-          name_ru: degree.name_ru || "",
-          code: degree.code ?? "", // Use nullish coalescing
-          status: degree.status || "active",
-        }))
-        
         // Update state
-        setDegrees(normalizedDegrees)
-        
-        // Update cache with normalized data
-        localStorage.setItem(
-          DEGREES_CACHE_KEY,
-          JSON.stringify({
-            data: normalizedDegrees,
-            timestamp: Date.now(),
-          }),
-        )
+        setDegrees(degreesData)
       } catch (error: any) {
         console.error("Error fetching degrees:", error)
         setError(error.message)
@@ -122,7 +102,8 @@ export function useCachedDegrees() {
   }, [isLoading, toast])
 
   // Watch for cache invalidation via storage events (cross-tab only)
-  // Also watch for localStorage removal in same tab (when invalidateCache is called)
+  // Note: Same-tab invalidation is handled by real-time subscriptions
+  // No need for polling interval since degrees are relatively static
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === DEGREES_CACHE_KEY && e.newValue === null && !isLoading && degrees.length > 0) {
@@ -131,22 +112,10 @@ export function useCachedDegrees() {
       }
     }
     
-    // Also check if cache was removed in same tab (for invalidateCache calls)
-    const checkCache = () => {
-      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
-      if (!cached && !isLoading && degrees.length > 0) {
-        // Cache was removed, trigger refetch
-        setIsLoading(true)
-      }
-    }
-    
     window.addEventListener("storage", handleStorageChange)
-    // Check periodically for same-tab cache removal
-    const interval = setInterval(checkCache, 100)
 
     return () => {
       window.removeEventListener("storage", handleStorageChange)
-      clearInterval(interval)
     }
   }, [degrees.length, isLoading])
 
@@ -174,10 +143,8 @@ export function useCachedDegrees() {
             if (error) throw error
 
             const degreesData = (data || []).map((degree: any) => ({
-              id: degree.id?.toString() || "",
-              name: degree.name || "",
-              name_ru: degree.name_ru || "",
-              code: degree.code ?? "", // Use nullish coalescing
+              ...degree,
+              code: degree.code || "",
               status: degree.status || "active",
             }))
             

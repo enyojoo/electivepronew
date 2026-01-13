@@ -443,8 +443,9 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Invalidate cache to trigger refetch
-        invalidateCache("users", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_users_cache")
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: "Success",
@@ -546,8 +547,9 @@ export function UsersSettings() {
           await supabase.from("manager_profiles").delete().eq("profile_id", editingUser.id)
         }
 
-        // Invalidate cache to trigger refetch
-        invalidateCache("users", "all")
+        // Invalidate cache to trigger refetch (matching groups page pattern)
+        localStorage.removeItem("admin_users_cache")
+        // Hook will detect cache removal and refetch automatically
 
         toast({
           title: "Success",
