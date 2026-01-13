@@ -41,27 +41,71 @@ export function useCachedManagerProfile(userId: string | undefined) {
       // If not in cache, fetch from API
       console.log(`useCachedManagerProfile: Fetching fresh data for ${cacheKey} from API for userId: ${userId}`)
       try {
+        // First, fetch the basic profile from profiles table
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
-          .select("*, degrees:degree_id(id, name), academic_year") // Select academic_year directly
+          .select("*")
           .eq("id", userId)
-          .eq("role", "program_manager") // Use correct role "program_manager"
+          .eq("role", "program_manager")
           .single()
 
         if (profileError) {
-          console.error("useCachedManagerProfile: Supabase error:", profileError)
+          console.error("useCachedManagerProfile: Profile fetch error:", profileError)
           throw profileError
         }
 
         if (!profileData) {
           console.warn(`useCachedManagerProfile: No program_manager profile found for userId: ${userId}`)
           setProfile(null)
-        } else {
-          console.log("useCachedManagerProfile: Fetched profile data:", profileData)
-          setProfile(profileData)
-          // Save to cache
-          setCachedData(cacheKey, userId, profileData)
+          return
         }
+
+        // Verify this is actually a program manager profile
+        if (profileData.role !== "program_manager") {
+          console.error(`useCachedManagerProfile: Expected program_manager role, but got: ${profileData.role}`)
+          throw new Error(`Expected program_manager role, but got: ${profileData.role}`)
+        }
+
+        // Fetch manager profile with relationships (query from manager_profiles to get degree and academic year)
+        const { data: managerProfileData, error: managerProfileError } = await supabase
+          .from("manager_profiles")
+          .select(`
+            degree_id,
+            academic_year_id,
+            degrees(id, name, name_ru),
+            academic_years(id, name, start_year, end_year)
+          `)
+          .eq("profile_id", userId)
+          .maybeSingle()
+
+        if (managerProfileError) {
+          console.error("useCachedManagerProfile: Manager profile fetch error:", managerProfileError)
+          throw managerProfileError
+        }
+
+        console.log("useCachedManagerProfile: Raw manager profile data:", managerProfileData)
+
+        // Extract data from relationships
+        const degree = managerProfileData?.degrees
+        const academicYear = managerProfileData?.academic_years
+
+        // Combine profile and manager profile data
+        const processedProfile = {
+          ...profileData,
+          // Use the proper relationship data
+          degrees: degree || { id: null, name: "Not specified", name_ru: null },
+          degree: degree || { id: null, name: "Not specified", name_ru: null },
+          academic_year: academicYear ? `${academicYear.start_year}-${academicYear.end_year}` : "Not specified",
+          academic_year_id: academicYear?.id || null,
+        }
+
+        console.log("useCachedManagerProfile: Processed manager profile data:", processedProfile)
+
+        // Save to cache
+        setCachedData(cacheKey, userId, processedProfile)
+
+        // Update state
+        setProfile(processedProfile)
       } catch (err: any) {
         console.error("useCachedManagerProfile: Error fetching manager profile:", err)
         setError(err.message)
