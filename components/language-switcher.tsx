@@ -11,10 +11,9 @@ export function LanguageSwitcher() {
     setLanguage(language === "en" ? "ru" : "en")
   }
 
-  // Show the current language with flag and selection indicator
+  // Show the current language with flag
   const currentFlag = language === "ru" ? "ru" : "gb"
   const currentLabel = language === "ru" ? "RU" : "EN"
-  const targetLanguage = language === "en" ? "ru" : "en"
   const title = language === "en" ? "Switch to Russian" : "Переключить на английский"
 
   return (
@@ -26,10 +25,7 @@ export function LanguageSwitcher() {
       title={title}
     >
       <CountryFlag code={currentFlag} size={16} />
-      <span className="text-sm font-medium">{currentLabel}</span>
-      <span className="text-xs text-muted-foreground">
-        ({language === "en" ? "selected" : "выбран"})
-      </span>
+      <span className="text-sm">{currentLabel}</span>
     </Button>
   )
 }
