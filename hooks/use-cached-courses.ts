@@ -39,50 +39,11 @@ export function useCachedCourses() {
 
         if (coursesError) throw coursesError
 
-        // Fetch degrees through elective_packs -> programs -> degrees relationship
-        const electivePackIds = [...new Set((coursesData || []).map((c: any) => c.elective_pack_id).filter(Boolean))]
-        
-        let electivePacksData: any[] = []
-        if (electivePackIds.length > 0) {
-          const { data: packsData } = await supabase
-            .from("elective_packs")
-            .select("id, program_electives(program_id, programs(degree_id, degrees(id, name, name_ru, code)))")
-            .in("id", electivePackIds)
-          
-          electivePacksData = packsData || []
-        }
-
-        // Create a map of elective_pack_id to degree
-        const packToDegreeMap = new Map()
-        if (electivePacksData) {
-          electivePacksData.forEach((pack: any) => {
-            if (pack.program_electives && Array.isArray(pack.program_electives) && pack.program_electives.length > 0) {
-              const programElective = pack.program_electives[0]
-              if (programElective.programs) {
-                const program = Array.isArray(programElective.programs) ? programElective.programs[0] : programElective.programs
-                if (program.degrees) {
-                  const degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
-                  packToDegreeMap.set(pack.id, degree)
-                }
-              }
-            }
-          })
-        }
-
-        // Map courses with degree information
-        const coursesWithDegrees = (coursesData || []).map((course: any) => {
-          const degree = course.elective_pack_id ? packToDegreeMap.get(course.elective_pack_id) : null
-          
-          return {
-            ...course,
-            degree: degree ? {
-              id: degree.id,
-              name: degree.name || "",
-              name_ru: degree.name_ru || "",
-              code: degree.code || "",
-            } : null,
-          }
-        })
+        // Map courses (degree information removed as programs table is being removed)
+        const coursesWithDegrees = (coursesData || []).map((course: any) => ({
+          ...course,
+          degree: null,
+        }))
 
         // Save to cache
         setCachedData("courses", "all", coursesWithDegrees)

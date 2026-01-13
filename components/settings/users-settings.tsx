@@ -78,9 +78,15 @@ export function UsersSettings() {
 
   // Initialize filteredUsers with users data when it becomes available
   useEffect(() => {
-    if (users && users.length > 0) {
-      setFilteredUsers(users)
-      setTotalPages(Math.ceil(users.length / itemsPerPage))
+    if (users && Array.isArray(users)) {
+      if (users.length > 0) {
+        setFilteredUsers(users)
+        setTotalPages(Math.ceil(users.length / itemsPerPage))
+      } else {
+        // Empty array - no users found
+        setFilteredUsers([])
+        setTotalPages(1)
+      }
     }
   }, [users, itemsPerPage])
 

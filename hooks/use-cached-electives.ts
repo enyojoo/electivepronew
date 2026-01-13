@@ -37,7 +37,7 @@ export function useCachedElectives() {
         // Update to fetch from elective_courses table
         const { data, error: dbError } = await supabase
           .from("elective_courses")
-          .select("*, programs:program_id(name, code)")
+          .select("*")
 
         if (dbError) {
           console.error("useCachedElectives: Supabase error:", dbError)

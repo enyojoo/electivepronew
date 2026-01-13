@@ -28,26 +28,10 @@ const transformUserData = (data: any[], currentLanguage: string) => {
       const group = Array.isArray(studentProfile.groups) ? studentProfile.groups[0] : studentProfile.groups
       if (group) {
         groupName = group.name || ""
+        degreeId = group.degree_id || ""
         
-        // Try to get degree - handle both old structure (through programs) and new structure (direct)
-        let degree = null
-        
-        // First try direct degrees (new structure)
-        if (group.degrees) {
-          degree = Array.isArray(group.degrees) ? group.degrees[0] : group.degrees
-          degreeId = group.degree_id || ""
-        }
-        // Fallback to programs->degrees (old cached structure)
-        else if (group.programs) {
-          const program = Array.isArray(group.programs) ? group.programs[0] : group.programs
-          if (program) {
-            degreeId = program.degree_id || ""
-            if (program.degrees) {
-              degree = Array.isArray(program.degrees) ? program.degrees[0] : program.degrees
-            }
-          }
-        }
-        
+        // Get degree directly from groups - degrees could be object or array
+        const degree = Array.isArray(group.degrees) ? group.degrees[0] : group.degrees
         if (degree) {
           degreeName = currentLanguage === "ru" && degree.name_ru ? degree.name_ru : degree.name || ""
         }

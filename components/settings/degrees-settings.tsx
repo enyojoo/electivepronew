@@ -72,7 +72,7 @@ export function DegreesSettings() {
   // Format and set degrees from cached data (matching groups page pattern)
   useEffect(() => {
     // Format degrees data
-    if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length > 0) {
+    if (cachedDegrees && cachedDegrees.length > 0) {
       const formattedDegrees = cachedDegrees.map((degree) => ({
         id: degree.id.toString(),
         name: degree.name || "",
@@ -83,8 +83,8 @@ export function DegreesSettings() {
 
       setDegrees(formattedDegrees)
       setFilteredDegrees(formattedDegrees)
-    } else if (cachedDegrees && Array.isArray(cachedDegrees) && cachedDegrees.length === 0) {
-      // Empty array - no degrees found in database
+    } else {
+      // Empty array - no degrees found
       setDegrees([])
       setFilteredDegrees([])
     }
@@ -265,9 +265,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache to trigger refetch (matching groups page pattern)
-        localStorage.removeItem("admin_degrees_cache")
-        // Hook will detect cache removal and refetch automatically
+        // Real-time subscription will handle the refetch automatically
+        // No need to manually invalidate cache - the DB change triggers the subscription
 
         toast({
           title: t("admin.degrees.success"),
@@ -301,9 +300,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache to trigger refetch (matching groups page pattern)
-        localStorage.removeItem("admin_degrees_cache")
-        // Hook will detect cache removal and refetch automatically
+        // Real-time subscription will handle the refetch automatically
+        // No need to manually invalidate cache - the DB change triggers the subscription
 
         toast({
           title: t("admin.degrees.success"),
@@ -393,7 +391,7 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code || ""}</TableCell>
+                        <TableCell>{degree.code}</TableCell>
                         <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
                         <TableCell>
                           <DropdownMenu>

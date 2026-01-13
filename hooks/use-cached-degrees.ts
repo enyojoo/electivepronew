@@ -96,33 +96,20 @@ export function useCachedDegrees() {
     fetchDegrees()
   }, [isLoading, toast])
 
-  // Watch for cache invalidation and trigger refetch
+  // Watch for cache invalidation via storage events (cross-tab only)
+  // Note: Same-tab invalidation is handled by real-time subscriptions
+  // No need for polling interval since degrees are relatively static
   useEffect(() => {
-    const checkCache = () => {
-      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
-      if (!cached && !isLoading && degrees.length > 0) {
-        // Cache was removed, trigger refetch
-        setIsLoading(true)
-      }
-    }
-
-    // Check immediately
-    checkCache()
-    
-    // Set up interval to check for cache removal (for same-tab invalidation)
-    const interval = setInterval(checkCache, 500)
-    
-    // Also listen for storage events (for cross-tab invalidation)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === DEGREES_CACHE_KEY && e.newValue === null) {
-        checkCache()
+      if (e.key === DEGREES_CACHE_KEY && e.newValue === null && !isLoading && degrees.length > 0) {
+        // Cache was removed in another tab, trigger refetch
+        setIsLoading(true)
       }
     }
     
     window.addEventListener("storage", handleStorageChange)
 
     return () => {
-      clearInterval(interval)
       window.removeEventListener("storage", handleStorageChange)
     }
   }, [degrees.length, isLoading])

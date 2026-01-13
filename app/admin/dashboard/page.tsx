@@ -20,7 +20,6 @@ const CACHE_EXPIRY = 60 * 60 * 1000
 
 interface DashboardStats {
   users: { count: number; isLoading: boolean }
-  programs: { count: number; isLoading: boolean }
   courses: { count: number; isLoading: boolean }
   groups: { count: number; isLoading: boolean }
   courseElectives: { count: number; isLoading: boolean }
@@ -36,7 +35,6 @@ export default function AdminDashboard() {
 
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     users: { count: 0, isLoading: true },
-    programs: { count: 0, isLoading: true },
     courses: { count: 0, isLoading: true },
     groups: { count: 0, isLoading: true },
     courseElectives: { count: 0, isLoading: true },
@@ -139,7 +137,6 @@ export default function AdminDashboard() {
         // Fetch all counts in parallel - destructure count directly like manager dashboard
         const [
           { count: usersCount, error: usersError },
-          { count: programsCount, error: programsError },
           { count: coursesCount, error: coursesError },
           { count: groupsCount, error: groupsError },
           { count: electivesCount, error: electivesError },
@@ -159,10 +156,6 @@ export default function AdminDashboard() {
         if (usersError) {
           console.error("Error fetching users count:", usersError)
           throw usersError
-        }
-        if (programsError) {
-          console.error("Error fetching programs count:", programsError)
-          throw programsError
         }
         if (coursesError) {
           console.error("Error fetching courses count:", coursesError)
@@ -223,7 +216,6 @@ export default function AdminDashboard() {
         // Set all loading states to false even on error
         setDashboardStats((prev) => ({
           users: { ...prev.users, isLoading: false },
-          programs: { ...prev.programs, isLoading: false },
           courses: { ...prev.courses, isLoading: false },
           groups: { ...prev.groups, isLoading: false },
           courseElectives: { ...prev.courseElectives, isLoading: false },
@@ -383,24 +375,6 @@ export default function AdminDashboard() {
             console.log("✓ Subscribed to universities changes")
           } else if (status === "CHANNEL_ERROR") {
             console.error("✗ Error subscribing to universities changes")
-          }
-        }),
-      supabase
-        .channel("programs-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "programs" }, (payload) => {
-          console.log("Programs change detected:", payload)
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            programs: { ...prev.programs, isLoading: true },
-          }))
-          refetchStat("programs", "programs")
-        })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to programs changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to programs changes")
           }
         }),
     ]
