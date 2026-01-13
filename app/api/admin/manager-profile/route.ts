@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get the current user's session
-    const supabase = await createServerComponentClient()
+    // Get the current user's session using createRouteHandlerClient for API routes
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { session },
       error: sessionError,
@@ -129,8 +131,8 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user's session
-    const supabase = await createServerComponentClient()
+    // Get the current user's session using createRouteHandlerClient for API routes
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { session },
       error: sessionError,

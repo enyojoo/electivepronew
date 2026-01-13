@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user's session using the proper Next.js API route pattern
-    const supabase = await createServerComponentClient()
+    // Get the current user's session using createRouteHandlerClient for API routes
+    const supabase = createRouteHandlerClient({ cookies })
     const {
       data: { session },
       error: sessionError,
