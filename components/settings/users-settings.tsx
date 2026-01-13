@@ -45,6 +45,7 @@ export function UsersSettings() {
   const { users, isLoading, error, isInitialDataLoaded } = useCachedUsers()
   const { degrees } = useCachedDegrees()
   const { groups } = useCachedGroups()
+  const { invalidateCache } = useDataCache()
   const [filteredUsers, setFilteredUsers] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -78,15 +79,9 @@ export function UsersSettings() {
 
   // Initialize filteredUsers with users data when it becomes available
   useEffect(() => {
-    if (users && Array.isArray(users)) {
-      if (users.length > 0) {
-        setFilteredUsers(users)
-        setTotalPages(Math.ceil(users.length / itemsPerPage))
-      } else {
-        // Empty array - no users found
-        setFilteredUsers([])
-        setTotalPages(1)
-      }
+    if (users && users.length > 0) {
+      setFilteredUsers(users)
+      setTotalPages(Math.ceil(users.length / itemsPerPage))
     }
   }, [users, itemsPerPage])
 
@@ -214,9 +209,8 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate cache to trigger refetch (matching groups page pattern)
-      localStorage.removeItem("admin_users_cache")
-      // Hook will detect cache removal and refetch automatically
+      // Invalidate the users cache
+      invalidateCache("users", "all")
 
       toast({
         title: "Success",
@@ -258,9 +252,8 @@ export function UsersSettings() {
       const updatedFilteredUsers = filteredUsers.filter((user) => user.id !== userToDelete)
       setFilteredUsers(updatedFilteredUsers)
 
-      // Invalidate cache to trigger refetch (matching groups page pattern)
-      localStorage.removeItem("admin_users_cache")
-      // Hook will detect cache removal and refetch automatically
+      // Invalidate the users cache
+      invalidateCache("users", "all")
 
       toast({
         title: "Success",
@@ -503,9 +496,8 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate cache to trigger refetch (matching groups page pattern)
-      localStorage.removeItem("admin_users_cache")
-      // Hook will detect cache removal and refetch automatically
+      // Invalidate the users cache
+      invalidateCache("users", "all")
 
       toast({
         title: "Success",

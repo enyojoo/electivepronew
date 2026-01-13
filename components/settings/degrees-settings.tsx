@@ -13,12 +13,15 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
-import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { useCachedDegrees } from "@/hooks/use-cached-degrees"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+
+// Cache key
+const DEGREES_CACHE_KEY = "admin_degrees_cache"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
 
 interface DegreeFormData {
   id?: string
@@ -30,34 +33,11 @@ interface DegreeFormData {
 
 export function DegreesSettings() {
   const { t, language } = useLanguage()
-  const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
-  const [degrees, setDegrees] = useState<any[]>(() => {
-    // Initialize with formatted cached data if available (matching groups page pattern)
-    if (typeof window === "undefined") return []
-    
-    try {
-      const cached = localStorage.getItem("admin_degrees_cache")
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
-        const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
-        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data) && data.length > 0) {
-          // Ensure code field is always present, even if null/undefined in DB
-          return data.map((degree: any) => ({
-            id: degree.id?.toString() || "",
-            name: degree.name || "",
-            nameRu: degree.name_ru || "",
-            code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
-            status: degree.status || "active",
-          }))
-        }
-      }
-    } catch (error) {
-      console.error("Error loading cached degrees in component:", error)
-    }
-    return []
-  })
-  const [filteredDegrees, setFilteredDegrees] = useState<any[]>(degrees)
   const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
+  const [degrees, setDegrees] = useState<any[]>([])
+  const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
+  const [isLoadingDegrees, setIsLoadingDegrees] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentDegree, setCurrentDegree] = useState<DegreeFormData>({
@@ -93,68 +73,75 @@ export function DegreesSettings() {
     }
   }, [])
 
-  // Format and set degrees from cached data (matching groups page pattern)
+  // Load cached data on initial render (instant display)
   useEffect(() => {
-    // Format degrees data
-    if (cachedDegrees && cachedDegrees.length > 0) {
-      const formattedDegrees = cachedDegrees.map((degree) => ({
-        id: degree.id?.toString() || "",
-        name: degree.name || "",
-        nameRu: degree.name_ru || "",
-        code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
-        status: degree.status || "active",
-      }))
-
-      // Only update if we don't already have degrees with the same data
-      // This prevents overwriting initial state unnecessarily
-      setDegrees((prevDegrees) => {
-        // If we have the same number of degrees, check if they're the same
-        if (prevDegrees.length === formattedDegrees.length && prevDegrees.length > 0) {
-          const isSame = prevDegrees.every((prev, index) => {
-            const curr = formattedDegrees[index]
-            return (
-              prev.id === curr.id &&
-              prev.name === curr.name &&
-              prev.nameRu === curr.nameRu &&
-              prev.code === curr.code &&
-              prev.status === curr.status
-            )
-          })
-          if (isSame) return prevDegrees
+    const loadCachedData = () => {
+      try {
+        const cachedDegrees = localStorage.getItem(DEGREES_CACHE_KEY)
+        if (cachedDegrees) {
+          const { data, timestamp } = JSON.parse(cachedDegrees)
+          if (Date.now() - timestamp < CACHE_EXPIRY) {
+            setDegrees(data)
+            setFilteredDegrees(data)
+            setIsLoadingDegrees(false)
+          }
         }
-        return formattedDegrees
-      })
-      
-      setFilteredDegrees((prevFiltered) => {
-        // Update filtered degrees to match degrees
-        const formattedDegrees = cachedDegrees.map((degree) => ({
-          id: degree.id?.toString() || "",
-          name: degree.name || "",
+      } catch (error) {
+        console.error("Error loading cached degrees:", error)
+      }
+    }
+
+    loadCachedData()
+  }, [])
+
+  // Fetch degrees from Supabase
+  useEffect(() => {
+    const fetchDegrees = async () => {
+      if (!isLoadingDegrees) {
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("degrees")
+          .select("id, name, name_ru, code, status")
+          .order("name", { ascending: true })
+
+        if (error) throw error
+
+        const formattedDegrees = (data || []).map((degree) => ({
+          id: degree.id.toString(),
+          name: degree.name,
           nameRu: degree.name_ru || "",
-          code: degree.code ?? "",
+          code: degree.code || "",
           status: degree.status || "active",
         }))
-        
-        if (prevFiltered.length === formattedDegrees.length && prevFiltered.length > 0) {
-          const isSame = prevFiltered.every((prev, index) => {
-            const curr = formattedDegrees[index]
-            return (
-              prev.id === curr.id &&
-              prev.name === curr.name &&
-              prev.nameRu === curr.nameRu &&
-              prev.code === curr.code &&
-              prev.status === curr.status
-            )
-          })
-          if (isSame) return prevFiltered
-        }
-        return formattedDegrees
-      })
+
+        setDegrees(formattedDegrees)
+        setFilteredDegrees(formattedDegrees)
+
+        // Cache the degrees data
+        localStorage.setItem(
+          DEGREES_CACHE_KEY,
+          JSON.stringify({
+            data: formattedDegrees,
+            timestamp: Date.now(),
+          }),
+        )
+      } catch (error: any) {
+        console.error("Error fetching degrees:", error)
+        toast({
+          title: t("admin.degrees.error"),
+          description: error.message || t("admin.degrees.errorFetching"),
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingDegrees(false)
+      }
     }
-    // Don't clear degrees if we already have them from initial state
-    // This prevents clearing data when navigating back to the page
-    // The initial state will preserve the data until the hook loads
-  }, [cachedDegrees, isLoadingDegrees])
+
+    fetchDegrees()
+  }, [supabase, toast, t, isLoadingDegrees])
 
   // Filter degrees based on search term
   useEffect(() => {
@@ -165,9 +152,9 @@ export function DegreesSettings() {
 
     const filtered = degrees.filter(
       (degree) =>
-        (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
+        degree.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        degree.nameRu.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        degree.code.toLowerCase().includes(searchTerm.toLowerCase()),
     )
 
     setFilteredDegrees(filtered)
@@ -263,10 +250,10 @@ export function DegreesSettings() {
 
         if (error) throw error
 
-        // Invalidate cache to trigger refetch (matching groups page pattern)
+        // Invalidate cache and trigger refetch
         if (isMounted.current) {
-          localStorage.removeItem("admin_degrees_cache")
-          // Hook will detect cache removal and refetch automatically
+          localStorage.removeItem(DEGREES_CACHE_KEY)
+          setIsLoadingDegrees(true)
 
           toast({
             title: t("admin.degrees.success"),
@@ -288,9 +275,9 @@ export function DegreesSettings() {
         if (error) throw error
 
         if (data && data[0] && isMounted.current) {
-          // Invalidate cache to trigger refetch (matching groups page pattern)
-          localStorage.removeItem("admin_degrees_cache")
-          // Hook will detect cache removal and refetch automatically
+          // Invalidate cache and trigger refetch
+          localStorage.removeItem(DEGREES_CACHE_KEY)
+          setIsLoadingDegrees(true)
 
           toast({
             title: t("admin.degrees.success"),
@@ -331,8 +318,9 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Real-time subscription will handle the refetch automatically
-        // No need to manually invalidate cache - the DB change triggers the subscription
+        // Invalidate cache and trigger refetch
+        localStorage.removeItem(DEGREES_CACHE_KEY)
+        setIsLoadingDegrees(true)
 
         toast({
           title: t("admin.degrees.success"),
@@ -366,8 +354,9 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Real-time subscription will handle the refetch automatically
-        // No need to manually invalidate cache - the DB change triggers the subscription
+        // Invalidate cache and trigger refetch
+        localStorage.removeItem(DEGREES_CACHE_KEY)
+        setIsLoadingDegrees(true)
 
         toast({
           title: t("admin.degrees.success"),
@@ -457,8 +446,8 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code ?? ""}</TableCell>
-                        <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
+                        <TableCell>{degree.code}</TableCell>
+                        <TableCell>{getStatusBadge(degree.status)}</TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
