@@ -105,24 +105,14 @@ CREATE TABLE IF NOT EXISTS courses (
 );
 
 -- Elective Courses table (links courses to groups)
--- Elective Courses table (contains elective pack data for course-type electives)
 CREATE TABLE IF NOT EXISTS elective_courses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  name_ru TEXT,
-  description TEXT,
-  description_ru TEXT,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'draft', 'published')),
-  deadline TIMESTAMPTZ,
-  max_selections INTEGER NOT NULL DEFAULT 1,
-  semester TEXT,
-  academic_year TEXT,
-  syllabus_template_url TEXT,
-  courses TEXT[] DEFAULT '{}', -- Array of course IDs
-  group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
-  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  elective_pack_id UUID NOT NULL REFERENCES elective_packs(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(elective_pack_id, course_id, group_id)
 );
 
 -- Elective Exchange table
@@ -309,9 +299,8 @@ CREATE INDEX IF NOT EXISTS idx_courses_degree_id ON courses(degree_id);
 CREATE INDEX IF NOT EXISTS idx_courses_status ON courses(status);
 
 -- Elective Courses indexes
-CREATE INDEX IF NOT EXISTS idx_elective_courses_status ON elective_courses(status);
+CREATE INDEX IF NOT EXISTS idx_elective_courses_elective_pack_id ON elective_courses(elective_pack_id);
 CREATE INDEX IF NOT EXISTS idx_elective_courses_group_id ON elective_courses(group_id);
-CREATE INDEX IF NOT EXISTS idx_elective_courses_created_by ON elective_courses(created_by);
 
 -- Student Selections indexes
 CREATE INDEX IF NOT EXISTS idx_student_selections_student_id ON student_selections(student_id);

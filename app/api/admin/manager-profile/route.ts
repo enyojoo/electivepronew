@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         degrees(id, name, name_ru),
-        academic_years(id, name, start_year, end_year)
+        academic_years(id, year, is_active)
       `)
       .eq("profile_id", managerId)
       .maybeSingle()
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
           name: managerProfileData.academic_years.name,
           start_year: managerProfileData.academic_years.start_year,
           end_year: managerProfileData.academic_years.end_year,
-          display: `${managerProfileData.academic_years.start_year}-${managerProfileData.academic_years.end_year}`
+          display: managerProfileData.academic_years.year
         } : null,
       } : null
     }

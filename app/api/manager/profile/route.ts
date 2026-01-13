@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         degree_id,
         academic_year_id,
         degrees(id, name, name_ru),
-        academic_years(id, name, start_year, end_year)
+        academic_years(id, year, is_active)
       `)
       .eq("profile_id", userId)
       .maybeSingle()
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       ...profileData,
       degrees: degree || { id: null, name: "Contact Admin", name_ru: "Свяжитесь с админом" },
       degree: degree || { id: null, name: "Contact Admin", name_ru: "Свяжитесь с админом" },
-      academic_year: academicYear ? `${academicYear.start_year}-${academicYear.end_year}` : "Contact Admin",
+      academic_year: academicYear ? academicYear.year : "Contact Admin",
       academic_year_id: academicYear?.id || null,
     }
 
