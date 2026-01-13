@@ -14,7 +14,7 @@ export function LanguageSwitcher() {
   // Show the language you can switch TO, not the current language
   const targetLanguage = language === "en" ? "ru" : "en"
   const targetFlag = targetLanguage === "ru" ? "ru" : "gb"
-  const targetLabel = targetLanguage === "ru" ? "RU" : "EN"
+  const targetLabel = targetLanguage === "ru" ? "Russian" : "English"
   const targetTitle = language === "en" ? "Switch to Russian" : "Переключить на английский"
 
   return (
