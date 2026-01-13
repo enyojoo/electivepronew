@@ -201,10 +201,8 @@ export async function GET(request: NextRequest) {
         degree: managerProfileData.degrees,
         academic_year: managerProfileData.academic_years ? {
           id: managerProfileData.academic_years.id,
-          name: managerProfileData.academic_years.name,
-          start_year: managerProfileData.academic_years.start_year,
-          end_year: managerProfileData.academic_years.end_year,
-          display: managerProfileData.academic_years.year
+          year: managerProfileData.academic_years.year,
+          is_active: managerProfileData.academic_years.is_active
         } : null,
       } : null
     }

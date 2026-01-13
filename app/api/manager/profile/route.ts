@@ -3,7 +3,7 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user's session using the proper Next.js API route pattern
+    // Get the current user's session
     const supabase = await createServerComponentClient()
     const {
       data: { session },

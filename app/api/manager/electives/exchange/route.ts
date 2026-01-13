@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process the data with university counts
-    const processedPacks = (packs || []).map((pack) => ({
+    const processedPacks = (packs || []).map((pack: any) => ({
       ...pack,
       university_count: Array.isArray(pack.universities) ? pack.universities.length : 0,
     }))
