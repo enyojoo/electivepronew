@@ -125,7 +125,6 @@ export default function AdminDashboard() {
       // Set loading state
       setDashboardStats((prev) => ({
         users: { ...prev.users, isLoading: true },
-        programs: { ...prev.programs, isLoading: true },
         courses: { ...prev.courses, isLoading: true },
         groups: { ...prev.groups, isLoading: true },
         courseElectives: { ...prev.courseElectives, isLoading: true },
@@ -144,7 +143,6 @@ export default function AdminDashboard() {
           { count: universitiesCount, error: universitiesError },
         ] = await Promise.all([
           supabase.from("profiles").select("*", { count: "exact", head: true }),
-          supabase.from("programs").select("*", { count: "exact", head: true }),
           supabase.from("courses").select("*", { count: "exact", head: true }),
           supabase.from("groups").select("*", { count: "exact", head: true }),
           supabase.from("elective_courses").select("*", { count: "exact", head: true }),
@@ -180,7 +178,6 @@ export default function AdminDashboard() {
 
         const newStats: DashboardStats = {
           users: { count: usersCount || 0, isLoading: false },
-          programs: { count: programsCount || 0, isLoading: false },
           courses: { count: coursesCount || 0, isLoading: false },
           groups: { count: groupsCount || 0, isLoading: false },
           courseElectives: { count: electivesCount || 0, isLoading: false },
