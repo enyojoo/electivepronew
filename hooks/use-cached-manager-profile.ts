@@ -15,6 +15,8 @@ export function useCachedManagerProfile(userId: string | undefined) {
 
   useEffect(() => {
     console.log(`useCachedManagerProfile: Hook triggered. userId: ${userId}`)
+    console.log(`useCachedManagerProfile: Supabase client URL:`, supabase.supabaseUrl)
+    console.log(`useCachedManagerProfile: Supabase client key exists:`, !!supabase.supabaseKey)
     if (!userId) {
       console.log("useCachedManagerProfile: No userId, returning.")
       setIsLoading(false)
