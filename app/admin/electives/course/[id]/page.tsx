@@ -347,20 +347,22 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   // Function to open edit dialog with student details
   const openEditDialog = (student: any) => {
     setSelectedStudent(student)
-    setEditedCourses([...student.selectedCourses])
+    // Convert course names to course IDs for editing
+    const courseIds = student.selected_course_ids || []
+    setEditedCourses([...courseIds])
     setEditDialogOpen(true)
   }
 
   // Function to handle course selection in edit dialog
-  const handleCourseSelection = (courseName: string, checked: boolean) => {
+  const handleCourseSelection = (courseId: string, checked: boolean) => {
     if (checked) {
       // Add course if it's not already selected and we haven't reached the max
-      if (!editedCourses.includes(courseName) && editedCourses.length < (electiveCourse?.max_selections || 0)) {
-        setEditedCourses([...editedCourses, courseName])
+      if (!editedCourses.includes(courseId) && editedCourses.length < (electiveCourse?.max_selections || 0)) {
+        setEditedCourses([...editedCourses, courseId])
       }
     } else {
       // Remove course if it's selected
-      setEditedCourses(editedCourses.filter((name) => name !== courseName))
+      setEditedCourses(editedCourses.filter((id) => id !== courseId))
     }
   }
 
@@ -370,13 +372,8 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
 
     setIsSaving(true)
     try {
-      // Convert course names back to IDs
-      const selectedCourseIds = courses
-        .filter((c) => {
-          const courseName = language === "ru" && c.name_ru ? c.name_ru : c.name
-          return editedCourses.includes(courseName)
-        })
-        .map((c) => c.id)
+      // editedCourses now contains course IDs directly
+      const selectedCourseIds = editedCourses
 
       // Update the selection
       const { error } = await supabase
@@ -684,28 +681,33 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
                       </tr>
                     </thead>
                     <tbody>
-                      {courses.map((course) => (
-                        <tr key={course.id} className="border-b">
-                          <td className="py-3 px-4 text-sm">{course.name}</td>
-                          <td className="py-3 px-4 text-sm">{course.professor}</td>
-                          <td className="py-3 px-4 text-sm">
-                            <Badge variant={course.currentStudents >= course.maxStudents ? "destructive" : "secondary"}>
-                              {course.currentStudents}/{course.maxStudents}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => exportCourseEnrollmentsToCSV(course.name)}
-                              className="flex items-center gap-1 mx-auto"
-                            >
-                              <FileDown className="h-4 w-4" />
-                              {t("manager.courseDetails.download")}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {courses.map((course) => {
+                        const enrollmentCount = getCourseEnrollment(course.id)
+                        const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                        const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
+                        return (
+                          <tr key={course.id} className="border-b">
+                            <td className="py-3 px-4 text-sm">{courseName}</td>
+                            <td className="py-3 px-4 text-sm">{instructor}</td>
+                            <td className="py-3 px-4 text-sm">
+                              <Badge variant={enrollmentCount >= course.max_students ? "destructive" : "secondary"}>
+                                {enrollmentCount}/{course.max_students}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => exportCourseEnrollmentsToCSV(courseName)}
+                                className="flex items-center gap-1 mx-auto"
+                              >
+                                <FileDown className="h-4 w-4" />
+                                {t("manager.courseDetails.download")}
+                              </Button>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -847,6 +849,8 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
             </Card>
           </TabsContent>
         </Tabs>
+          </>
+        )}
       </div>
 
       {/* View Student Details Dialog */}
@@ -1024,34 +1028,37 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
                   <div>
                     <h3 className="text-sm font-medium">{t("manager.courseDetails.editCourses")}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {t("manager.courseDetails.selectUpTo")} {electiveCourse.maxSelections}{" "}
+                      {t("manager.courseDetails.selectUpTo")} {electiveCourse?.max_selections || 0}{" "}
                       {t("manager.courseDetails.courses")}
                     </p>
                     <div className="mt-3 space-y-3">
-                      {courses.map((course) => (
-                        <div key={course.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`course-${course.id}`}
-                            checked={editedCourses.includes(course.name)}
-                            onCheckedChange={(checked) => handleCourseSelection(course.name, checked as boolean)}
-                            disabled={
-                              !editedCourses.includes(course.name) &&
-                              editedCourses.length >= electiveCourse.maxSelections
-                            }
-                          />
-                          <Label
-                            htmlFor={`course-${course.id}`}
-                            className={
-                              !editedCourses.includes(course.name) &&
-                              editedCourses.length >= electiveCourse.maxSelections
-                                ? "text-muted-foreground"
-                                : ""
-                            }
-                          >
-                            {course.name}
-                          </Label>
-                        </div>
-                      ))}
+                      {courses.map((course) => {
+                        const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                        return (
+                          <div key={course.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`course-${course.id}`}
+                              checked={editedCourses.includes(course.id)}
+                              onCheckedChange={(checked) => handleCourseSelection(course.id, checked as boolean)}
+                              disabled={
+                                !editedCourses.includes(course.id) &&
+                                editedCourses.length >= (electiveCourse?.max_selections || 0)
+                              }
+                            />
+                            <Label
+                              htmlFor={`course-${course.id}`}
+                              className={
+                                !editedCourses.includes(course.id) &&
+                                editedCourses.length >= (electiveCourse?.max_selections || 0)
+                                  ? "text-muted-foreground"
+                                  : ""
+                              }
+                            >
+                              {courseName}
+                            </Label>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>

@@ -520,7 +520,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                               <td className="py-3 px-4 text-sm">{course.max_students || 0}</td>
                             </tr>
                           )
-                        }))
+                        })
                       )}
                     </tbody>
                   </table>

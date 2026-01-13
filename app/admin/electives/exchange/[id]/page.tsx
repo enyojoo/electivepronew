@@ -378,20 +378,22 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   // Function to open edit dialog with student details
   const openEditDialog = (student: any) => {
     setSelectedStudent(student)
-    setEditedUniversities([...student.selectedUniversities])
+    // Use university IDs directly
+    const universityIds = student.selected_university_ids || []
+    setEditedUniversities([...universityIds])
     setEditDialogOpen(true)
   }
 
   // Function to handle university selection in edit dialog
-  const handleUniversitySelection = (universityName: string, checked: boolean) => {
+  const handleUniversitySelection = (universityId: string, checked: boolean) => {
     if (checked) {
       // Add university if it's not already selected and we haven't reached the max
-      if (!editedUniversities.includes(universityName) && editedUniversities.length < (exchangeProgram?.max_selections || 0)) {
-        setEditedUniversities([...editedUniversities, universityName])
+      if (!editedUniversities.includes(universityId) && editedUniversities.length < (exchangeProgram?.max_selections || 0)) {
+        setEditedUniversities([...editedUniversities, universityId])
       }
     } else {
       // Remove university if it's selected
-      setEditedUniversities(editedUniversities.filter((name) => name !== universityName))
+      setEditedUniversities(editedUniversities.filter((id) => id !== universityId))
     }
   }
 
@@ -401,10 +403,8 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
 
     setIsSaving(true)
     try {
-      // Convert university names back to IDs
-      const selectedUniversityIds = universities
-        .filter((u) => editedUniversities.includes(u.name))
-        .map((u) => u.id)
+      // editedUniversities now contains university IDs directly
+      const selectedUniversityIds = editedUniversities
 
       // Update the selection
       const { error } = await supabase
@@ -799,89 +799,92 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                       </tr>
                     </thead>
                     <tbody>
-                      {studentSelections.map((selection) => (
-                        <tr key={selection.id} className="border-b">
-                          <td className="py-3 px-4 text-sm">{selection.studentName}</td>
-                          <td className="py-3 px-4 text-sm">{selection.group}</td>
-                          <td className="py-3 px-4 text-sm">{formatDate(selection.selectionDate)}</td>
-                          <td className="py-3 px-4 text-sm">{getSelectionStatusBadge(selection.status)}</td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            {selection.statementFile ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => downloadStudentStatement(selection.studentName, selection.statementFile)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <Button variant="ghost" size="icon" onClick={() => openViewDialog(selection)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(selection)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  {t("manager.exchangeDetails.edit")}
-                                </DropdownMenuItem>
-                                {selection.status === SelectionStatus.PENDING && (
-                                  <>
-                                    <DropdownMenuItem
-                                      className="text-green-600"
-                                      onClick={() => {
-                                        toast({
-                                          title: "Selection approved",
-                                          description: `The selection for ${selection.studentName} has been approved.`,
-                                        })
-                                      }}
-                                    >
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      {t("manager.exchangeDetails.approve")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="text-red-600"
-                                      onClick={() => {
-                                        toast({
-                                          title: "Selection rejected",
-                                          description: `The selection for ${selection.studentName} has been rejected.`,
-                                        })
-                                      }}
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      {t("manager.exchangeDetails.reject")}
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {selection.status === SelectionStatus.APPROVED && (
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => {
-                                      toast({
-                                        title: "Selection withdrawn",
-                                        description: `The selection for ${selection.studentName} has been withdrawn.`,
-                                      })
-                                    }}
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    {t("manager.exchangeDetails.withdraw")}
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                      {transformedSelections.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                            {t("manager.exchangeDetails.noSelections") || "No student selections yet"}
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        transformedSelections
+                          .filter((selection) => {
+                            if (!searchTerm) return true
+                            const term = searchTerm.toLowerCase()
+                            return (
+                              selection.studentName.toLowerCase().includes(term) ||
+                              selection.email.toLowerCase().includes(term) ||
+                              selection.group.toLowerCase().includes(term)
+                            )
+                          })
+                          .map((selection) => (
+                            <tr key={selection.id} className="border-b">
+                              <td className="py-3 px-4 text-sm">{selection.studentName}</td>
+                              <td className="py-3 px-4 text-sm">{selection.group}</td>
+                              <td className="py-3 px-4 text-sm">{formatDate(selection.selectionDate)}</td>
+                              <td className="py-3 px-4 text-sm">{getSelectionStatusBadge(selection.status)}</td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                {selection.statementFile ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => downloadStudentStatement(selection.studentName, selection.statementFile)}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                <Button variant="ghost" size="icon" onClick={() => openViewDialog(selection)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openEditDialog(selection)}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      {t("manager.exchangeDetails.edit")}
+                                    </DropdownMenuItem>
+                                    {selection.status === "pending" && (
+                                      <>
+                                        <DropdownMenuItem
+                                          className="text-green-600"
+                                          onClick={() => handleStatusChange(selection.id, "approved", selection.studentName)}
+                                        >
+                                          <CheckCircle className="mr-2 h-4 w-4" />
+                                          {t("manager.exchangeDetails.approve")}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() => handleStatusChange(selection.id, "rejected", selection.studentName)}
+                                        >
+                                          <XCircle className="mr-2 h-4 w-4" />
+                                          {t("manager.exchangeDetails.reject")}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {selection.status === "approved" && (
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => handleStatusChange(selection.id, "rejected", selection.studentName)}
+                                      >
+                                        <XCircle className="mr-2 h-4 w-4" />
+                                        {t("manager.exchangeDetails.withdraw")}
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </td>
+                            </tr>
+                          ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -889,6 +892,8 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
             </Card>
           </TabsContent>
         </Tabs>
+          </>
+        )}
       </div>
 
       {/* View Student Details Dialog */}
@@ -1066,7 +1071,7 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                   <div>
                     <h3 className="text-sm font-medium">{t("manager.exchangeDetails.editUniversities")}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {t("manager.exchangeDetails.selectUpTo")} {exchangeProgram.maxSelections}{" "}
+                      {t("manager.exchangeDetails.selectUpTo")} {exchangeProgram?.max_selections || 0}{" "}
                       {t("manager.exchangeDetails.universities")}
                     </p>
                     <div className="mt-3 space-y-3">
@@ -1074,20 +1079,20 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                         <div key={university.id} className="flex items-center space-x-2">
                           <Checkbox
                             id={`university-${university.id}`}
-                            checked={editedUniversities.includes(university.name)}
+                            checked={editedUniversities.includes(university.id)}
                             onCheckedChange={(checked) =>
-                              handleUniversitySelection(university.name, checked as boolean)
+                              handleUniversitySelection(university.id, checked as boolean)
                             }
                             disabled={
-                              !editedUniversities.includes(university.name) &&
-                              editedUniversities.length >= exchangeProgram.maxSelections
+                              !editedUniversities.includes(university.id) &&
+                              editedUniversities.length >= (exchangeProgram?.max_selections || 0)
                             }
                           />
                           <Label
                             htmlFor={`university-${university.id}`}
                             className={
-                              !editedUniversities.includes(university.name) &&
-                              editedUniversities.length >= exchangeProgram.maxSelections
+                              !editedUniversities.includes(university.id) &&
+                              editedUniversities.length >= (exchangeProgram?.max_selections || 0)
                                 ? "text-muted-foreground"
                                 : ""
                             }
