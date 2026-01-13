@@ -17,8 +17,13 @@ export function useCachedDegrees() {
       const cached = localStorage.getItem(DEGREES_CACHE_KEY)
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
-        if (Date.now() - timestamp < CACHE_EXPIRY) {
-          return data || []
+        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data)) {
+          // Ensure all fields including code are present
+          return data.map((degree: any) => ({
+            ...degree,
+            code: degree.code || "",
+            status: degree.status || "active",
+          }))
         }
       }
     } catch (error) {
@@ -137,7 +142,11 @@ export function useCachedDegrees() {
 
             if (error) throw error
 
-            const degreesData = data || []
+            const degreesData = (data || []).map((degree: any) => ({
+              ...degree,
+              code: degree.code || "",
+              status: degree.status || "active",
+            }))
             
             // Update cache
             localStorage.setItem(

@@ -31,8 +31,32 @@ interface DegreeFormData {
 export function DegreesSettings() {
   const { t, language } = useLanguage()
   const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
-  const [degrees, setDegrees] = useState<any[]>([])
-  const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
+  const [degrees, setDegrees] = useState<any[]>(() => {
+    // Initialize with formatted cached data if available (matching groups page pattern)
+    if (typeof window === "undefined") return []
+    
+    try {
+      const cached = localStorage.getItem("admin_degrees_cache")
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
+        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data) && data.length > 0) {
+          // Ensure code field is always present, even if null/undefined in DB
+          return data.map((degree: any) => ({
+            id: degree.id?.toString() || "",
+            name: degree.name || "",
+            nameRu: degree.name_ru || "",
+            code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
+            status: degree.status || "active",
+          }))
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached degrees in component:", error)
+    }
+    return []
+  })
+  const [filteredDegrees, setFilteredDegrees] = useState<any[]>(degrees)
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -74,21 +98,63 @@ export function DegreesSettings() {
     // Format degrees data
     if (cachedDegrees && cachedDegrees.length > 0) {
       const formattedDegrees = cachedDegrees.map((degree) => ({
-        id: degree.id.toString(),
+        id: degree.id?.toString() || "",
         name: degree.name || "",
         nameRu: degree.name_ru || "",
-        code: degree.code || "",
+        code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
         status: degree.status || "active",
       }))
 
-      setDegrees(formattedDegrees)
-      setFilteredDegrees(formattedDegrees)
-    } else {
-      // Empty array - no degrees found
-      setDegrees([])
-      setFilteredDegrees([])
+      // Only update if we don't already have degrees with the same data
+      // This prevents overwriting initial state unnecessarily
+      setDegrees((prevDegrees) => {
+        // If we have the same number of degrees, check if they're the same
+        if (prevDegrees.length === formattedDegrees.length && prevDegrees.length > 0) {
+          const isSame = prevDegrees.every((prev, index) => {
+            const curr = formattedDegrees[index]
+            return (
+              prev.id === curr.id &&
+              prev.name === curr.name &&
+              prev.nameRu === curr.nameRu &&
+              prev.code === curr.code &&
+              prev.status === curr.status
+            )
+          })
+          if (isSame) return prevDegrees
+        }
+        return formattedDegrees
+      })
+      
+      setFilteredDegrees((prevFiltered) => {
+        // Update filtered degrees to match degrees
+        const formattedDegrees = cachedDegrees.map((degree) => ({
+          id: degree.id?.toString() || "",
+          name: degree.name || "",
+          nameRu: degree.name_ru || "",
+          code: degree.code ?? "",
+          status: degree.status || "active",
+        }))
+        
+        if (prevFiltered.length === formattedDegrees.length && prevFiltered.length > 0) {
+          const isSame = prevFiltered.every((prev, index) => {
+            const curr = formattedDegrees[index]
+            return (
+              prev.id === curr.id &&
+              prev.name === curr.name &&
+              prev.nameRu === curr.nameRu &&
+              prev.code === curr.code &&
+              prev.status === curr.status
+            )
+          })
+          if (isSame) return prevFiltered
+        }
+        return formattedDegrees
+      })
     }
-  }, [cachedDegrees])
+    // Don't clear degrees if we already have them from initial state
+    // This prevents clearing data when navigating back to the page
+    // The initial state will preserve the data until the hook loads
+  }, [cachedDegrees, isLoadingDegrees])
 
   // Filter degrees based on search term
   useEffect(() => {
@@ -99,9 +165,9 @@ export function DegreesSettings() {
 
     const filtered = degrees.filter(
       (degree) =>
-        degree.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        degree.nameRu.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        degree.code.toLowerCase().includes(searchTerm.toLowerCase()),
+        (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
     )
 
     setFilteredDegrees(filtered)
@@ -391,7 +457,7 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code}</TableCell>
+                        <TableCell>{degree.code ?? ""}</TableCell>
                         <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
                         <TableCell>
                           <DropdownMenu>

@@ -29,12 +29,13 @@ import {
   Loader2,
 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useLanguage } from "@/lib/language-context"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface ElectiveCourseDetailPageProps {
   params: {
@@ -46,6 +47,7 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   // Add the language hook near the top of the component
   const { t, language } = useLanguage()
   const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
 
   // State for dialogs
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
@@ -54,155 +56,198 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   const [editedCourses, setEditedCourses] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
-  // Mock elective course data
-  const electiveCourse = {
-    id: params.id,
-    name:
-      params.id === "fall-2023"
-        ? "Fall Semester 2023"
-        : params.id === "spring-2024"
-          ? "Spring Semester 2024"
-          : "Elective Courses",
-    description:
-      "Select your preferred courses for this semester's elective program. You can choose up to the maximum number of courses allowed for this program.",
-    semester: params.id.includes("fall") ? "Fall" : "Spring",
-    year: params.id.includes("2023") ? 2023 : params.id.includes("2024") ? 2024 : 2025,
-    maxSelections: params.id === "spring-2024" ? 3 : 2,
-    status: ElectivePackStatus.PUBLISHED,
-    startDate: params.id.includes("fall") ? "2023-08-01" : "2024-01-10",
-    endDate: params.id.includes("fall") ? "2023-08-15" : "2024-01-25",
-    coursesCount: params.id === "spring-2024" ? 8 : 6,
-    studentsEnrolled: params.id === "fall-2023" ? 42 : params.id === "spring-2024" ? 28 : 0,
-    createdAt: params.id.includes("fall") ? "2023-07-01" : "2023-12-01",
+  // Real data state
+  const [electiveCourse, setElectiveCourse] = useState<any>(null)
+  const [courses, setCourses] = useState<any[]>([])
+  const [studentSelections, setStudentSelections] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+
+  // Load data from Supabase
+  useEffect(() => {
+    loadData()
+  }, [params.id])
+
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`course-selections-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "course_selections",
+          filter: `elective_courses_id=eq.${params.id}`,
+        },
+        async () => {
+          // Refetch student selections when they change
+          const { data: selections, error: selectionsError } = await supabase
+            .from("course_selections")
+            .select(`
+              *,
+              profiles!student_id(
+                id,
+                full_name,
+                email
+              )
+            `)
+            .eq("elective_courses_id", params.id)
+
+          if (!selectionsError && selections) {
+            setStudentSelections(selections)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, params.id])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Load course program
+      const { data: program, error: programError } = await supabase
+        .from("elective_courses")
+        .select("*")
+        .eq("id", params.id)
+        .single()
+
+      if (programError) {
+        throw new Error("Failed to load course program")
+      }
+
+      if (!program) {
+        throw new Error("Course program not found")
+      }
+
+      setElectiveCourse(program)
+
+      // Load courses using the UUIDs from the courses column
+      if (program?.courses && Array.isArray(program.courses) && program.courses.length > 0) {
+        const { data: coursesData, error: coursesError } = await supabase
+          .from("courses")
+          .select(`
+            id,
+            name,
+            name_ru,
+            instructor_en,
+            instructor_ru,
+            degree_id,
+            max_students,
+            degrees(
+              name,
+              name_ru
+            )
+          `)
+          .in("id", program.courses)
+
+        if (coursesError) {
+          console.error("Error loading courses:", coursesError)
+        } else if (coursesData) {
+          setCourses(coursesData)
+        }
+      }
+
+      // Load student selections with profile and student profile information
+      const { data: selections, error: selectionsError } = await supabase
+        .from("course_selections")
+        .select(`
+          *,
+          profiles!student_id(
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq("elective_courses_id", params.id)
+
+      if (selectionsError) {
+        console.error("Error loading student selections:", selectionsError)
+      } else if (selections) {
+        // Fetch student profiles with groups and degrees for each selection
+        const selectionsWithDetails = await Promise.all(
+          selections.map(async (selection) => {
+            const { data: studentProfile } = await supabase
+              .from("student_profiles")
+              .select(`
+                group_id,
+                groups(
+                  id,
+                  name,
+                  degrees(id, name, name_ru)
+                )
+              `)
+              .eq("profile_id", selection.student_id)
+              .maybeSingle()
+
+            const group = studentProfile?.groups
+              ? Array.isArray(studentProfile.groups)
+                ? studentProfile.groups[0]
+                : studentProfile.groups
+              : null
+            const degree = group?.degrees
+              ? Array.isArray(group.degrees)
+                ? group.degrees[0]
+                : group.degrees
+              : null
+
+            return {
+              ...selection,
+              group: group?.name || "Not assigned",
+              program: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Not specified",
+            }
+          }),
+        )
+
+        setStudentSelections(selectionsWithDetails)
+      }
+    } catch (error) {
+      console.error("Error loading data:", error)
+      setError(error instanceof Error ? error.message : "Failed to load course program data")
+      toast({
+        title: "Error",
+        description: "Failed to load course program data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Mock courses data for this elective program
-  const courses = [
-    {
-      id: "1",
-      name: "Strategic Management",
-      description: "This course focuses on the strategic management of organizations.",
-      maxStudents: 30,
-      currentStudents: 25,
-      professor: "Dr. Smith",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "2",
-      name: "International Marketing",
-      description: "This course covers marketing strategies in an international context.",
-      maxStudents: 25,
-      currentStudents: 25,
-      professor: "Dr. Johnson",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "3",
-      name: "Financial Management",
-      description: "This course covers financial management principles and practices.",
-      maxStudents: 35,
-      currentStudents: 20,
-      professor: "Dr. Williams",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["Management", "International Management", "Public Administration"],
-    },
-    {
-      id: "4",
-      name: "Organizational Behavior",
-      description: "This course examines human behavior in organizational settings.",
-      maxStudents: 30,
-      currentStudents: 30,
-      professor: "Dr. Brown",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["Management", "International Management", "Public Administration"],
-    },
-    {
-      id: "5",
-      name: "Business Ethics",
-      description: "This course explores ethical issues in business and management.",
-      maxStudents: 40,
-      currentStudents: 15,
-      professor: "Dr. Davis",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["International Management"],
-    },
-    {
-      id: "6",
-      name: "Supply Chain Management",
-      description: "This course covers the management of supply chains and logistics.",
-      maxStudents: 25,
-      currentStudents: 20,
-      professor: "Dr. Miller",
-      semester: electiveCourse.semester,
-      year: electiveCourse.year,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-  ]
+  // Transform student selections data to include profile info and course names
+  const transformedSelections = studentSelections.map((selection) => {
+    // Get course names from selected_course_ids
+    const selectedCourseNames = selection.selected_course_ids
+      ? courses
+          .filter((c) => selection.selected_course_ids.includes(c.id))
+          .map((c) => (language === "ru" && c.name_ru ? c.name_ru : c.name))
+      : []
 
-  // Mock student selections data
-  const studentSelections = [
-    {
-      id: "1",
-      studentName: "Alex Johnson",
-      studentId: "st123456",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "alex.johnson@student.gsom.spbu.ru",
-      selectedCourses: ["Strategic Management", "Financial Management"],
-      selectionDate: "2023-08-05",
-      status: SelectionStatus.APPROVED,
-      statementFile: "alex_johnson_statement.pdf",
-    },
-    {
-      id: "2",
-      studentName: "Maria Petrova",
-      studentId: "st123457",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "maria.petrova@student.gsom.spbu.ru",
-      selectedCourses: ["International Marketing", "Supply Chain Management"],
-      selectionDate: "2023-08-06",
-      status: SelectionStatus.APPROVED,
-      statementFile: "maria_petrova_statement.pdf",
-    },
-    {
-      id: "3",
-      studentName: "Ivan Sokolov",
-      studentId: "st123458",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "ivan.sokolov@student.gsom.spbu.ru",
-      selectedCourses: ["Organizational Behavior", "Business Ethics"],
-      selectionDate: "2023-08-07",
-      status: SelectionStatus.PENDING,
-      statementFile: "ivan_sokolov_statement.pdf",
-    },
-    {
-      id: "4",
-      studentName: "Elena Ivanova",
-      studentId: "st123459",
-      group: "23.B11-vshm",
-      program: "International Management",
-      email: "elena.ivanova@student.gsom.spbu.ru",
-      selectedCourses: ["Strategic Management", "Business Ethics"],
-      selectionDate: "2023-08-08",
-      status: SelectionStatus.PENDING,
-      statementFile: null,
-    },
-  ]
+    // Get student profile info
+    const profile = selection.profiles || {}
+    
+    return {
+      id: selection.id,
+      studentName: profile.full_name || "Unknown",
+      studentId: selection.student_id,
+      email: profile.email || "",
+      selectedCourses: selectedCourseNames,
+      selected_course_ids: selection.selected_course_ids || [],
+      selectionDate: selection.created_at,
+      status: selection.status,
+      statementFile: selection.statement_url,
+      student_id: selection.student_id,
+      group: selection.group || "Not assigned",
+      program: selection.program || "Not specified",
+    }
+  })
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -265,6 +310,40 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
     setViewDialogOpen(true)
   }
 
+  // Helper functions
+  const getCourseEnrollment = (courseId: string) => {
+    return studentSelections.filter(
+      (selection) =>
+        selection.selected_course_ids &&
+        Array.isArray(selection.selected_course_ids) &&
+        selection.selected_course_ids.includes(courseId) &&
+        (selection.status === "approved" || selection.status === "pending"),
+    ).length
+  }
+
+  const handleStatusChange = async (selectionId: string, newStatus: "approved" | "rejected", studentName: string) => {
+    try {
+      const { error } = await supabase.from("course_selections").update({ status: newStatus }).eq("id", selectionId)
+
+      if (error) throw error
+
+      // Refetch selections
+      await loadData()
+
+      toast({
+        title: `Selection ${newStatus}`,
+        description: `The selection for ${studentName} has been ${newStatus}.`,
+      })
+    } catch (error: any) {
+      console.error("Error updating selection status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update selection status",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Function to open edit dialog with student details
   const openEditDialog = (student: any) => {
     setSelectedStudent(student)
@@ -276,7 +355,7 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   const handleCourseSelection = (courseName: string, checked: boolean) => {
     if (checked) {
       // Add course if it's not already selected and we haven't reached the max
-      if (!editedCourses.includes(courseName) && editedCourses.length < electiveCourse.maxSelections) {
+      if (!editedCourses.includes(courseName) && editedCourses.length < (electiveCourse?.max_selections || 0)) {
         setEditedCourses([...editedCourses, courseName])
       }
     } else {
@@ -287,24 +366,40 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
 
   // Function to save edited courses
   const saveEditedCourses = async () => {
+    if (!selectedStudent) return
+
     setIsSaving(true)
     try {
-      // In a real app, you would make an API call here to update the database
-      // For this demo, we'll just show a success message
+      // Convert course names back to IDs
+      const selectedCourseIds = courses
+        .filter((c) => {
+          const courseName = language === "ru" && c.name_ru ? c.name_ru : c.name
+          return editedCourses.includes(courseName)
+        })
+        .map((c) => c.id)
+
+      // Update the selection
+      const { error } = await supabase
+        .from("course_selections")
+        .update({ selected_course_ids: selectedCourseIds })
+        .eq("id", selectedStudent.id)
+
+      if (error) throw error
+
+      // Refetch data
+      await loadData()
+
       setEditDialogOpen(false)
 
-      // Use setTimeout to ensure the toast appears after the dialog closes
-      window.setTimeout(() => {
-        toast({
-          title: t("toast.selection.updated"),
+      toast({
+        title: t("toast.selection.updated"),
         description: t("toast.selection.updated.course.description").replace("{0}", selectedStudent.studentName),
       })
-    }, 100)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving courses:", error)
       toast({
         title: t("toast.error", "Error"),
-        description: t("toast.errorDesc", "Failed to save changes"),
+        description: error.message || t("toast.errorDesc", "Failed to save changes"),
         variant: "destructive",
       })
     } finally {
@@ -315,7 +410,7 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   // Function to export course enrollments to CSV
   const exportCourseEnrollmentsToCSV = (courseName: string) => {
     // Find students who selected this course
-    const studentsInCourse = studentSelections.filter((student) => student.selectedCourses.includes(courseName))
+    const studentsInCourse = transformedSelections.filter((student) => student.selectedCourses.includes(courseName))
 
     // Create CSV header with translated column names
     const csvHeader = `"${language === "ru" ? "Имя студента" : "Student Name"}","${language === "ru" ? "ID студента" : "Student ID"}","${language === "ru" ? "Группа" : "Group"}","${language === "ru" ? "Программа" : "Program"}","${language === "ru" ? "Электронная почта" : "Email"}","${language === "ru" ? "Дата выбора" : "Selection Date"}","${language === "ru" ? "Статус" : "Status"}"\n`
@@ -326,14 +421,14 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
         // Translate status based on current language
         const translatedStatus =
           language === "ru"
-            ? student.status === SelectionStatus.APPROVED
+            ? student.status === "approved"
               ? "Утверждено"
-              : student.status === SelectionStatus.PENDING
+              : student.status === "pending"
                 ? "На рассмотрении"
                 : "Отклонено"
-            : student.status === SelectionStatus.APPROVED
+            : student.status === "approved"
               ? "Approved"
-              : student.status === SelectionStatus.PENDING
+              : student.status === "pending"
                 ? "Pending"
                 : "Rejected"
 
@@ -363,40 +458,76 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
   }
 
   // Function to download student statement
-  const downloadStudentStatement = (studentName: string, fileName: string | null) => {
-    if (!fileName) {
+  const downloadStudentStatement = async (studentName: string, statementUrl: string | null) => {
+    if (!statementUrl) {
       toast({
-        title: t("toast.statement.notAvailable"),
-        description: t("toast.statement.notAvailable.description").replace("{0}", studentName),
+        title: t("toast.statement.notAvailable", "Statement not available"),
+        description: t("toast.statement.notAvailableDesc", "No statement file uploaded for this student"),
+        variant: "destructive",
       })
       return
     }
 
-    // In a real app, this would download the actual file
-    // For this demo, we'll just show a toast
-    toast({
-      title: t("toast.statement.download.success"),
-      description: t("toast.statement.download.success.description"),
-    })
+    try {
+      // Extract file path from URL
+      let filePath = statementUrl
+      if (statementUrl.includes("/storage/v1/object/public/statements/")) {
+        filePath = statementUrl.split("/storage/v1/object/public/statements/")[1]
+      } else if (statementUrl.includes("/statements/")) {
+        filePath = statementUrl.split("/statements/")[1]
+      }
+
+      const { data, error } = await supabase.storage.from("statements").download(filePath)
+
+      if (error) throw error
+
+      // Create download link
+      const url = URL.createObjectURL(data)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${studentName.replace(/\s+/g, "_")}_statement.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: t("toast.statement.download.success", "Download successful"),
+        description: t("toast.statement.download.successDesc", "Statement file downloaded successfully"),
+      })
+    } catch (error: any) {
+      console.error("Error downloading statement:", error)
+      toast({
+        title: t("toast.statement.download.error", "Download error"),
+        description: error.message || t("toast.statement.download.errorDesc", "Failed to download statement file"),
+        variant: "destructive",
+      })
+    }
   }
 
   // Function to export all student selections to CSV
   const exportAllSelectionsToCSV = () => {
+    if (!electiveCourse) return
+
     // Create CSV header with translated column names
-    const csvHeader = `${language === "ru" ? "Имя студента" : "Student Name"},${language === "ru" ? "ID студента" : "Student ID"},${language === "ru" ? "Группа" : "Group"},${language === "ru" ? "Программа" : "Program"},${language === "ru" ? "Электронная почта" : "Email"},${language === "ru" ? "Выбранные курсы" : "Selected Courses"},${language === "ru" ? "Дата выбора" : "Selection Date"},${language === "ru" ? "Статус" : "Status"},${language === "ru" ? "Заявление" : "Statement"}\n`
+    const csvHeader = `"${language === "ru" ? "Имя студента" : "Student Name"}","${language === "ru" ? "ID студента" : "Student ID"}","${language === "ru" ? "Группа" : "Group"}","${language === "ru" ? "Программа" : "Program"}","${language === "ru" ? "Электронная почта" : "Email"}","${language === "ru" ? "Выбранные курсы" : "Selected Courses"}","${language === "ru" ? "Дата выбора" : "Selection Date"}","${language === "ru" ? "Статус" : "Status"}","${language === "ru" ? "Заявление" : "Statement"}"\n`
 
     // Create CSV content with translated status
-    const allSelectionsContent = studentSelections
+    const allSelectionsContent = transformedSelections
       .map((student) => {
         // Translate status based on current language
         const translatedStatus =
           language === "ru"
-            ? student.status === SelectionStatus.APPROVED
+            ? student.status === "approved"
               ? "Утверждено"
-              : student.status === SelectionStatus.PENDING
+              : student.status === "pending"
                 ? "На рассмотрении"
                 : "Отклонено"
-            : student.status
+            : student.status === "approved"
+              ? "Approved"
+              : student.status === "pending"
+                ? "Pending"
+                : "Rejected"
 
         // Format date properly
         const formattedDate = formatDate(student.selectionDate)
@@ -417,13 +548,14 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
     const csv = csvHeader + allSelectionsContent
 
     // Create a blob and download
+    const programName = language === "ru" && electiveCourse.name_ru ? electiveCourse.name_ru : electiveCourse.name
     const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), csv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.setAttribute("href", url)
     link.setAttribute(
       "download",
-      `${electiveCourse.name.replace(/\s+/g, "_")}_${language === "ru" ? "все_выборы" : "all_selections"}.csv`,
+      `${programName.replace(/\s+/g, "_")}_${language === "ru" ? "все_выборы" : "all_selections"}.csv`,
     )
     link.style.visibility = "hidden"
     document.body.appendChild(link)
@@ -442,49 +574,85 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{electiveCourse.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {loading ? (
+                  <span className="text-muted-foreground">Loading...</span>
+                ) : electiveCourse ? (
+                  language === "ru" && electiveCourse.name_ru ? electiveCourse.name_ru : electiveCourse.name
+                ) : (
+                  "Course Elective"
+                )}
+              </h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">{getStatusBadge(electiveCourse.status)}</div>
+          <div className="flex items-center gap-2">
+            {loading ? (
+              <Badge variant="outline">Loading...</Badge>
+            ) : electiveCourse ? (
+              getStatusBadge(electiveCourse.status)
+            ) : null}
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("manager.courseDetails.programDetails")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2">
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.selectionPeriod")}:</dt>
-                <dd>
-                  {formatDate(electiveCourse.startDate)} - {formatDate(electiveCourse.endDate)}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.maxSelections")}:</dt>
-                <dd>
-                  {electiveCourse.maxSelections} {t("manager.courseDetails.courses")}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.courses")}:</dt>
-                <dd>{electiveCourse.coursesCount}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.studentsEnrolled")}:</dt>
-                <dd>{electiveCourse.studentsEnrolled}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.created")}:</dt>
-                <dd>{formatDate(electiveCourse.createdAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.courseDetails.status")}:</dt>
-                <dd>{t(`manager.status.${electiveCourse.status.toLowerCase()}`)}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">Loading course program data...</div>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-destructive">{error}</div>
+            </CardContent>
+          </Card>
+        ) : !electiveCourse ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">Course program not found</div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("manager.courseDetails.programDetails")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.selectionPeriod")}:</dt>
+                    <dd>
+                      {electiveCourse.deadline
+                        ? formatDate(electiveCourse.deadline)
+                        : "Not set"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.maxSelections")}:</dt>
+                    <dd>
+                      {electiveCourse.max_selections || 0} {t("manager.courseDetails.courses")}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.courses")}:</dt>
+                    <dd>{courses.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.studentsEnrolled")}:</dt>
+                    <dd>{transformedSelections.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.created")}:</dt>
+                    <dd>{electiveCourse.created_at ? formatDate(electiveCourse.created_at) : "N/A"}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.courseDetails.status")}:</dt>
+                    <dd>{t(`manager.status.${electiveCourse.status?.toLowerCase() || "draft"}`)}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
 
         <Tabs defaultValue="courses">
           <TabsList>
@@ -556,6 +724,8 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
                     <input
                       type="search"
                       placeholder={t("manager.courseDetails.searchStudents")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                       className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:w-[200px]"
                     />
                   </div>
@@ -584,92 +754,92 @@ export default function AdminElectiveCourseDetailPage({ params }: ElectiveCourse
                       </tr>
                     </thead>
                     <tbody>
-                      {studentSelections.map((selection) => (
-                        <tr key={selection.id} className="border-b">
-                          <td className="py-3 px-4 text-sm">{selection.studentName}</td>
-                          <td className="py-3 px-4 text-sm">{selection.group}</td>
-                          <td className="py-3 px-4 text-sm">{formatDate(selection.selectionDate)}</td>
-                          <td className="py-3 px-4 text-sm">{getSelectionStatusBadge(selection.status)}</td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            {selection.statementFile ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => downloadStudentStatement(selection.studentName, selection.statementFile)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <Button variant="ghost" size="icon" onClick={() => openViewDialog(selection)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(selection)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  {t("manager.courseDetails.edit")}
-                                </DropdownMenuItem>
-                                {selection.status === SelectionStatus.PENDING && (
-                                  <>
-                                    <DropdownMenuItem
-                                      className="text-green-600"
-                                      onClick={() => {
-                                        toast({
-                                          title: "Selection approved",
-                                          description: `The selection for ${selection.studentName} has been approved.`,
-                                        })
-                                      }}
-                                    >
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      {t("manager.exchangeDetails.approve")}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      className="text-red-600"
-                                      onClick={() => {
-                                        toast({
-                                          title: "Selection rejected",
-                                          description: `The selection for ${selection.studentName} has been rejected.`,
-                                        })
-                                      }}
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      {t("manager.exchangeDetails.reject")}
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {selection.status === SelectionStatus.APPROVED && (
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => {
-                                      toast({
-                                        title: t("toast.selection.withdrawn"),
-                                        description: t("toast.selection.withdrawn.description").replace(
-                                          "{0}",
-                                          selection.studentName,
-                                        ),
-                                      })
-                                    }}
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    {t("manager.courseDetails.withdraw")}
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                      {transformedSelections.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                            {t("manager.courseDetails.noSelections") || "No student selections yet"}
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        transformedSelections
+                          .filter((selection) => {
+                            if (!searchTerm) return true
+                            const term = searchTerm.toLowerCase()
+                            return (
+                              selection.studentName.toLowerCase().includes(term) ||
+                              selection.email.toLowerCase().includes(term) ||
+                              selection.group.toLowerCase().includes(term)
+                            )
+                          })
+                          .map((selection) => (
+                            <tr key={selection.id} className="border-b">
+                              <td className="py-3 px-4 text-sm">{selection.studentName}</td>
+                              <td className="py-3 px-4 text-sm">{selection.group}</td>
+                              <td className="py-3 px-4 text-sm">{formatDate(selection.selectionDate)}</td>
+                              <td className="py-3 px-4 text-sm">{getSelectionStatusBadge(selection.status)}</td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                {selection.statementFile ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => downloadStudentStatement(selection.studentName, selection.statementFile)}
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                <Button variant="ghost" size="icon" onClick={() => openViewDialog(selection)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => openEditDialog(selection)}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      {t("manager.courseDetails.edit")}
+                                    </DropdownMenuItem>
+                                    {selection.status === "pending" && (
+                                      <>
+                                        <DropdownMenuItem
+                                          className="text-green-600"
+                                          onClick={() => handleStatusChange(selection.id, "approved", selection.studentName)}
+                                        >
+                                          <CheckCircle className="mr-2 h-4 w-4" />
+                                          {t("manager.exchangeDetails.approve")}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() => handleStatusChange(selection.id, "rejected", selection.studentName)}
+                                        >
+                                          <XCircle className="mr-2 h-4 w-4" />
+                                          {t("manager.exchangeDetails.reject")}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    {selection.status === "approved" && (
+                                      <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => handleStatusChange(selection.id, "rejected", selection.studentName)}
+                                      >
+                                        <XCircle className="mr-2 h-4 w-4" />
+                                        {t("manager.courseDetails.withdraw")}
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </td>
+                            </tr>
+                          ))
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -18,6 +18,7 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { DocumentUpload } from "@/components/document-upload"
 import { useToast } from "@/components/ui/use-toast"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
 
 interface ElectiveCourseEditPageProps {
   params: {
@@ -44,8 +45,12 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
     status: ElectivePackStatus.DRAFT,
   })
 
-  // Mock available courses data
-  const availableCourses = [
+  const supabase = getSupabaseBrowserClient()
+  const [availableCourses, setAvailableCourses] = useState<any[]>([])
+  const [electiveCourse, setElectiveCourse] = useState<any>(null)
+
+  // Mock available courses data (REMOVED - now using real data)
+  const mockAvailableCourses = [
     {
       id: "1",
       name: "Business Ethics",
@@ -128,53 +133,19 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
     },
   ]
 
-  // Mock function to fetch elective course data
-  const fetchElectiveCourse = async (id: string) => {
-    // In a real application, you would fetch the data from your API
-    // For this demo, we'll simulate a network request with setTimeout
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // Mock data based on the ID
-        const mockData = {
-          id: params.id,
-          semester: params.id.includes("fall") ? "fall" : "spring",
-          year: params.id.includes("2023") ? 2023 : 2024,
-          maxSelections: params.id === "spring-2024" ? 3 : 2,
-          startDate: params.id.includes("fall") ? "2023-08-01" : "2024-01-10",
-          endDate: params.id.includes("fall") ? "2023-08-15" : "2024-01-25",
-          status: ElectivePackStatus.PUBLISHED,
-          selectedCourses:
-            params.id === "spring-2024" ? ["1", "2", "3", "5", "7", "8"] : ["1", "3", "4", "6", "7", "8"],
-        }
-
-        setPackDetails({
-          semester: mockData.semester,
-          year: mockData.year,
-          maxSelections: mockData.maxSelections,
-          startDate: mockData.startDate,
-          endDate: mockData.endDate,
-          status: mockData.status,
-        })
-
-        setSelectedCourses(mockData.selectedCourses)
-        setIsLoading(false)
-        resolve()
-      }, 1000) // Simulate network delay
-    })
-  }
-
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchElectiveCourse(params.id)
-  }, [params.id])
-
   // Filter courses based on search query
-  const filteredCourses = availableCourses.filter(
-    (course) =>
-      course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.description.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const filteredCourses = availableCourses.filter((course) => {
+    if (!searchQuery) return true
+    const term = searchQuery.toLowerCase()
+    const courseName = course.name || ""
+    const instructor = course.instructor_en || course.instructor_ru || ""
+    const description = course.description || ""
+    return (
+      courseName.toLowerCase().includes(term) ||
+      instructor.toLowerCase().includes(term) ||
+      description.toLowerCase().includes(term)
+    )
+  })
 
   // Toggle course selection
   const toggleCourseSelection = (courseId: string) => {
@@ -234,31 +205,73 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   }
 
   // Handle save as draft
-  const handleSaveAsDraft = () => {
-    // Here you would typically save to your backend
-    const courseSelectionName = getPackName()
-    console.log("Saving as draft:", {
-      id: params.id,
-      name: courseSelectionName,
-      ...packDetails,
-      courses: selectedCourses,
-      status: ElectivePackStatus.DRAFT,
-    })
-    router.push(`/manager/electives/course/${params.id}`)
+  const handleSaveAsDraft = async () => {
+    try {
+      const deadline = packDetails.startDate && packDetails.endDate ? packDetails.endDate : null
+
+      const { error } = await supabase
+        .from("elective_courses")
+        .update({
+          semester: packDetails.semester,
+          year: packDetails.year,
+          max_selections: packDetails.maxSelections,
+          deadline: deadline,
+          courses: selectedCourses,
+          status: "draft",
+        })
+        .eq("id", params.id)
+
+      if (error) throw error
+
+      toast({
+        title: t("toast.success", "Success"),
+        description: t("toast.savedAsDraft", "Saved as draft successfully"),
+      })
+
+      router.push(`/manager/electives/course/${params.id}`)
+    } catch (error: any) {
+      console.error("Error saving as draft:", error)
+      toast({
+        title: t("toast.error", "Error"),
+        description: error.message || t("toast.errorDesc", "Failed to save as draft"),
+        variant: "destructive",
+      })
+    }
   }
 
   // Handle publish
-  const handlePublish = () => {
-    // Here you would typically save and publish to your backend
-    const courseSelectionName = getPackName()
-    console.log("Publishing:", {
-      id: params.id,
-      name: courseSelectionName,
-      ...packDetails,
-      courses: selectedCourses,
-      status: ElectivePackStatus.PUBLISHED,
-    })
-    router.push(`/manager/electives/course/${params.id}`)
+  const handlePublish = async () => {
+    try {
+      const deadline = packDetails.startDate && packDetails.endDate ? packDetails.endDate : null
+
+      const { error } = await supabase
+        .from("elective_courses")
+        .update({
+          semester: packDetails.semester,
+          year: packDetails.year,
+          max_selections: packDetails.maxSelections,
+          deadline: deadline,
+          courses: selectedCourses,
+          status: "published",
+        })
+        .eq("id", params.id)
+
+      if (error) throw error
+
+      toast({
+        title: t("toast.success", "Success"),
+        description: t("toast.published", "Published successfully"),
+      })
+
+      router.push(`/manager/electives/course/${params.id}`)
+    } catch (error: any) {
+      console.error("Error publishing:", error)
+      toast({
+        title: t("toast.error", "Error"),
+        description: error.message || t("toast.errorDesc", "Failed to publish"),
+        variant: "destructive",
+      })
+    }
   }
 
   // Format date for input fields
@@ -484,26 +497,30 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                           </td>
                         </tr>
                       ) : (
-                        filteredCourses.map((course) => (
-                          <tr
-                            key={course.id}
-                            className={`border-b hover:bg-muted/50 cursor-pointer ${
-                              selectedCourses.includes(course.id) ? "bg-primary/10" : ""
-                            }`}
-                            onClick={() => toggleCourseSelection(course.id)}
-                          >
-                            <td className="py-3 px-4 text-sm">
-                              <Checkbox
-                                checked={selectedCourses.includes(course.id)}
-                                onCheckedChange={() => toggleCourseSelection(course.id)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-sm">{course.name}</td>
-                            <td className="py-3 px-4 text-sm">{course.teacher}</td>
-                            <td className="py-3 px-4 text-sm">{course.maxStudents}</td>
-                          </tr>
-                        ))
+                        filteredCourses.map((course) => {
+                          const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                          const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
+                          return (
+                            <tr
+                              key={course.id}
+                              className={`border-b hover:bg-muted/50 cursor-pointer ${
+                                selectedCourses.includes(course.id) ? "bg-primary/10" : ""
+                              }`}
+                              onClick={() => toggleCourseSelection(course.id)}
+                            >
+                              <td className="py-3 px-4 text-sm">
+                                <Checkbox
+                                  checked={selectedCourses.includes(course.id)}
+                                  onCheckedChange={() => toggleCourseSelection(course.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                              <td className="py-3 px-4 text-sm">{courseName}</td>
+                              <td className="py-3 px-4 text-sm">{instructor}</td>
+                              <td className="py-3 px-4 text-sm">{course.max_students || 0}</td>
+                            </tr>
+                          )
+                        }))
                       )}
                     </tbody>
                   </table>
@@ -571,13 +588,17 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                         <tbody>
                           {availableCourses
                             .filter((course) => selectedCourses.includes(course.id))
-                            .map((course) => (
-                              <tr key={course.id} className="border-b">
-                                <td className="py-3 px-4 text-sm">{course.name}</td>
-                                <td className="py-3 px-4 text-sm">{course.teacher}</td>
-                                <td className="py-3 px-4 text-sm">{course.maxStudents}</td>
-                              </tr>
-                            ))}
+                            .map((course) => {
+                              const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                              const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
+                              return (
+                                <tr key={course.id} className="border-b">
+                                  <td className="py-3 px-4 text-sm">{courseName}</td>
+                                  <td className="py-3 px-4 text-sm">{instructor}</td>
+                                  <td className="py-3 px-4 text-sm">{course.max_students || 0}</td>
+                                </tr>
+                              )
+                            })}
                         </tbody>
                       </table>
                     </div>

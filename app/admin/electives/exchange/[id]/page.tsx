@@ -17,12 +17,14 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ArrowLeft, Edit, Eye, MoreVertical, Search, CheckCircle, XCircle, Clock, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useLanguage } from "@/lib/language-context"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { getExchangeProgram, getUniversitiesFromIds, getExchangeSelections } from "@/actions/exchange-program-details"
 
 interface ExchangeProgramDetailPageProps {
   params: {
@@ -38,48 +40,57 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   const [editedUniversities, setEditedUniversities] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
+  // Real data state
+  const [exchangeProgram, setExchangeProgram] = useState<any>(null)
+  const [universities, setUniversities] = useState<any[]>([])
+  const [studentSelections, setStudentSelections] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+
   // Add the language hook near the top of the component
   const { t, language } = useLanguage()
   const { toast } = useToast()
+  const supabase = getSupabaseBrowserClient()
 
-  // Helper function to get formatted exchange program name
-  const getExchangeProgramName = (id: string) => {
-    if (id.includes("fall-2023")) return "Fall Semester 2023 Exchange"
-    if (id.includes("spring-2023")) return "Spring Semester 2023 Exchange"
-    if (id.includes("fall-2024")) return "Fall Semester 2024 Exchange"
-    if (id.includes("spring-2024")) return "Spring Semester 2024 Exchange"
+  // Load data from Supabase
+  useEffect(() => {
+    loadDataWithDetails()
+  }, [params.id])
 
-    // Extract season and year from ID
-    const seasonMatch = id.match(/(spring|fall|winter|summer)/i)
-    const yearMatch = id.match(/20\d\d/)
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`exchange-selections-${params.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "exchange_selections",
+          filter: `elective_exchange_id=eq.${params.id}`,
+        },
+        async () => {
+          // Refetch student selections when they change
+          try {
+            const selections = await getExchangeSelections(params.id)
+            setStudentSelections(selections)
+          } catch (error) {
+            console.error("Error refetching exchange selections after real-time update:", error)
+          }
+        },
+      )
+      .subscribe()
 
-    if (seasonMatch && yearMatch) {
-      const season = seasonMatch[0].charAt(0).toUpperCase() + seasonMatch[0].slice(1).toLowerCase()
-      return `${season} Semester ${yearMatch[0]} Exchange`
+    return () => {
+      supabase.removeChannel(channel)
     }
+  }, [supabase, params.id])
 
-    return "Exchange Program" // Default if no pattern is found
-  }
 
-  // Mock exchange program data
-  const exchangeProgram = {
-    id: params.id,
-    name: getExchangeProgramName(params.id),
-    description:
-      "Select your preferred universities for this semester's exchange program. You can choose up to the maximum number of universities allowed for this program.",
-    semester: params.id.includes("fall") ? "Fall" : "Spring",
-    year: params.id.includes("2023") ? 2023 : params.id.includes("2024") ? 2024 : 2025,
-    maxSelections: params.id === "spring-2024" ? 3 : 2,
-    status: ElectivePackStatus.PUBLISHED,
-    startDate: params.id.includes("fall") ? "2023-08-01" : "2024-01-10",
-    endDate: params.id.includes("fall") ? "2023-08-15" : "2024-01-25",
-    universitiesCount: params.id === "spring-2024" ? 8 : 6,
-    studentsEnrolled: params.id === "fall-2023" ? 42 : params.id === "spring-2024" ? 28 : 0,
-    createdAt: params.id.includes("fall") ? "2023-07-01" : "2023-12-01",
-  }
 
-  // Mock universities data for this exchange program
-  const universities = [
+  // Mock universities data for this exchange program (REMOVED - now using real data)
+  const mockUniversities = [
     {
       id: "1",
       name: "University of Amsterdam",
@@ -179,57 +190,106 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
     },
   ]
 
-  // Mock student selections data
-  const studentSelections = [
-    {
-      id: "1",
-      studentName: "Alex Johnson",
-      studentId: "st123456",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "alex.johnson@student.gsom.spbu.ru",
-      selectedUniversities: ["University of Amsterdam", "Copenhagen Business School"],
-      selectionDate: "2023-08-05",
-      status: SelectionStatus.APPROVED,
-      statementFile: "alex_johnson_exchange_statement.pdf",
-    },
-    {
-      id: "2",
-      studentName: "Maria Petrova",
-      studentId: "st123457",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "maria.petrova@student.gsom.spbu.ru",
-      selectedUniversities: ["HEC Paris", "Stockholm School of Economics"],
-      selectionDate: "2023-08-06",
-      status: SelectionStatus.APPROVED,
-      statementFile: "maria_petrova_exchange_statement.pdf",
-    },
-    {
-      id: "3",
-      studentName: "Ivan Sokolov",
-      studentId: "st123458",
-      group: "23.B12-vshm",
-      program: "Management",
-      email: "ivan.sokolov@student.gsom.spbu.ru",
-      selectedUniversities: ["Bocconi University", "Vienna University of Economics and Business"],
-      selectionDate: "2023-08-07",
-      status: SelectionStatus.PENDING,
-      statementFile: "ivan_sokolov_exchange_statement.pdf",
-    },
-    {
-      id: "4",
-      studentName: "Elena Ivanova",
-      studentId: "st123459",
-      group: "23.B11-vshm",
-      program: "International Management",
-      email: "elena.ivanova@student.gsom.spbu.ru",
-      selectedUniversities: ["University of Amsterdam", "Vienna University of Economics and Business"],
-      selectionDate: "2023-08-08",
-      status: SelectionStatus.PENDING,
-      statementFile: null,
-    },
-  ]
+  // Update loadData to fetch student profile details
+  const loadDataWithDetails = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Load exchange program
+      const program = await getExchangeProgram(params.id)
+      if (!program) {
+        throw new Error("Exchange program not found")
+      }
+      setExchangeProgram(program)
+
+      // Load universities from the universities column
+      if (program.universities && program.universities.length > 0) {
+        const universitiesData = await getUniversitiesFromIds(program.universities)
+        setUniversities(universitiesData)
+      } else {
+        setUniversities([])
+      }
+
+      // Load student selections
+      const selections = await getExchangeSelections(params.id)
+
+      // Fetch student profiles with groups and degrees for each selection
+      const selectionsWithDetails = await Promise.all(
+        selections.map(async (selection) => {
+          const { data: studentProfile } = await supabase
+            .from("student_profiles")
+            .select(`
+              group_id,
+              groups(
+                id,
+                name,
+                degrees(id, name, name_ru)
+              )
+            `)
+            .eq("profile_id", selection.student_id)
+            .maybeSingle()
+
+          const group = studentProfile?.groups
+            ? Array.isArray(studentProfile.groups)
+              ? studentProfile.groups[0]
+              : studentProfile.groups
+            : null
+          const degree = group?.degrees
+            ? Array.isArray(group.degrees)
+              ? group.degrees[0]
+              : group.degrees
+            : null
+
+          return {
+            ...selection,
+            group: group?.name || "Not assigned",
+            program: language === "ru" && degree?.name_ru ? degree.name_ru : degree?.name || "Not specified",
+          }
+        }),
+      )
+
+      setStudentSelections(selectionsWithDetails)
+    } catch (error) {
+      console.error("Error loading data:", error)
+      setError(error instanceof Error ? error.message : "Failed to load exchange program data")
+      toast({
+        title: "Error",
+        description: "Failed to load exchange program data",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update transformedSelections to use the data from loadDataWithDetails
+  const transformedSelections = studentSelections.map((selection) => {
+    // Get university names from selected_university_ids
+    const selectedUniversityNames = selection.selected_university_ids
+      ? universities
+          .filter((u) => selection.selected_university_ids.includes(u.id))
+          .map((u) => u.name)
+      : []
+
+    // Get student profile info
+    const profile = selection.profiles || {}
+
+    return {
+      id: selection.id,
+      studentName: profile.full_name || "Unknown",
+      studentId: selection.student_id,
+      email: profile.email || "",
+      selectedUniversities: selectedUniversityNames,
+      selected_university_ids: selection.selected_university_ids || [],
+      selectionDate: selection.created_at,
+      status: selection.status,
+      statementFile: selection.statement_url,
+      student_id: selection.student_id,
+      group: selection.group || "Not assigned",
+      program: selection.program || "Not specified",
+    }
+  })
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -292,6 +352,29 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
     setViewDialogOpen(true)
   }
 
+  const handleStatusChange = async (selectionId: string, newStatus: "approved" | "rejected", studentName: string) => {
+    try {
+      const { error } = await supabase.from("exchange_selections").update({ status: newStatus }).eq("id", selectionId)
+
+      if (error) throw error
+
+      // Refetch selections
+      await loadDataWithDetails()
+
+      toast({
+        title: `Selection ${newStatus}`,
+        description: `The selection for ${studentName} has been ${newStatus}.`,
+      })
+    } catch (error: any) {
+      console.error("Error updating selection status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update selection status",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Function to open edit dialog with student details
   const openEditDialog = (student: any) => {
     setSelectedStudent(student)
@@ -303,7 +386,7 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   const handleUniversitySelection = (universityName: string, checked: boolean) => {
     if (checked) {
       // Add university if it's not already selected and we haven't reached the max
-      if (!editedUniversities.includes(universityName) && editedUniversities.length < exchangeProgram.maxSelections) {
+      if (!editedUniversities.includes(universityName) && editedUniversities.length < (exchangeProgram?.max_selections || 0)) {
         setEditedUniversities([...editedUniversities, universityName])
       }
     } else {
@@ -312,26 +395,39 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
     }
   }
 
-  // Replace this function:
+  // Function to save edited universities
   const saveEditedUniversities = async () => {
+    if (!selectedStudent) return
+
     setIsSaving(true)
     try {
-      // In a real app, you would make an API call here to update the database
-      // For this demo, we'll just show a success message
+      // Convert university names back to IDs
+      const selectedUniversityIds = universities
+        .filter((u) => editedUniversities.includes(u.name))
+        .map((u) => u.id)
+
+      // Update the selection
+      const { error } = await supabase
+        .from("exchange_selections")
+        .update({ selected_university_ids: selectedUniversityIds })
+        .eq("id", selectedStudent.id)
+
+      if (error) throw error
+
+      // Refetch data
+      await loadDataWithDetails()
+
       setEditDialogOpen(false)
 
-      // Use setTimeout to ensure the toast appears after the dialog closes
-      window.setTimeout(() => {
-        toast({
-          title: t("toast.selection.updated"),
-          description: t("toast.selection.updated.exchange.description").replace("{0}", selectedStudent.studentName),
-        })
-      }, 100)
-    } catch (error) {
+      toast({
+        title: t("toast.selection.updated"),
+        description: t("toast.selection.updated.exchange.description").replace("{0}", selectedStudent.studentName),
+      })
+    } catch (error: any) {
       console.error("Error saving universities:", error)
       toast({
         title: t("toast.error", "Error"),
-        description: t("toast.errorDesc", "Failed to save changes"),
+        description: error.message || t("toast.errorDesc", "Failed to save changes"),
         variant: "destructive",
       })
     } finally {
@@ -401,6 +497,8 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
   // Replace the entire exportStudentSelectionsToCSV function with this corrected version:
 
   const exportStudentSelectionsToCSV = () => {
+    if (!exchangeProgram) return
+
     // Define column headers based on language
     const headers = {
       en: [
@@ -427,27 +525,25 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
       ],
     }
 
-    // Status translations
-    const statusTranslations = {
-      en: {
-        [SelectionStatus.APPROVED]: "Approved",
-        [SelectionStatus.PENDING]: "Pending",
-        [SelectionStatus.REJECTED]: "Rejected",
-      },
-      ru: {
-        [SelectionStatus.APPROVED]: "Утверждено",
-        [SelectionStatus.PENDING]: "На рассмотрении",
-        [SelectionStatus.REJECTED]: "Отклонено",
-      },
-    }
 
     // Create CSV content
     let selectionsContent = headers[language as keyof typeof headers].join(",") + "\n"
 
     // Add data rows
-    studentSelections.forEach((selection) => {
+    transformedSelections.forEach((selection) => {
       const selectedUniversities = selection.selectedUniversities.join("; ")
-      const status = statusTranslations[language as keyof typeof statusTranslations][selection.status]
+      const status =
+        language === "ru"
+          ? selection.status === "approved"
+            ? "Утверждено"
+            : selection.status === "pending"
+              ? "На рассмотрении"
+              : "Отклонено"
+          : selection.status === "approved"
+            ? "Approved"
+            : selection.status === "pending"
+              ? "Pending"
+              : "Rejected"
 
       // Format date properly
       const formattedDate = formatDate(selection.selectionDate)
@@ -476,10 +572,11 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
     })
 
     // Create and download the file
+    const programName = language === "ru" && exchangeProgram.name_ru ? exchangeProgram.name_ru : exchangeProgram.name
     const blob = new Blob([new Uint8Array([0xef, 0xbb, 0xbf]), selectionsContent], { type: "text/csv;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
-    const fileName = `student_selections_${exchangeProgram.name.replace(/\s+/g, "_")}_${language}.csv`
+    const fileName = `student_selections_${programName.replace(/\s+/g, "_")}_${language}.csv`
 
     link.setAttribute("href", url)
     link.setAttribute("download", fileName)
@@ -500,49 +597,85 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{exchangeProgram.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {loading ? (
+                  <span className="text-muted-foreground">Loading...</span>
+                ) : exchangeProgram ? (
+                  language === "ru" && exchangeProgram.name_ru ? exchangeProgram.name_ru : exchangeProgram.name
+                ) : (
+                  "Exchange Program"
+                )}
+              </h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">{getStatusBadge(exchangeProgram.status)}</div>
+          <div className="flex items-center gap-2">
+            {loading ? (
+              <Badge variant="outline">Loading...</Badge>
+            ) : exchangeProgram ? (
+              getStatusBadge(exchangeProgram.status)
+            ) : null}
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("manager.exchangeDetails.programDetails")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="space-y-2">
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.selectionPeriod")}:</dt>
-                <dd>
-                  {formatDate(exchangeProgram.startDate)} - {formatDate(exchangeProgram.endDate)}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.maxSelections")}:</dt>
-                <dd>
-                  {exchangeProgram.maxSelections} {t("manager.exchangeDetails.universities")}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.universities")}:</dt>
-                <dd>{exchangeProgram.universitiesCount}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.studentsEnrolled")}:</dt>
-                <dd>{exchangeProgram.studentsEnrolled}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.created")}:</dt>
-                <dd>{formatDate(exchangeProgram.createdAt)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.status")}:</dt>
-                <dd>{t(`manager.status.${exchangeProgram.status.toLowerCase()}`)}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">Loading exchange program data...</div>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-destructive">{error}</div>
+            </CardContent>
+          </Card>
+        ) : !exchangeProgram ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center text-muted-foreground">Exchange program not found</div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("manager.exchangeDetails.programDetails")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2">
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.selectionPeriod")}:</dt>
+                    <dd>
+                      {exchangeProgram.deadline
+                        ? formatDate(exchangeProgram.deadline)
+                        : "Not set"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.maxSelections")}:</dt>
+                    <dd>
+                      {exchangeProgram.max_selections || 0} {t("manager.exchangeDetails.universities")}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.universities")}:</dt>
+                    <dd>{universities.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.studentsEnrolled")}:</dt>
+                    <dd>{transformedSelections.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.created")}:</dt>
+                    <dd>{exchangeProgram.created_at ? formatDate(exchangeProgram.created_at) : "N/A"}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="font-medium">{t("manager.exchangeDetails.status")}:</dt>
+                    <dd>{t(`manager.status.${exchangeProgram.status?.toLowerCase() || "draft"}`)}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
 
         <Tabs defaultValue="universities">
           <TabsList>
@@ -572,34 +705,46 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                       </tr>
                     </thead>
                     <tbody>
-                      {universities.map((university) => (
-                        <tr key={university.id} className="border-b">
-                          <td className="py-3 px-4 text-sm">{university.name}</td>
-                          <td className="py-3 px-4 text-sm">
-                            {university.city}, {university.country}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            <Badge
-                              variant={
-                                university.currentStudents >= university.maxStudents ? "destructive" : "secondary"
-                              }
-                            >
-                              {university.currentStudents}/{university.maxStudents}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => exportUniversityToCSV(university)}
-                              className="flex mx-auto"
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              {t("manager.exchangeDetails.download")}
-                            </Button>
+                      {universities.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-6 text-center text-muted-foreground">
+                            {t("manager.exchangeDetails.noUniversities") || "No universities in this program"}
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        universities.map((university) => {
+                          const enrollmentCount = transformedSelections.filter(
+                            (selection) =>
+                              selection.selected_university_ids &&
+                              selection.selected_university_ids.includes(university.id) &&
+                              (selection.status === "approved" || selection.status === "pending"),
+                          ).length
+                          return (
+                            <tr key={university.id} className="border-b">
+                              <td className="py-3 px-4 text-sm">{university.name}</td>
+                              <td className="py-3 px-4 text-sm">
+                                {university.city}, {university.country}
+                              </td>
+                              <td className="py-3 px-4 text-sm">
+                                <Badge variant={enrollmentCount >= (university.max_students || 0) ? "destructive" : "secondary"}>
+                                  {enrollmentCount}/{university.max_students || 0}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => exportUniversityToCSV(university)}
+                                  className="flex mx-auto"
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  {t("manager.exchangeDetails.download")}
+                                </Button>
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -618,6 +763,8 @@ export default function AdminExchangeDetailPage({ params }: ExchangeProgramDetai
                     <input
                       type="search"
                       placeholder={t("manager.exchangeDetails.searchStudents")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                       className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:w-[200px]"
                     />
                   </div>
