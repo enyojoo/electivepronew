@@ -80,7 +80,27 @@ export function useCachedManagerProfile(userId: string | undefined) {
 
         if (managerProfileError) {
           console.error("useCachedManagerProfile: Manager profile fetch error:", managerProfileError)
-          throw managerProfileError
+          // Don't throw error if it's just that no manager profile exists yet
+          // Instead, create profile with null manager data
+          console.log("useCachedManagerProfile: No manager profile found, using fallback data")
+
+          const processedProfile = {
+            ...profileData,
+            // Use fallback values when no manager profile exists
+            degrees: { id: null, name: "Not assigned", name_ru: null },
+            degree: { id: null, name: "Not assigned", name_ru: null },
+            academic_year: "Not assigned",
+            academic_year_id: null,
+          }
+
+          console.log("useCachedManagerProfile: Processed manager profile data (fallback):", processedProfile)
+
+          // Save to cache
+          setCachedData(cacheKey, userId, processedProfile)
+
+          // Update state
+          setProfile(processedProfile)
+          return
         }
 
         console.log("useCachedManagerProfile: Raw manager profile data:", managerProfileData)

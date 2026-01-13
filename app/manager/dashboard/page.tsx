@@ -11,6 +11,8 @@ import { useLanguage } from "@/lib/language-context"
 import { useRouter } from "next/navigation"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { formatDate, calculateDaysLeft } from "@/lib/utils"
 
@@ -125,7 +127,7 @@ export default function ManagerDashboard() {
   }, [supabase, router, userId]) // Added userId to dependency array
 
   // Fetch manager profile using the cached hook
-  const { profile, isLoading: isLoadingProfile } = useCachedManagerProfile(userId)
+  const { profile, isLoading: isLoadingProfile, error: profileError } = useCachedManagerProfile(userId)
 
   // State for deadlines and elective counts
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>([])
@@ -412,6 +414,14 @@ export default function ManagerDashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("manager.dashboard.title")}</h1>
         </div>
+
+        {profileError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{profileError}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           <Card>
