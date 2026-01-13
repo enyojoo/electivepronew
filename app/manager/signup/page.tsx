@@ -216,10 +216,17 @@ export default function ManagerSignupPage() {
 
       if (profileError) throw new Error(profileError.message)
 
-      // Get academic_year_id from the year string
+      // Ensure manager has a degree assigned (required)
+      if (!formData.degreeId) {
+        throw new Error("Degree selection is required for program managers")
+      }
+
+      // Get academic_year_id - try to find the specific year, otherwise get current active year for the degree
       let academicYearId = null
-      if (formData.academicYear && formData.degreeId) {
-        const { data: academicYearData } = await supabase
+
+      // First, try to find the specific academic year if provided
+      if (formData.academicYear) {
+        const { data: specificYearData } = await supabase
           .from("academic_years")
           .select("id")
           .eq("degree_id", formData.degreeId)
@@ -227,15 +234,49 @@ export default function ManagerSignupPage() {
           .eq("is_active", true)
           .maybeSingle()
 
-        if (academicYearData) {
-          academicYearId = academicYearData.id
+        if (specificYearData) {
+          academicYearId = specificYearData.id
         }
+      }
+
+      // If no specific year found or none provided, get the current active academic year for this degree
+      if (!academicYearId) {
+        const { data: currentYearData } = await supabase
+          .from("academic_years")
+          .select("id")
+          .eq("degree_id", formData.degreeId)
+          .eq("is_active", true)
+          .order("start_year", { ascending: false }) // Get the most recent active year
+          .limit(1)
+          .maybeSingle()
+
+        if (currentYearData) {
+          academicYearId = currentYearData.id
+        } else {
+          // If no active academic year exists for this degree, get any academic year for this degree
+          const { data: anyYearData } = await supabase
+            .from("academic_years")
+            .select("id")
+            .eq("degree_id", formData.degreeId)
+            .order("start_year", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (anyYearData) {
+            academicYearId = anyYearData.id
+          }
+        }
+      }
+
+      // Ensure we have an academic year assigned
+      if (!academicYearId) {
+        throw new Error("No academic year found for the selected degree. Please contact an administrator.")
       }
 
       // Create manager profile with role-specific data
       const { error: managerProfileError } = await supabase.from("manager_profiles").insert({
         profile_id: authData.user!.id,
-        degree_id: formData.degreeId || null,
+        degree_id: formData.degreeId,
         academic_year_id: academicYearId,
       })
 
