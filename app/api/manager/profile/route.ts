@@ -3,24 +3,24 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user's session
+    // Get the current user's authenticated data (secure approach)
     const supabase = await createServerComponentClient()
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
-      return NextResponse.json({ error: "Authentication error" }, { status: 401 })
+    if (userError) {
+      console.error("User authentication error:", userError)
+      return NextResponse.json({ error: "Authentication failed" }, { status: 401 })
     }
 
-    if (!session) {
-      console.error("No session found")
+    if (!user) {
+      console.error("No authenticated user found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userId = session.user.id
+    const userId = user.id
 
     // First, get the basic profile to verify it's a program manager
     const { data: profileData, error: profileError } = await supabaseAdmin
