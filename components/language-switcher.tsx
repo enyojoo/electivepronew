@@ -11,11 +11,11 @@ export function LanguageSwitcher() {
     setLanguage(language === "en" ? "ru" : "en")
   }
 
-  // Show the language you can switch TO, not the current language
+  // Show the current language with flag and selection indicator
+  const currentFlag = language === "ru" ? "ru" : "gb"
+  const currentLabel = language === "ru" ? "RU" : "EN"
   const targetLanguage = language === "en" ? "ru" : "en"
-  const targetFlag = targetLanguage === "ru" ? "ru" : "gb"
-  const targetLabel = targetLanguage === "ru" ? "Russian" : "English"
-  const targetTitle = language === "en" ? "Switch to Russian" : "Переключить на английский"
+  const title = language === "en" ? "Switch to Russian" : "Переключить на английский"
 
   return (
     <Button
@@ -23,10 +23,13 @@ export function LanguageSwitcher() {
       size="sm"
       onClick={toggleLanguage}
       className="flex items-center gap-2 px-3 py-2 h-9"
-      title={targetTitle}
+      title={title}
     >
-      <CountryFlag code={targetFlag} size={16} />
-      <span className="text-sm">{targetLabel}</span>
+      <CountryFlag code={currentFlag} size={16} />
+      <span className="text-sm font-medium">{currentLabel}</span>
+      <span className="text-xs text-muted-foreground">
+        ({language === "en" ? "selected" : "выбран"})
+      </span>
     </Button>
   )
 }
