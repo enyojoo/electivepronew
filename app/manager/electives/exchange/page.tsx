@@ -122,7 +122,7 @@ export default function ManagerExchangeElectivesPage() {
     }
 
     fetchElectivePacks()
-  }, [supabase, toast, t, getCachedData, setCachedData])
+  }, []) // Remove unstable dependencies that cause infinite re-renders
 
   useEffect(() => {
     let result = [...electivePacks]
@@ -165,16 +165,6 @@ export default function ManagerExchangeElectivesPage() {
         }
 
         const data = await response.json()
-
-        if (error) {
-          console.error("Error refetching elective packs:", error)
-          toast({
-            title: t("common.error"),
-            description: error.message,
-            variant: "destructive",
-          })
-          return
-        }
 
         // Process the data with localized names and course counts
         const processedPacks = (data || []).map((pack) => ({

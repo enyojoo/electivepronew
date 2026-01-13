@@ -115,7 +115,7 @@ export default function ManagerCourseElectivesPage() {
     }
 
     fetchElectivePacks()
-  }, [supabase, toast, t, getCachedData, setCachedData])
+  }, []) // Remove unstable dependencies that cause infinite re-renders
 
   useEffect(() => {
     let result = [...electivePacks]
@@ -158,16 +158,6 @@ export default function ManagerCourseElectivesPage() {
         }
 
         const data = await response.json()
-
-        if (error) {
-          console.error("Error refetching elective packs:", error)
-          toast({
-            title: t("common.error"),
-            description: error.message,
-            variant: "destructive",
-          })
-          return
-        }
 
         // Add course count for each pack
         const packsWithCounts = (data || []).map((pack) => ({
