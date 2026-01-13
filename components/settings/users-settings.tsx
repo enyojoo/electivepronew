@@ -64,7 +64,7 @@ export function UsersSettings() {
   const [editingUser, setEditingUser] = useState<any>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [filteredGroups, setFilteredGroups] = useState<any[]>([])
-  const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString())
+  const [academicYears, setAcademicYears] = useState<any[]>([])
 
   const supabase = getSupabaseBrowserClient()
 
@@ -112,20 +112,111 @@ export function UsersSettings() {
     setCurrentPage(1) // Reset to first page when filters change
   }, [searchTerm, roleFilter, statusFilter, users])
 
-  // Filter groups based on selected degree
+  // Fetch academic years when degree changes (for both student and manager)
   useEffect(() => {
-    if (editingUser?.degreeId && groups && groups.length > 0) {
-      const filtered = groups.filter((group) => group.degreeId === editingUser.degreeId)
-      setFilteredGroups(filtered)
-
-      // Reset group selection if current selection is not valid for new degree
-      if (editingUser.groupId && !filtered.find((g) => g.id === editingUser.groupId)) {
-        setEditingUser((prev) => ({ ...prev, groupId: "" }))
-      }
-    } else {
-      setFilteredGroups([])
+    if (!editingUser?.degreeId) {
+      setAcademicYears([])
+      return
     }
-  }, [editingUser?.degreeId, groups])
+
+    async function fetchAcademicYears() {
+      try {
+        const { data, error } = await supabase
+          .from("academic_years")
+          .select("id, year, degree_id")
+          .eq("degree_id", editingUser.degreeId)
+          .eq("is_active", true)
+          .order("year", { ascending: false })
+
+        if (error) {
+          console.error("Error fetching academic years:", error)
+          setAcademicYears([])
+          return
+        }
+
+        if (data && data.length > 0) {
+          setAcademicYears(data)
+          // If current year is not in the list, reset it
+          if (editingUser.year && !data.find((ay) => ay.year === editingUser.year)) {
+            setEditingUser((prev) => prev ? { ...prev, year: "", groupId: "" } : null)
+          }
+        } else {
+          setAcademicYears([])
+          // Only reset year if it was set, don't clear if user is editing and year was already empty
+          if (editingUser.year) {
+            setEditingUser((prev) => prev ? { ...prev, year: "", groupId: "" } : null)
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching academic years:", error)
+        setAcademicYears([])
+      }
+    }
+
+    fetchAcademicYears()
+  }, [editingUser?.degreeId, supabase])
+
+  // Fetch groups when degree and year change (similar to signup flow)
+  useEffect(() => {
+    if (!editingUser?.degreeId || !editingUser?.year) {
+      setFilteredGroups([])
+      if (editingUser?.groupId) {
+        setEditingUser((prev) => prev ? { ...prev, groupId: "" } : null)
+      }
+      return
+    }
+
+    async function fetchGroups() {
+      try {
+        // Get the academic_year_id for the selected degree and year
+        const { data: academicYearData, error: academicYearError } = await supabase
+          .from("academic_years")
+          .select("id")
+          .eq("degree_id", editingUser.degreeId)
+          .eq("year", editingUser.year)
+          .eq("is_active", true)
+          .maybeSingle()
+
+        if (academicYearError || !academicYearData) {
+          console.error("Error fetching academic year:", academicYearError)
+          setFilteredGroups([])
+          return
+        }
+
+        // Fetch groups for this academic_year_id
+        const { data: groupsData, error: groupsError } = await supabase
+          .from("groups")
+          .select("id, name, academic_year_id, degree_id, status")
+          .eq("academic_year_id", academicYearData.id)
+          .eq("status", "active")
+          .order("name", { ascending: true })
+
+        if (groupsError) {
+          console.error("Error fetching groups:", groupsError)
+          setFilteredGroups([])
+          return
+        }
+
+        if (groupsData && groupsData.length > 0) {
+          setFilteredGroups(groupsData)
+          // Reset group selection if current selection is not valid
+          if (editingUser.groupId && !groupsData.find((g) => g.id === editingUser.groupId)) {
+            setEditingUser((prev) => prev ? { ...prev, groupId: "" } : null)
+          }
+        } else {
+          setFilteredGroups([])
+          if (editingUser.groupId) {
+            setEditingUser((prev) => prev ? { ...prev, groupId: "" } : null)
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching groups:", error)
+        setFilteredGroups([])
+      }
+    }
+
+    fetchGroups()
+  }, [editingUser?.degreeId, editingUser?.year, supabase])
 
   // Get current page items
   const getCurrentPageItems = () => {
@@ -306,7 +397,19 @@ export function UsersSettings() {
   }
 
   const handleEditInputChange = (field: string, value: string) => {
-    setEditingUser((prev: any) => ({ ...prev, [field]: value }))
+    setEditingUser((prev: any) => {
+      const updated = { ...prev, [field]: value }
+      // Reset dependent fields when degree changes
+      if (field === "degreeId") {
+        updated.year = ""
+        updated.groupId = ""
+      }
+      // Reset group when year changes
+      if (field === "year") {
+        updated.groupId = ""
+      }
+      return updated
+    })
   }
 
   const handleSaveUser = async () => {
@@ -848,16 +951,26 @@ export function UsersSettings() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="edit-year" className="text-sm font-medium">{t("admin.users.year")}</Label>
-                          <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
+                          <Select 
+                            value={editingUser.year || undefined} 
+                            onValueChange={(value) => handleEditInputChange("year", value)}
+                            disabled={!editingUser.degreeId || academicYears.length === 0}
+                          >
                             <SelectTrigger id="edit-year" className="h-10">
                               <SelectValue placeholder={t("admin.users.selectYear")} />
                             </SelectTrigger>
                             <SelectContent>
-                              {years.map((year) => (
-                                <SelectItem key={year} value={year}>
-                                  {year}
-                                </SelectItem>
-                              ))}
+                              {academicYears.length > 0 ? (
+                                academicYears.map((academicYear) => (
+                                  <SelectItem key={academicYear.id} value={academicYear.year}>
+                                    {academicYear.year}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  {editingUser.degreeId ? t("admin.groups.noYearsAvailable") || "No years available" : t("admin.users.selectDegreeFirst") || "Select degree first"}
+                                </div>
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -867,7 +980,7 @@ export function UsersSettings() {
                           <Select
                             value={editingUser.groupId || undefined}
                             onValueChange={(value) => handleEditInputChange("groupId", value)}
-                            disabled={!editingUser.degreeId || filteredGroups.length === 0}
+                            disabled={!editingUser.degreeId || !editingUser.year || filteredGroups.length === 0}
                           >
                             <SelectTrigger id="edit-group" className="h-10">
                               <SelectValue placeholder={t("admin.users.group")} />
@@ -881,7 +994,7 @@ export function UsersSettings() {
                                 ))
                               ) : (
                                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                  {t("admin.groups.noGroups")}
+                                  {editingUser.degreeId && editingUser.year ? t("admin.groups.noGroups") : editingUser.degreeId ? t("admin.users.selectYearFirst") || "Select year first" : t("admin.users.selectDegreeFirst") || "Select degree first"}
                                 </div>
                               )}
                             </SelectContent>
@@ -918,16 +1031,26 @@ export function UsersSettings() {
 
                       <div className="space-y-2">
                         <Label htmlFor="edit-manager-year" className="text-sm font-medium">{t("admin.users.year")}</Label>
-                        <Select value={editingUser.year || undefined} onValueChange={(value) => handleEditInputChange("year", value)}>
+                        <Select 
+                          value={editingUser.year || undefined} 
+                          onValueChange={(value) => handleEditInputChange("year", value)}
+                          disabled={!editingUser.degreeId || academicYears.length === 0}
+                        >
                           <SelectTrigger id="edit-manager-year" className="h-10">
                             <SelectValue placeholder={t("admin.users.selectYear")} />
                           </SelectTrigger>
                           <SelectContent>
-                            {years.map((year) => (
-                              <SelectItem key={year} value={year}>
-                                {year}
-                              </SelectItem>
-                            ))}
+                            {academicYears.length > 0 ? (
+                              academicYears.map((academicYear) => (
+                                <SelectItem key={academicYear.id} value={academicYear.year}>
+                                  {academicYear.year}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                {editingUser.degreeId ? t("admin.groups.noYearsAvailable") || "No years available" : t("admin.users.selectDegreeFirst") || "Select degree first"}
+                              </div>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>

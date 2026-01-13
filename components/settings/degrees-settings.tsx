@@ -44,7 +44,14 @@ export function DegreesSettings() {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached)
         if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data)) {
-          return data
+          // Normalize the data to ensure code field is always present
+          return data.map((degree: any) => ({
+            id: degree.id?.toString() || "",
+            name: degree.name || "",
+            nameRu: degree.name_ru || degree.nameRu || "",
+            code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
+            status: degree.status || "active",
+          }))
         }
       }
     } catch (error) {
@@ -106,9 +113,15 @@ export function DegreesSettings() {
 
   // Sync filteredDegrees with degrees when degrees change (from cache or fetch)
   // This ensures filteredDegrees is always in sync with degrees when no search is active
+  // Also normalize the data to ensure code field is always present
   useEffect(() => {
     if (!searchTerm) {
-      setFilteredDegrees(degrees)
+      // Normalize degrees to ensure code field is always present
+      const normalized = degrees.map((degree: any) => ({
+        ...degree,
+        code: degree.code ?? "", // Ensure code is always a string
+      }))
+      setFilteredDegrees(normalized)
     }
   }, [degrees, searchTerm])
 
@@ -128,10 +141,10 @@ export function DegreesSettings() {
         if (error) throw error
 
         const formattedDegrees = (data || []).map((degree) => ({
-          id: degree.id.toString(),
-          name: degree.name,
+          id: degree.id?.toString() || "",
+          name: degree.name || "",
           nameRu: degree.name_ru || "",
-          code: degree.code || "",
+          code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
           status: degree.status || "active",
         }))
 
@@ -164,7 +177,12 @@ export function DegreesSettings() {
   // Filter degrees based on search term
   useEffect(() => {
     if (!searchTerm) {
-      setFilteredDegrees(degrees)
+      // Normalize degrees to ensure code field is always present
+      const normalized = degrees.map((degree: any) => ({
+        ...degree,
+        code: degree.code ?? "", // Ensure code is always a string
+      }))
+      setFilteredDegrees(normalized)
       return
     }
 
@@ -173,12 +191,17 @@ export function DegreesSettings() {
       return
     }
 
-    const filtered = degrees.filter(
-      (degree) =>
-        (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
-    )
+    const filtered = degrees
+      .map((degree: any) => ({
+        ...degree,
+        code: degree.code ?? "", // Normalize code field
+      }))
+      .filter(
+        (degree) =>
+          (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
+      )
 
     setFilteredDegrees(filtered)
   }, [searchTerm, degrees])
@@ -273,10 +296,29 @@ export function DegreesSettings() {
 
         if (error) throw error
 
-        // Invalidate cache and trigger refetch
+        // Update local state immediately to preserve all fields
         if (isMounted.current) {
-          localStorage.removeItem(DEGREES_CACHE_KEY)
-          setIsLoadingDegrees(true)
+          const updatedDegrees = degrees.map((d) =>
+            d.id === currentDegree.id
+              ? {
+                  ...d,
+                  name: currentDegree.name,
+                  nameRu: currentDegree.nameRu,
+                  code: currentDegree.code ?? "",
+                  status: currentDegree.status,
+                }
+              : d,
+          )
+          setDegrees(updatedDegrees)
+
+          // Update cache with the new data
+          localStorage.setItem(
+            DEGREES_CACHE_KEY,
+            JSON.stringify({
+              data: updatedDegrees,
+              timestamp: Date.now(),
+            }),
+          )
 
           toast({
             title: t("admin.degrees.success"),
@@ -298,9 +340,25 @@ export function DegreesSettings() {
         if (error) throw error
 
         if (data && data[0] && isMounted.current) {
-          // Invalidate cache and trigger refetch
-          localStorage.removeItem(DEGREES_CACHE_KEY)
-          setIsLoadingDegrees(true)
+          // Add new degree to local state immediately
+          const newDegree = {
+            id: data[0].id.toString(),
+            name: data[0].name,
+            nameRu: data[0].name_ru || "",
+            code: data[0].code ?? "",
+            status: data[0].status || "active",
+          }
+          const updatedDegrees = [...degrees, newDegree]
+          setDegrees(updatedDegrees)
+
+          // Update cache with the new data
+          localStorage.setItem(
+            DEGREES_CACHE_KEY,
+            JSON.stringify({
+              data: updatedDegrees,
+              timestamp: Date.now(),
+            }),
+          )
 
           toast({
             title: t("admin.degrees.success"),
@@ -341,9 +399,18 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache and trigger refetch
-        localStorage.removeItem(DEGREES_CACHE_KEY)
-        setIsLoadingDegrees(true)
+        // Remove degree from local state immediately
+        const updatedDegrees = degrees.filter((d) => d.id !== degreeToDelete)
+        setDegrees(updatedDegrees)
+
+        // Update cache with the new data
+        localStorage.setItem(
+          DEGREES_CACHE_KEY,
+          JSON.stringify({
+            data: updatedDegrees,
+            timestamp: Date.now(),
+          }),
+        )
 
         toast({
           title: t("admin.degrees.success"),
@@ -377,9 +444,26 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Invalidate cache and trigger refetch
-        localStorage.removeItem(DEGREES_CACHE_KEY)
-        setIsLoadingDegrees(true)
+        // Update local state immediately to preserve all fields including code
+        const updatedDegrees = degrees.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                status: newStatus,
+                code: d.code ?? "", // Preserve code field
+              }
+            : d,
+        )
+        setDegrees(updatedDegrees)
+
+        // Update cache with the new data
+        localStorage.setItem(
+          DEGREES_CACHE_KEY,
+          JSON.stringify({
+            data: updatedDegrees,
+            timestamp: Date.now(),
+          }),
+        )
 
         toast({
           title: t("admin.degrees.success"),
