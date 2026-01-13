@@ -35,7 +35,6 @@ export function DegreesSettings() {
   const [degrees, setDegrees] = useState<any[]>([])
   const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
   const { toast } = useToast()
-  const supabase = getSupabaseBrowserClient()
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentDegree, setCurrentDegree] = useState<DegreeFormData>({
