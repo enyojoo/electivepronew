@@ -264,6 +264,134 @@ export default function ManagerDashboard() {
     fetchUpcomingDeadlines()
   }, [supabase, language])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    // Helper function to refetch and update a specific stat
+    const refetchStat = async (table: string, statKey: "courses" | "exchange") => {
+      try {
+        console.log(`Refetching ${table} count for manager dashboard...`)
+        const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true })
+        if (error) {
+          console.error(`Error fetching ${table} count:`, error)
+          return
+        }
+        console.log(`${table} count updated:`, count)
+
+        // Update the specific stat in state
+        if (statKey === "courses") {
+          setElectiveCounts(prev => ({ ...prev, courses: count || 0 }))
+        } else if (statKey === "exchange") {
+          setElectiveCounts(prev => ({ ...prev, exchange: count || 0 }))
+        }
+
+        // Clear cache to force fresh data on next load
+        localStorage.removeItem(ELECTIVE_COUNTS_CACHE_KEY)
+      } catch (error) {
+        console.error(`Error in refetchStat for ${table}:`, error)
+      }
+    }
+
+    // Helper function to refetch deadlines
+    const refetchDeadlines = async () => {
+      try {
+        console.log("Refetching deadlines for manager dashboard...")
+
+        // Get current date
+        const now = new Date()
+
+        // Fetch course electives with deadlines
+        const { data: courseElectives, error: courseError } = await supabase
+          .from("elective_courses")
+          .select("id, name, name_ru, deadline, status")
+          .eq("status", "active")
+          .not("deadline", "is", null)
+          .gte("deadline", now.toISOString())
+          .order("deadline", { ascending: true })
+          .limit(5)
+
+        // Fetch exchange programs with deadlines
+        const { data: exchangePrograms, error: exchangeError } = await supabase
+          .from("elective_exchange")
+          .select("id, name, name_ru, deadline, status")
+          .eq("status", "published")
+          .not("deadline", "is", null)
+          .gte("deadline", now.toISOString())
+          .order("deadline", { ascending: true })
+          .limit(5)
+
+        if (!courseError && !exchangeError) {
+          // Process course electives
+          const courseDeadlines = (courseElectives || []).map((item) => ({
+            id: item.id,
+            title: language === "ru" && item.name_ru ? item.name_ru : item.name,
+            date: item.deadline,
+            daysLeft: calculateDaysLeft(item.deadline),
+            type: "course" as const,
+          }))
+
+          // Process exchange programs
+          const exchangeDeadlines = (exchangePrograms || []).map((item) => ({
+            id: item.id,
+            title: language === "ru" && item.name_ru ? item.name_ru : item.name,
+            date: item.deadline,
+            daysLeft: calculateDaysLeft(item.deadline),
+            type: "exchange" as const,
+          }))
+
+          // Combine and sort by closest deadline
+          const allDeadlines = [...courseDeadlines, ...exchangeDeadlines]
+            .sort((a, b) => a.daysLeft - b.daysLeft)
+            .slice(0, 5) // Take top 5 closest deadlines
+
+          setUpcomingDeadlines(allDeadlines)
+
+          // Clear deadlines cache
+          localStorage.removeItem(DEADLINES_CACHE_KEY)
+        }
+      } catch (error) {
+        console.error("Error refetching deadlines:", error)
+      }
+    }
+
+    const channels = [
+      supabase
+        .channel("elective-courses-manager-dashboard")
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, (payload) => {
+          console.log("Elective courses change detected:", payload)
+          refetchStat("elective_courses", "courses")
+          refetchDeadlines()
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Manager dashboard subscribed to elective_courses changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to elective_courses changes")
+          }
+        }),
+
+      supabase
+        .channel("elective-exchange-manager-dashboard")
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, (payload) => {
+          console.log("Elective exchange change detected:", payload)
+          refetchStat("elective_exchange", "exchange")
+          refetchDeadlines()
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Manager dashboard subscribed to elective_exchange changes")
+          } else if (status === "CHANNEL_ERROR") {
+            console.error("✗ Error subscribing to elective_exchange changes")
+          }
+        }),
+    ]
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel)
+      })
+    }
+  }, [supabase, language])
 
   // Log when component mounts/unmounts to track re-renders
   useEffect(() => {

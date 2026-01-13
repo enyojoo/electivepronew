@@ -126,6 +126,67 @@ export default function ManagerExchangeElectivesPage() {
     setFilteredPacks(result)
   }, [searchTerm, statusFilter, electivePacks])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    // Helper function to refetch elective packs
+    const refetchElectivePacks = async () => {
+      try {
+        console.log("Refetching elective packs for exchange electives page...")
+        setIsLoading(true)
+
+        const { data, error } = await supabase
+          .from("elective_exchange")
+          .select("*")
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("Error refetching elective packs:", error)
+          toast({
+            title: t("common.error"),
+            description: error.message,
+            variant: "destructive",
+          })
+          return
+        }
+
+        // Process the data with localized names and course counts
+        const processedPacks = (data || []).map((pack) => ({
+          ...pack,
+          course_count: Array.isArray(pack.courses) ? pack.courses.length : 0,
+        }))
+
+        setElectivePacks(processedPacks)
+        setFilteredPacks(processedPacks)
+
+        // Update cache
+        setCachedData("exchangePrograms", processedPacks)
+      } catch (error) {
+        console.error("Error in refetchElectivePacks:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    const channel = supabase
+      .channel("elective-exchange-manager-page")
+      .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, (payload) => {
+        console.log("Elective exchange change detected on manager page:", payload)
+        refetchElectivePacks()
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✓ Manager exchange electives page subscribed to elective_exchange changes")
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("✗ Error subscribing to elective_exchange changes on manager page")
+        }
+      })
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, toast, t, setCachedData])
+
   const getLocalizedName = (pack: ElectivePack) => {
     if (language === "ru" && pack.name_ru) {
       return pack.name_ru
