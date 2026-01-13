@@ -79,6 +79,23 @@ export function DataCacheProvider({ children }: DataCacheProviderProps) {
       }
       return newCache
     })
+    
+    // Also remove from localStorage if it's a known cache key that uses localStorage
+    // This helps hooks like useCachedDegrees that use localStorage directly
+    if (typeof window !== "undefined") {
+      const localStorageKeys: Record<string, string> = {
+        degrees: "admin_degrees_cache",
+        groups: "admin_groups_cache",
+        users: "admin_users_cache",
+        academic_years: "admin_academic_years_cache",
+      }
+      
+      const localStorageKey = localStorageKeys[cacheKey]
+      if (localStorageKey) {
+        localStorage.removeItem(localStorageKey)
+        console.log(`localStorage cache invalidated for ${localStorageKey}`)
+      }
+    }
   }, [])
 
   const getCacheVersion = useCallback((cacheKey: string, id: string): number => {

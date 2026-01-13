@@ -13,27 +13,12 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Search, Plus, MoreHorizontal, Pencil, Trash2, Loader2 } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
+import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { cleanupDialogEffects } from "@/lib/dialog-utils"
 import { Skeleton } from "@/components/ui/skeleton"
-import { TableSkeleton } from "@/components/ui/table-skeleton"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
-
-// Cache key
-const DEGREES_CACHE_KEY = "admin_degrees_cache"
-const CACHE_EXPIRY = 60 * 60 * 1000 // 1 hour
-
-// Helper function to normalize degree data - ensures code field is always present
-const normalizeDegree = (degree: any) => ({
-  id: degree.id?.toString() || "",
-  name: degree.name || "",
-  nameRu: degree.name_ru || degree.nameRu || "",
-  code: degree.code ?? "", // Use nullish coalescing to handle null/undefined
-  status: degree.status || "active",
-})
-
-// Helper function to normalize array of degrees
-const normalizeDegrees = (degrees: any[]) => degrees.map(normalizeDegree)
+import { useDataCache } from "@/lib/data-cache-context"
+import { useCachedDegrees } from "@/hooks/use-cached-degrees"
 
 interface DegreeFormData {
   id?: string
@@ -45,44 +30,12 @@ interface DegreeFormData {
 
 export function DegreesSettings() {
   const { t, language } = useLanguage()
+  const { invalidateCache } = useDataCache()
+  const { degrees: cachedDegrees, isLoading: isLoadingDegrees } = useCachedDegrees()
+  const [degrees, setDegrees] = useState<any[]>([])
+  const [filteredDegrees, setFilteredDegrees] = useState<any[]>([])
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  
-  // Initialize from cache synchronously to prevent flicker
-  const [degrees, setDegrees] = useState<any[]>(() => {
-    if (typeof window === "undefined") return []
-    try {
-      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
-        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data)) {
-          // Normalize the data to ensure code field is always present
-          return normalizeDegrees(data)
-        }
-      }
-    } catch (error) {
-      console.error("Error loading cached degrees in initializer:", error)
-    }
-    return []
-  })
-  
-  // Initialize filteredDegrees with normalized degrees to ensure code field is present
-  const [filteredDegrees, setFilteredDegrees] = useState<any[]>(() => normalizeDegrees(degrees))
-  const [isLoadingDegrees, setIsLoadingDegrees] = useState(() => {
-    if (typeof window === "undefined") return true
-    try {
-      const cached = localStorage.getItem(DEGREES_CACHE_KEY)
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
-        if (Date.now() - timestamp < CACHE_EXPIRY && data && Array.isArray(data) && data.length > 0) {
-          return false // Already have cached data, not loading
-        }
-      }
-    } catch (error) {
-      // Ignore errors in initializer
-    }
-    return true
-  })
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentDegree, setCurrentDegree] = useState<DegreeFormData>({
@@ -118,73 +71,54 @@ export function DegreesSettings() {
     }
   }, [])
 
-  // Sync and filter filteredDegrees based on degrees and search term
-  // Always normalize to ensure code field is present
+  // Format and set degrees from cached data
   useEffect(() => {
-    if (degrees.length === 0) {
-      setFilteredDegrees([])
+    // If we're still loading, don't update yet
+    if (isLoadingDegrees) {
       return
     }
 
-    // Normalize degrees first to ensure code field is always present
-    const normalized = normalizeDegrees(degrees)
-
-    if (!searchTerm) {
-      setFilteredDegrees(normalized)
-    } else {
-      // Filter based on search term
-      const filtered = normalized.filter(
-        (degree) =>
-          (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-      setFilteredDegrees(filtered)
-    }
-  }, [degrees, searchTerm])
-
-  // Fetch degrees from Supabase
-  useEffect(() => {
-    const fetchDegrees = async () => {
-      if (!isLoadingDegrees) {
-        return
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("degrees")
-          .select("id, name, name_ru, code, status")
-          .order("name", { ascending: true })
-
-        if (error) throw error
-
-        const formattedDegrees = normalizeDegrees(data || [])
+    // If we have cached degrees (even if empty array), format and set them
+    if (cachedDegrees !== null && cachedDegrees !== undefined) {
+      if (cachedDegrees.length > 0) {
+        const formattedDegrees = cachedDegrees.map((degree) => ({
+          id: degree.id.toString(),
+          name: degree.name,
+          nameRu: degree.name_ru || "",
+          code: degree.code ?? "", // Ensure code is always present
+          status: degree.status,
+        }))
 
         setDegrees(formattedDegrees)
         setFilteredDegrees(formattedDegrees)
-
-        // Cache the degrees data
-        localStorage.setItem(
-          DEGREES_CACHE_KEY,
-          JSON.stringify({
-            data: formattedDegrees,
-            timestamp: Date.now(),
-          }),
-        )
-      } catch (error: any) {
-        console.error("Error fetching degrees:", error)
-        toast({
-          title: t("admin.degrees.error"),
-          description: error.message || t("admin.degrees.errorFetching"),
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingDegrees(false)
+      } else {
+        // Empty array - no degrees found
+        setDegrees([])
+        setFilteredDegrees([])
       }
+    } else {
+      // No cached data and not loading - set empty
+      setDegrees([])
+      setFilteredDegrees([])
+    }
+  }, [cachedDegrees, isLoadingDegrees])
+
+  // Filter degrees based on search term
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredDegrees(degrees)
+      return
     }
 
-    fetchDegrees()
-  }, [supabase, toast, t, isLoadingDegrees])
+    const filtered = degrees.filter(
+      (degree) =>
+        degree.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        degree.nameRu.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
+    )
+
+    setFilteredDegrees(filtered)
+  }, [degrees, searchTerm])
 
 
   // Function to safely open the dialog
@@ -277,31 +211,9 @@ export function DegreesSettings() {
 
         if (error) throw error
 
-        // Update local state immediately to preserve all fields
+        // Invalidate cache to trigger refetch
         if (isMounted.current) {
-          const updatedDegrees = normalizeDegrees(
-            degrees.map((d) =>
-              d.id === currentDegree.id
-                ? {
-                    ...d,
-                    name: currentDegree.name,
-                    nameRu: currentDegree.nameRu,
-                    code: currentDegree.code ?? "",
-                    status: currentDegree.status,
-                  }
-                : d,
-            ),
-          )
-          setDegrees(updatedDegrees)
-
-          // Update cache with the normalized data
-          localStorage.setItem(
-            DEGREES_CACHE_KEY,
-            JSON.stringify({
-              data: updatedDegrees,
-              timestamp: Date.now(),
-            }),
-          )
+          invalidateCache("degrees", "all")
 
           toast({
             title: t("admin.degrees.success"),
@@ -323,19 +235,8 @@ export function DegreesSettings() {
         if (error) throw error
 
         if (data && data[0] && isMounted.current) {
-          // Add new degree to local state immediately
-          const newDegree = normalizeDegree(data[0])
-          const updatedDegrees = normalizeDegrees([...degrees, newDegree])
-          setDegrees(updatedDegrees)
-
-          // Update cache with the normalized data
-          localStorage.setItem(
-            DEGREES_CACHE_KEY,
-            JSON.stringify({
-              data: updatedDegrees,
-              timestamp: Date.now(),
-            }),
-          )
+          // Invalidate cache to trigger refetch
+          invalidateCache("degrees", "all")
 
           toast({
             title: t("admin.degrees.success"),
@@ -376,18 +277,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Remove degree from local state immediately
-        const updatedDegrees = normalizeDegrees(degrees.filter((d) => d.id !== degreeToDelete))
-        setDegrees(updatedDegrees)
-
-        // Update cache with the normalized data
-        localStorage.setItem(
-          DEGREES_CACHE_KEY,
-          JSON.stringify({
-            data: updatedDegrees,
-            timestamp: Date.now(),
-          }),
-        )
+        // Invalidate cache to trigger refetch
+        invalidateCache("degrees", "all")
 
         toast({
           title: t("admin.degrees.success"),
@@ -421,28 +312,8 @@ export function DegreesSettings() {
       if (error) throw error
 
       if (isMounted.current) {
-        // Update local state immediately to preserve all fields including code
-        const updatedDegrees = normalizeDegrees(
-          degrees.map((d) =>
-            d.id === id
-              ? {
-                  ...d,
-                  status: newStatus,
-                  code: d.code ?? "", // Preserve code field
-                }
-              : d,
-          ),
-        )
-        setDegrees(updatedDegrees)
-
-        // Update cache with the normalized data
-        localStorage.setItem(
-          DEGREES_CACHE_KEY,
-          JSON.stringify({
-            data: updatedDegrees,
-            timestamp: Date.now(),
-          }),
-        )
+        // Invalidate cache to trigger refetch
+        invalidateCache("degrees", "all")
 
         toast({
           title: t("admin.degrees.success"),
