@@ -85,33 +85,20 @@ export default function ManagerCourseElectivesPage() {
           return
         }
 
-        const { data: packs, error } = await supabase
-          .from("elective_courses")
-          .select(`
-            *,
-            academic_year:academic_year(
-              id,
-              name,
-              start_year,
-              end_year
-            ),
-            group:group_id(
-              id,
-              name
-            ),
-            created_by_profile:created_by(
-              id,
-              full_name
-            )
-          `)
-          .order("created_at", { ascending: false })
+        // Use API route instead of direct database query
+        const response = await fetch('/api/manager/electives/course', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
 
-        if (error) throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `API error: ${response.status}`)
+        }
 
-        const packsWithCounts = (packs || []).map((pack) => ({
-          ...pack,
-          course_count: pack.courses?.length || 0,
-        }))
+        const packsWithCounts = await response.json()
 
         setElectivePacks(packsWithCounts)
         setFilteredPacks(packsWithCounts)
@@ -158,26 +145,20 @@ export default function ManagerCourseElectivesPage() {
         console.log("Refetching elective packs for course electives page...")
         setIsLoading(true)
 
-        const { data, error } = await supabase
-          .from("elective_courses")
-          .select(`
-            *,
-            academic_year:academic_year(
-              id,
-              name,
-              start_year,
-              end_year
-            ),
-            group:group_id(
-              id,
-              name
-            ),
-            created_by_profile:created_by(
-              id,
-              full_name
-            )
-          `)
-          .order("created_at", { ascending: false })
+        const response = await fetch('/api/manager/electives/course', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Error refetching elective packs:", errorData)
+          return
+        }
+
+        const data = await response.json()
 
         if (error) {
           console.error("Error refetching elective packs:", error)
@@ -299,9 +280,19 @@ export default function ManagerCourseElectivesPage() {
 
     try {
       setIsDeleting(true)
-      const { error } = await supabase.from("elective_courses").delete().eq("id", packToDelete)
 
-      if (error) throw error
+      // Use API route instead of direct database query
+      const response = await fetch(`/api/manager/electives/course?id=${packToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `API error: ${response.status}`)
+      }
 
       invalidateCache("coursePrograms")
       localStorage.removeItem("admin_dashboard_stats_cache")

@@ -92,36 +92,20 @@ export default function ManagerExchangeElectivesPage() {
           return
         }
 
-        const { data: packs, error } = await supabase
-          .from("elective_exchange")
-          .select(`
-            *,
-            academic_year:academic_year(
-              id,
-              name,
-              start_year,
-              end_year
-            ),
-            group:group_id(
-              id,
-              name
-            ),
-            created_by_profile:created_by(
-              id,
-              full_name
-            )
-          `)
-          .order("created_at", { ascending: false })
+        // Use API route instead of direct database query
+        const response = await fetch('/api/manager/electives/exchange', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
 
-        if (error) {
-          console.error("Error fetching exchange programs:", error)
-          throw error
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `API error: ${response.status}`)
         }
 
-        const processedPacks = (packs || []).map((pack) => ({
-          ...pack,
-          university_count: pack.universities?.length || 0,
-        }))
+        const processedPacks = await response.json()
 
         setCachedData(cacheKey, processedPacks)
         setElectivePacks(processedPacks)
@@ -168,26 +152,20 @@ export default function ManagerExchangeElectivesPage() {
         console.log("Refetching elective packs for exchange electives page...")
         setIsLoading(true)
 
-        const { data, error } = await supabase
-          .from("elective_exchange")
-          .select(`
-            *,
-            academic_year:academic_year(
-              id,
-              name,
-              start_year,
-              end_year
-            ),
-            group:group_id(
-              id,
-              name
-            ),
-            created_by_profile:created_by(
-              id,
-              full_name
-            )
-          `)
-          .order("created_at", { ascending: false })
+        const response = await fetch('/api/manager/electives/exchange', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error("Error refetching elective packs:", errorData)
+          return
+        }
+
+        const data = await response.json()
 
         if (error) {
           console.error("Error refetching elective packs:", error)
@@ -318,9 +296,18 @@ export default function ManagerExchangeElectivesPage() {
     if (!packToDelete) return
 
     try {
-      const { error } = await supabase.from("elective_exchange").delete().eq("id", packToDelete)
+      // Use API route instead of direct database query
+      const response = await fetch(`/api/manager/electives/exchange?id=${packToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `API error: ${response.status}`)
+      }
 
       invalidateCache("exchangePrograms")
       localStorage.removeItem("admin_dashboard_stats_cache")
