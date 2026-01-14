@@ -114,8 +114,8 @@ export default function ExchangeEditPage() {
           endDate: exchangeData.deadline ? exchangeData.deadline.split('T')[0] : "",
         })
 
-        // Load selected universities
-        setSelectedUniversities(exchangeData.universities || [])
+        // Load selected universities - map to IDs only
+        setSelectedUniversities(exchangeData.universities?.map((university: any) => university.id) || [])
 
         // Load available universities for selection
         await loadAvailableUniversities()

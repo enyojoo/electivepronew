@@ -121,8 +121,8 @@ export default function ElectiveCourseEditPage() {
           endDate: electiveData.deadline ? electiveData.deadline.split('T')[0] : "",
         })
 
-        // Load selected courses
-        setSelectedCourses(electiveData.courses || [])
+        // Load selected courses - map to IDs only
+        setSelectedCourses(electiveData.courses?.map((course: any) => course.id) || [])
 
         // Load available courses for selection
         await loadAvailableCourses()
