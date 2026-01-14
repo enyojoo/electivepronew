@@ -29,6 +29,52 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
+
+// Cache constants
+const COURSE_DETAIL_CACHE_KEY = "courseDetailData"
+const COURSE_SELECTIONS_CACHE_KEY = "courseSelectionsData"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
+
+const invalidateCache = (key: string) => {
+  try {
+    localStorage.removeItem(key)
+  } catch (error) {
+    console.error(`Error invalidating cache (${key}):`, error)
+  }
+}
 import { Toaster } from "@/components/ui/toaster"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
@@ -104,6 +150,7 @@ export default function ElectiveCourseDetailPage() {
         },
         async () => {
           // Refetch student selections when they change
+          const courseId = params.id as string
           const { data: selections, error: selectionsError } = await supabase
             .from("course_selections")
             .select(`
@@ -114,10 +161,13 @@ export default function ElectiveCourseDetailPage() {
                 email
               )
             `)
-            .eq("elective_courses_id", params.id as string)
+            .eq("elective_courses_id", courseId)
 
           if (!selectionsError && selections) {
             setStudentSelections(selections)
+            // Update cache with new selections
+            const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+            setCachedData(selectionsCacheKey, selections)
           }
         },
       )
@@ -128,19 +178,48 @@ export default function ElectiveCourseDetailPage() {
     }
   }, [supabase, params.id])
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
 
+      const courseId = params.id as string
+      const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
+      const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+
+      // Try to load from cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedData = getCachedData(cacheKey)
+        const cachedSelections = getCachedData(selectionsCacheKey)
+
+        if (cachedData) {
+          setElectiveCourse(cachedData)
+          setCourses(cachedData.courses || [])
+        }
+
+        if (cachedSelections) {
+          setStudentSelections(cachedSelections)
+        }
+
+        // If we have both cached data, don't fetch from API
+        if (cachedData && cachedSelections) {
+          setLoading(false)
+          return
+        }
+      }
+
       // Load course program data from API
-      const response = await fetch(`/api/manager/electives/course/${params.id as string}`)
+      const response = await fetch(`/api/manager/electives/course/${courseId}`)
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to load course program")
       }
 
       const data = await response.json()
+
+      // Cache the data
+      setCachedData(cacheKey, data)
+      setCachedData(selectionsCacheKey, data.studentSelections || [])
 
       setElectiveCourse(data)
       setCourses(data.courses || [])

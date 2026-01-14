@@ -19,6 +19,43 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { useToast } from "@/components/ui/use-toast"
+
+// Cache constants
+const EXCHANGE_EDIT_CACHE_KEY = "exchangeEditData"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
@@ -59,7 +96,6 @@ export default function ExchangeEditPage() {
   const totalSteps = 3
 
   // Loading states
-  const [isLoading, setIsLoading] = useState(true)
   const [isLoadingUniversities, setIsLoadingUniversities] = useState(false)
 
   // Data states
@@ -88,16 +124,31 @@ export default function ExchangeEditPage() {
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
+      const exchangeId = params.id as string
+      if (!exchangeId || exchangeId === 'undefined' || !userId) return
+
+      const cacheKey = `${EXCHANGE_EDIT_CACHE_KEY}_${exchangeId}`
+
+      // Try to load from cache first for instant loading
+      const cachedData = getCachedData(cacheKey)
+      if (cachedData) {
+        console.log("Loading exchange from cache:", cachedData)
+        setExchangeProgram(cachedData)
+
+        // Populate form with existing data
+        setFormData({
+          semester: cachedData.semester || "",
+          groupId: cachedData.group_id || "",
+          maxSelections: cachedData.max_selections || 2,
+          endDate: cachedData.deadline ? cachedData.deadline.split('T')[0] : "",
+        })
+
+        // Load selected universities - map to IDs only
+        setSelectedUniversities(cachedData.universities?.map((university: any) => university.id) || [])
+      }
+
       try {
-        setIsLoading(true)
-
-        // Check if params.id exists
-        const exchangeId = params.id as string
-        if (!exchangeId || exchangeId === 'undefined') {
-          throw new Error("Invalid exchange program ID")
-        }
-
-        // Load exchange program data
+        // Load exchange program data from API (refresh cache in background)
         const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
         if (!response.ok) {
           const errorData = await response.json()
@@ -107,6 +158,9 @@ export default function ExchangeEditPage() {
         const exchangeData = await response.json()
         console.log("Loaded exchange data:", exchangeData)
         console.log("Statement URL:", exchangeData.statement_template_url)
+
+        // Update cache with fresh data
+        setCachedData(cacheKey, exchangeData)
         setExchangeProgram(exchangeData)
 
         // Populate form with existing data
@@ -130,14 +184,10 @@ export default function ExchangeEditPage() {
           description: "Failed to load exchange program data",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
       }
     }
 
-    if (userId && params.id && (params.id as string) !== 'undefined') {
-      loadData()
-    }
+    loadData()
   }, [params.id, userId])
 
   // Load available universities
@@ -323,20 +373,7 @@ export default function ExchangeEditPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">{t("manager.exchangeBuilder.loading", "Loading...")}</p>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  // No loading spinner - page loads instantly from cache
 
   if (!exchangeProgram) {
     return (

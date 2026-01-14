@@ -29,6 +29,44 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
+
+// Cache constants
+const EXCHANGE_DETAIL_CACHE_KEY = "exchangeDetailData"
+const EXCHANGE_SELECTIONS_CACHE_KEY = "exchangeSelectionsData"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
 import { Toaster } from "@/components/ui/toaster"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import {
@@ -126,8 +164,16 @@ export default function ExchangeDetailPage() {
         async () => {
           // Refetch student selections when they change
           try {
-            const selections = await getExchangeSelections(params.id as string)
-            setStudentSelections(selections)
+            const exchangeId = params.id as string
+            // For real-time updates, we need to refetch from API
+            const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
+            if (response.ok) {
+              const data = await response.json()
+              setStudentSelections(data.studentSelections || [])
+              // Update cache
+              const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${exchangeId}`
+              setCachedData(selectionsCacheKey, data.studentSelections || [])
+            }
           } catch (error) {
             console.error("Error refetching exchange selections after real-time update:", error)
           }
@@ -140,34 +186,55 @@ export default function ExchangeDetailPage() {
     }
   }, [supabase, params.id])
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
 
-      console.log("Loading exchange program with ID:", params.id)
+      const exchangeId = params.id as string
+      const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${exchangeId}`
+      const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${exchangeId}`
 
-      // Load exchange program
-      const program = await getExchangeProgram(params.id as string)
-      console.log("Exchange program loaded:", program)
-      setExchangeProgram(program)
+      // Try to load from cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedData = getCachedData(cacheKey)
+        const cachedSelections = getCachedData(selectionsCacheKey)
 
-      // Load universities from the universities column
-      if (program.universities && program.universities.length > 0) {
-        console.log("Loading universities with IDs:", program.universities)
-        const universitiesData = await getUniversitiesFromIds(program.universities)
-        console.log("Universities loaded:", universitiesData)
-        setUniversities(universitiesData)
-      } else {
-        console.log("No universities found in program")
-        setUniversities([])
+        if (cachedData) {
+          setExchangeProgram(cachedData)
+          setUniversities(cachedData.universities || [])
+        }
+
+        if (cachedSelections) {
+          setStudentSelections(cachedSelections)
+        }
+
+        // If we have both cached data, don't fetch from API
+        if (cachedData && cachedSelections) {
+          setLoading(false)
+          return
+        }
       }
 
-      // Load student selections
-      console.log("Loading student selections for exchange ID:", params.id)
-      const selections = await getExchangeSelections(params.id as string)
-      console.log("Student selections loaded:", selections)
-      setStudentSelections(selections)
+      console.log("Loading exchange program with ID:", exchangeId)
+
+      // Load exchange program data from API
+      const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to load exchange program")
+      }
+
+      const data = await response.json()
+      console.log("Exchange program loaded:", data)
+
+      // Cache the data
+      setCachedData(cacheKey, data)
+      setCachedData(selectionsCacheKey, data.studentSelections || [])
+
+      setExchangeProgram(data)
+      setUniversities(data.universities || [])
+      setStudentSelections(data.studentSelections || [])
     } catch (error) {
       console.error("Error loading data:", error)
       setError(error instanceof Error ? error.message : "Failed to load exchange program data")

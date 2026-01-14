@@ -19,6 +19,43 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { useToast } from "@/components/ui/use-toast"
+
+// Cache constants
+const COURSE_EDIT_CACHE_KEY = "courseEditData"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
@@ -61,7 +98,6 @@ export default function ElectiveCourseEditPage() {
   const totalSteps = 3
 
   // Loading states
-  const [isLoading, setIsLoading] = useState(true)
   const [isLoadingCourses, setIsLoadingCourses] = useState(false)
 
   // Data states
@@ -90,20 +126,34 @@ export default function ElectiveCourseEditPage() {
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
-      try {
-        setIsLoading(true)
+      const courseId = params.id as string
+      if (!courseId || courseId === 'undefined' || !userId) return
 
+      const cacheKey = `${COURSE_EDIT_CACHE_KEY}_${courseId}`
+
+      // Try to load from cache first for instant loading
+      const cachedData = getCachedData(cacheKey)
+      if (cachedData) {
+        console.log("Loading from cache:", cachedData)
+        setElectiveCourse(cachedData)
+
+        // Populate form with existing data
+        setFormData({
+          semester: cachedData.semester || "",
+          groupId: cachedData.group_id || "",
+          maxSelections: cachedData.max_selections || 2,
+          endDate: cachedData.deadline ? cachedData.deadline.split('T')[0] : "",
+        })
+
+        // Load selected courses - map to IDs only
+        setSelectedCourses(cachedData.courses?.map((course: any) => course.id) || [])
+      }
+
+      try {
         console.log("Edit page params:", params)
         console.log("Edit page params.id:", params.id)
 
-        // Check if params.id exists
-        const courseId = params.id as string
-        if (!courseId || courseId === 'undefined') {
-          console.error("Invalid course ID:", courseId)
-          throw new Error("Invalid course ID")
-        }
-
-        // Load elective data
+        // Load elective data from API (refresh cache in background)
         console.log("Fetching data for course ID:", courseId)
         const response = await fetch(`/api/manager/electives/course/${courseId}`)
         if (!response.ok) {
@@ -114,6 +164,9 @@ export default function ElectiveCourseEditPage() {
         const electiveData = await response.json()
         console.log("Loaded elective data:", electiveData)
         console.log("Syllabus URL:", electiveData.syllabus_template_url)
+
+        // Update cache with fresh data
+        setCachedData(cacheKey, electiveData)
         setElectiveCourse(electiveData)
 
         // Populate form with existing data
@@ -137,14 +190,10 @@ export default function ElectiveCourseEditPage() {
           description: "Failed to load course program data",
           variant: "destructive",
         })
-      } finally {
-        setIsLoading(false)
       }
     }
 
-    if (userId && params.id && (params.id as string) !== 'undefined') {
-      loadData()
-    }
+    loadData()
   }, [params.id, userId])
 
   // Load available courses
@@ -334,20 +383,7 @@ export default function ElectiveCourseEditPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">{t("manager.courseBuilder.loading", "Loading...")}</p>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
+  // No loading spinner - page loads instantly from cache
 
   if (!electiveCourse) {
     return (
