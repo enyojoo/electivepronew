@@ -192,6 +192,7 @@ export default function ExchangeBuilderPage() {
 
   // Handle file upload
   const handleFileUpload = async (file: File) => {
+    setSelectedFile(file) // Show file in UI immediately
     setIsUploading(true)
     setUploadProgress(0)
 
@@ -224,6 +225,7 @@ export default function ExchangeBuilderPage() {
           title: t("manager.exchangeBuilder.uploadSuccess"),
           description: file.name,
         })
+        // Keep the file displayed after successful upload
       }
     } catch (error) {
       console.error("Error uploading file:", error)
@@ -232,9 +234,9 @@ export default function ExchangeBuilderPage() {
         description: t("manager.exchangeBuilder.uploadErrorDesc"),
         variant: "destructive",
       })
+      setSelectedFile(null) // Clear file on error
     } finally {
       setIsUploading(false)
-      setSelectedFile(null)
       setUploadProgress(0)
     }
   }

@@ -206,6 +206,7 @@ export default function CourseBuilderPage() {
 
   // Handle file upload
   const handleFileUpload = async (file: File) => {
+    setSelectedFile(file) // Show file in UI immediately
     setIsUploading(true)
     setUploadProgress(0)
 
@@ -238,6 +239,7 @@ export default function CourseBuilderPage() {
           title: t("manager.courseBuilder.uploadSuccess", "Upload Successful"),
           description: file.name,
         })
+        // Keep the file displayed after successful upload
       }
     } catch (error) {
       console.error("Error uploading file:", error)
@@ -246,9 +248,9 @@ export default function CourseBuilderPage() {
         description: t("manager.courseBuilder.uploadErrorDesc", "Failed to upload file"),
         variant: "destructive",
       })
+      setSelectedFile(null) // Clear file on error
     } finally {
       setIsUploading(false)
-      setSelectedFile(null)
       setUploadProgress(0)
     }
   }
