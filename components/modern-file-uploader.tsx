@@ -140,9 +140,6 @@ export function ModernFileUploader({
                 <p className="text-sm font-medium truncate">
                   {existingFileName || "Uploaded file"}
                 </p>
-                <span className="text-xs text-muted-foreground">
-                  (existing file)
-                </span>
               </div>
             </div>
             <div className="flex-shrink-0">

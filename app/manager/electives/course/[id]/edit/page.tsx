@@ -554,7 +554,9 @@ export default function ElectiveCourseEditPage() {
                 accept=".pdf,.doc,.docx"
                 maxSize={10}
                 existingFileUrl={electiveCourse?.syllabus_template_url}
-                existingFileName={electiveCourse?.syllabus_template_url ? "Statement Template" : undefined}
+                existingFileName={electiveCourse?.syllabus_template_url
+                  ? electiveCourse.syllabus_template_url.split('/').pop()
+                  : undefined}
                 onDeleteExisting={() => {
                   setElectiveCourse((prev: any) => ({
                     ...prev,

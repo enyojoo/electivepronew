@@ -543,7 +543,9 @@ export default function ExchangeEditPage() {
                 accept=".pdf,.doc,.docx"
                 maxSize={10}
                 existingFileUrl={exchangeProgram?.statement_template_url}
-                existingFileName={exchangeProgram?.statement_template_url ? "Statement Template" : undefined}
+                existingFileName={exchangeProgram?.statement_template_url
+                  ? exchangeProgram.statement_template_url.split('/').pop()
+                  : undefined}
                 onDeleteExisting={() => {
                   setExchangeProgram((prev: any) => ({
                     ...prev,
