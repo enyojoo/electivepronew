@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { UserRole } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,14 +22,11 @@ import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
-interface ElectiveCourseEditPageProps {
-  params: {
-    id: string
-  }
-}
+// Removed interface as we're using useParams hook
 
-export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPageProps) {
+export default function ElectiveCourseEditPage() {
   const router = useRouter()
+  const params = useParams()
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
@@ -95,8 +92,19 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
       try {
         setIsLoading(true)
 
+        console.log("Edit page params:", params)
+        console.log("Edit page params.id:", params.id)
+
+        // Check if params.id exists
+        const courseId = params.id as string
+        if (!courseId || courseId === 'undefined') {
+          console.error("Invalid course ID:", courseId)
+          throw new Error("Invalid course ID")
+        }
+
         // Load elective data
-        const response = await fetch(`/api/manager/electives/course/${params.id}`)
+        console.log("Fetching data for course ID:", courseId)
+        const response = await fetch(`/api/manager/electives/course/${courseId}`)
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to load course program")
@@ -131,7 +139,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
       }
     }
 
-    if (userId) {
+    if (userId && params.id && (params.id as string) !== 'undefined') {
       loadData()
     }
   }, [params.id, userId])
@@ -276,6 +284,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   // Handle publish
   const handlePublish = async () => {
     try {
+      const courseId = params.id as string
       const { error } = await supabase
         .from("elective_courses")
         .update({
@@ -286,7 +295,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
           courses: selectedCourses,
           status: "published",
         })
-        .eq("id", params.id)
+        .eq("id", courseId)
 
       if (error) throw error
 
@@ -295,7 +304,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
         description: "Course program updated successfully",
       })
 
-      router.push(`/manager/electives/course/${params.id}`)
+      router.push(`/manager/electives/course/${courseId}`)
     } catch (error: any) {
       console.error("Error updating course:", error)
       toast({
@@ -354,7 +363,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Link href={`/manager/electives/course/${params.id}`}>
+            <Link href={`/manager/electives/course/${params.id as string}`}>
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>

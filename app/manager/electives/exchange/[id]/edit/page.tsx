@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { UserRole } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,14 +22,9 @@ import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
-interface ExchangeEditPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
+export default function ExchangeEditPage() {
   const router = useRouter()
+  const params = useParams()
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
@@ -95,8 +90,14 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
       try {
         setIsLoading(true)
 
+        // Check if params.id exists
+        const exchangeId = params.id as string
+        if (!exchangeId || exchangeId === 'undefined') {
+          throw new Error("Invalid exchange program ID")
+        }
+
         // Load exchange program data
-        const response = await fetch(`/api/manager/electives/exchange/${params.id}`)
+        const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
         if (!response.ok) {
           const errorData = await response.json()
           throw new Error(errorData.error || "Failed to load exchange program")
@@ -131,7 +132,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
       }
     }
 
-    if (userId) {
+    if (userId && params.id && (params.id as string) !== 'undefined') {
       loadData()
     }
   }, [params.id, userId])
@@ -272,6 +273,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   // Handle publish
   const handlePublish = async () => {
     try {
+      const exchangeId = params.id as string
       const { error } = await supabase
         .from("elective_exchange")
         .update({
@@ -282,7 +284,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
           universities: selectedUniversities,
           status: "published",
         })
-        .eq("id", params.id)
+        .eq("id", exchangeId)
 
       if (error) throw error
 
@@ -291,7 +293,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
         description: "Exchange program updated successfully",
       })
 
-      router.push(`/manager/electives/exchange/${params.id}`)
+      router.push(`/manager/electives/exchange/${exchangeId}`)
     } catch (error: any) {
       console.error("Error updating exchange program:", error)
       toast({
@@ -350,7 +352,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Link href={`/manager/electives/exchange/${params.id}`}>
+            <Link href={`/manager/electives/exchange/${params.id as string}`}>
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
