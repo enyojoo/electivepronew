@@ -83,6 +83,7 @@ export default function ExchangeEditPage() {
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   // Load data on component mount
   useEffect(() => {
@@ -236,6 +237,7 @@ export default function ExchangeEditPage() {
   const handleFileUpload = async (file: File) => {
     setSelectedFile(file)
     setIsUploading(true)
+    setUploadProgress(0)
 
     try {
       const fileExt = file.name.split(".").pop()
@@ -243,7 +245,18 @@ export default function ExchangeEditPage() {
       const timestamp = Date.now()
       const fileName = `statement_templates/${timestamp}_${originalFileName}`
 
+      // Simulate progress during upload (Supabase doesn't provide progress callbacks)
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + Math.random() * 20
+          return newProgress > 90 ? 90 : newProgress
+        })
+      }, 200)
+
       const { error: uploadError } = await supabase.storage.from("documents").upload(fileName, file)
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
       if (uploadError) throw uploadError
 
@@ -269,6 +282,8 @@ export default function ExchangeEditPage() {
       setSelectedFile(null)
     } finally {
       setIsUploading(false)
+      // Reset progress after a short delay
+      setTimeout(() => setUploadProgress(0), 1000)
     }
   }
 
@@ -541,7 +556,7 @@ export default function ExchangeEditPage() {
                   }
                 }}
                 isUploading={isUploading}
-                uploadProgress={0}
+                uploadProgress={uploadProgress}
                 accept=".pdf,.doc,.docx"
                 maxSize={10}
                 existingFileUrl={exchangeProgram?.statement_template_url}
