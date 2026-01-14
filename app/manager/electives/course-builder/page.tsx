@@ -587,14 +587,6 @@ export default function CourseBuilderPage() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label>{t("manager.courseBuilder.namePreview", "Name Preview")}</Label>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <div className="p-3 bg-muted rounded-md">{generateProgramName()}</div>
-                )}
-              </div>
 
               <div className="space-y-2">
                 <h3 className="text-lg font-medium">{t("manager.courseBuilder.selectionRules", "Selection Rules")}</h3>
