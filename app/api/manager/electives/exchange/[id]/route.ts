@@ -6,6 +6,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log("Exchange API Route called with params:", params)
     console.log("Exchange API Route params.id:", params.id)
 
+    // Extract ID from URL pathname as fallback
+    const url = new URL(request.url)
+    const pathnameParts = url.pathname.split('/')
+    const exchangeIdFromUrl = pathnameParts[pathnameParts.length - 1]
+
+    console.log("URL pathname:", url.pathname)
+    console.log("Extracted exchangeId from URL:", exchangeIdFromUrl)
+
+    const exchangeId = params.id || exchangeIdFromUrl
+    console.log("Final exchangeId:", exchangeId)
+
     const supabase = await createServerComponentClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -28,9 +39,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       console.error("Manager verification failed:", profileError)
       return NextResponse.json({ error: "Access denied - Program manager required" }, { status: 403 })
     }
-
-    const exchangeId = params.id
-    console.log("Using exchangeId:", exchangeId)
 
     if (!exchangeId || exchangeId === 'undefined') {
       console.error("Invalid exchange ID:", exchangeId)

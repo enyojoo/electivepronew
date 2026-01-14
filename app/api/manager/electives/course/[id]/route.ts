@@ -9,6 +9,17 @@ export async function GET(
     console.log("API Route called with params:", params)
     console.log("API Route params.id:", params.id)
 
+    // Extract ID from URL pathname as fallback
+    const url = new URL(request.url)
+    const pathnameParts = url.pathname.split('/')
+    const courseIdFromUrl = pathnameParts[pathnameParts.length - 1]
+
+    console.log("URL pathname:", url.pathname)
+    console.log("Extracted courseId from URL:", courseIdFromUrl)
+
+    const courseId = params.id || courseIdFromUrl
+    console.log("Final courseId:", courseId)
+
     const supabase = await createServerComponentClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -31,9 +42,6 @@ export async function GET(
       console.error("Manager verification failed:", profileError)
       return NextResponse.json({ error: "Access denied - Program manager required" }, { status: 403 })
     }
-
-    const courseId = params.id
-    console.log("Using courseId:", courseId)
 
     if (!courseId || courseId === 'undefined') {
       console.error("Invalid course ID:", courseId)
