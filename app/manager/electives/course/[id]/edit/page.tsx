@@ -150,11 +150,7 @@ export default function ElectiveCourseEditPage() {
       }
 
       try {
-        console.log("Edit page params:", params)
-        console.log("Edit page params.id:", params.id)
-
         // Load elective data from API (refresh cache in background)
-        console.log("Fetching data for course ID:", courseId)
         const response = await fetch(`/api/manager/electives/course/${courseId}`)
         if (!response.ok) {
           const errorData = await response.json()
@@ -162,8 +158,6 @@ export default function ElectiveCourseEditPage() {
         }
 
         const electiveData = await response.json()
-        console.log("Loaded elective data:", electiveData)
-        console.log("Syllabus URL:", electiveData.syllabus_template_url)
 
         // Update cache with fresh data
         setCachedData(cacheKey, electiveData)
@@ -361,6 +355,7 @@ export default function ElectiveCourseEditPage() {
           max_selections: formData.maxSelections,
           deadline: formData.endDate,
           courses: selectedCourses,
+          syllabus_template_url: electiveCourse?.syllabus_template_url,
           status: "published",
         })
         .eq("id", courseId)
@@ -613,9 +608,18 @@ export default function ElectiveCourseEditPage() {
                   const url = electiveCourse?.syllabus_template_url
                   if (!url) return undefined
 
-                  const extracted = url.split('/').pop()?.split('_').slice(1).join('_')
-                  console.log("Extracted filename:", extracted, "from URL:", url)
-                  return extracted
+                  const filename = url.split('/').pop()
+                  if (!filename) return undefined
+
+                  // Check if filename has timestamp prefix (format: timestamp_originalname)
+                  const parts = filename.split('_')
+                  if (parts.length > 1 && !isNaN(Number(parts[0]))) {
+                    // Remove timestamp prefix and join the rest
+                    return parts.slice(1).join('_')
+                  }
+
+                  // If no timestamp prefix, return as-is
+                  return filename
                 })()}
                 onDeleteExisting={() => {
                   setElectiveCourse((prev: any) => ({

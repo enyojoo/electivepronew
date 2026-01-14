@@ -156,8 +156,6 @@ export default function ExchangeEditPage() {
         }
 
         const exchangeData = await response.json()
-        console.log("Loaded exchange data:", exchangeData)
-        console.log("Statement URL:", exchangeData.statement_template_url)
 
         // Update cache with fresh data
         setCachedData(cacheKey, exchangeData)
@@ -351,6 +349,7 @@ export default function ExchangeEditPage() {
           max_selections: formData.maxSelections,
           deadline: formData.endDate,
           universities: selectedUniversities,
+          statement_template_url: exchangeProgram?.statement_template_url,
           status: "published",
         })
         .eq("id", exchangeId)
@@ -603,9 +602,18 @@ export default function ExchangeEditPage() {
                   const url = exchangeProgram?.statement_template_url
                   if (!url) return undefined
 
-                  const extracted = url.split('/').pop()?.split('_').slice(1).join('_')
-                  console.log("Exchange extracted filename:", extracted, "from URL:", url)
-                  return extracted
+                  const filename = url.split('/').pop()
+                  if (!filename) return undefined
+
+                  // Check if filename has timestamp prefix (format: timestamp_originalname)
+                  const parts = filename.split('_')
+                  if (parts.length > 1 && !isNaN(Number(parts[0]))) {
+                    // Remove timestamp prefix and join the rest
+                    return parts.slice(1).join('_')
+                  }
+
+                  // If no timestamp prefix, return as-is
+                  return filename
                 })()}
                 onDeleteExisting={() => {
                   setExchangeProgram((prev: any) => ({
