@@ -66,6 +66,8 @@ export default function ExchangePage() {
         const { data: exchangeData, error: exchangeError } = await supabaseClient
           .from("elective_exchange")
           .select("*")
+          .eq("group_id", profile.group.id)
+          .eq("status", "published")
           .order("deadline", { ascending: false })
 
         if (exchangeError) {
