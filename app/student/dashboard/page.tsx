@@ -135,22 +135,6 @@ export default function StudentDashboard() {
     return []
   })
 
-  // Loading states - start as false if we have cached data
-  const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(() => {
-    if (typeof window !== "undefined") {
-      const cachedDeadlines = getCachedData(DEADLINES_CACHE_KEY)
-      return !cachedDeadlines
-    }
-    return true
-  })
-
-  const [isLoadingElectiveCounts, setIsLoadingElectiveCounts] = useState(() => {
-    if (typeof window !== "undefined" && userId) {
-      const cachedCounts = getCachedData(getElectiveCountsCacheKey(userId))
-      return !cachedCounts
-    }
-    return true
-  })
 
   // Fetch current user ID only once on mount
   useEffect(() => {
@@ -200,17 +184,7 @@ export default function StudentDashboard() {
     const fetchElectiveCounts = async () => {
       if (!userId) return
 
-      // Check for cached data first
-      const cachedCounts = getCachedData(getElectiveCountsCacheKey(userId))
-      if (cachedCounts) {
-        console.log("Using cached elective counts data")
-        setElectiveCounts(cachedCounts)
-        setIsLoadingElectiveCounts(false)
-        return
-      }
-
       try {
-        setIsLoadingElectiveCounts(true)
         console.log("Fetching fresh elective counts data")
 
         // Fetch available electives (required)
@@ -267,8 +241,6 @@ export default function StudentDashboard() {
         }
       } catch (error) {
         console.error("Error fetching elective counts:", error)
-      } finally {
-        setIsLoadingElectiveCounts(false)
       }
     }
 
@@ -278,18 +250,7 @@ export default function StudentDashboard() {
   // Fetch upcoming deadlines with caching
   useEffect(() => {
     const fetchUpcomingDeadlines = async () => {
-
-      // Check for cached data first
-      const cachedDeadlines = getCachedData(DEADLINES_CACHE_KEY)
-      if (cachedDeadlines) {
-        console.log("Using cached deadlines data")
-        setUpcomingDeadlines(cachedDeadlines)
-        setIsLoadingDeadlines(false)
-        return
-      }
-
       try {
-        setIsLoadingDeadlines(true)
         console.log("Fetching fresh deadlines data")
 
         // Get current date
@@ -347,9 +308,6 @@ export default function StudentDashboard() {
         }
       } catch (error) {
         console.error("Error fetching upcoming deadlines:", error)
-      } finally {
-        setIsLoadingDeadlines(false)
-      }
     }
 
     fetchUpcomingDeadlines()
@@ -368,6 +326,52 @@ export default function StudentDashboard() {
     }
   }, [])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel("student-dashboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_courses" },
+        async () => {
+          console.log("Elective courses changed, refetching student dashboard data")
+          // Refetch elective counts and deadlines
+          await Promise.all([fetchElectiveCounts(), fetchUpcomingDeadlines()])
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_exchange" },
+        async () => {
+          console.log("Exchange programs changed, refetching student dashboard data")
+          // Refetch elective counts and deadlines
+          await Promise.all([fetchElectiveCounts(), fetchUpcomingDeadlines()])
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${userId}` },
+        async () => {
+          console.log("Student course selections changed, refetching counts")
+          await fetchElectiveCounts()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "exchange_selections", filter: `student_id=eq.${userId}` },
+        async () => {
+          console.log("Student exchange selections changed, refetching counts")
+          await fetchElectiveCounts()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, userId])
 
   return (
     <DashboardLayout userRole={UserRole.STUDENT}>

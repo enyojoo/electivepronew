@@ -21,7 +21,6 @@ export default function ElectivesPage() {
   const [electiveCourses, setElectiveCourses] = useState<any[]>([])
   const [courseSelections, setCourseSelections] = useState<any[]>([])
   const supabaseClient = getSupabaseBrowserClient()
-  const [isLoading, setIsLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -108,6 +107,72 @@ export default function ElectivesPage() {
 
     fetchData()
   }, [profile, profileLoading, profileError, toast])
+
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!profile?.id || !profile?.group?.id) return
+
+    const channel = supabaseClient
+      .channel("student-courses-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_courses" },
+        async () => {
+          console.log("Elective courses changed, refetching student courses")
+          // Refetch data
+          if (!profile?.id || !profile?.group?.id) return
+
+          const fetchData = async () => {
+            try {
+              // Fetch elective courses for the group
+              const { data: coursesData, error: coursesError } = await supabaseClient
+                .from("elective_courses")
+                .select("*")
+                .eq("group_id", profile.group.id)
+                .eq("status", "published")
+                .order("deadline", { ascending: false })
+
+              if (coursesError) throw coursesError
+              setElectiveCourses(coursesData || [])
+
+              // Fetch student's course selections
+              const { data: selectionsData, error: selectionsError } = await supabaseClient
+                .from("course_selections")
+                .select("*")
+                .eq("student_id", profile.id)
+
+              if (selectionsError) throw selectionsError
+              setCourseSelections(selectionsData || [])
+            } catch (error: any) {
+              console.error("Error refetching data:", error)
+            }
+          }
+
+          await fetchData()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` },
+        async () => {
+          console.log("Student selections changed, refetching selections")
+          // Refetch selections only
+          const { data: selectionsData, error: selectionsError } = await supabaseClient
+            .from("course_selections")
+            .select("*")
+            .eq("student_id", profile.id)
+
+          if (!selectionsError) {
+            setCourseSelections(selectionsData || [])
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabaseClient.removeChannel(channel)
+    }
+  }, [supabaseClient, profile?.id, profile?.group?.id])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)

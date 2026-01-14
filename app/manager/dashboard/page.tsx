@@ -90,9 +90,6 @@ export default function ManagerDashboard() {
     return undefined
   })
 
-  // State for loading
-  const [isLoadingCounts, setIsLoadingCounts] = useState(true)
-  const [isLoadingDeadlines, setIsLoadingDeadlines] = useState(true)
 
   // Fetch current user ID only once on mount
   useEffect(() => {
@@ -129,31 +126,35 @@ export default function ManagerDashboard() {
   // Fetch manager profile using the cached hook
   const { profile, isLoading: isLoadingProfile, error: profileError } = useCachedManagerProfile(userId)
 
-  // State for deadlines and elective counts
-  const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>([])
-  const [electiveCounts, setElectiveCounts] = useState<ElectiveCounts>({
-    courses: 0,
-    exchange: 0,
+  // State for deadlines and elective counts - initialize with cached data
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState<DeadlineItem[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedDeadlines = getCachedData(DEADLINES_CACHE_KEY)
+        return cachedDeadlines || []
+      } catch (e) {
+        return []
+      }
+    }
+    return []
   })
 
-  // Fetch elective counts with caching
+  const [electiveCounts, setElectiveCounts] = useState<ElectiveCounts>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedCounts = getCachedData(ELECTIVE_COUNTS_CACHE_KEY)
+        return cachedCounts || { courses: 0, exchange: 0 }
+      } catch (e) {
+        return { courses: 0, exchange: 0 }
+      }
+    }
+    return { courses: 0, exchange: 0 }
+  })
+
+  // Fetch elective counts - load cached data first, then fetch fresh data
   useEffect(() => {
     const fetchElectiveCounts = async () => {
-
       try {
-        setIsLoadingCounts(true)
-
-        // Check for cached data
-        const cachedCounts = getCachedData(ELECTIVE_COUNTS_CACHE_KEY)
-        if (cachedCounts) {
-          console.log("Using cached elective counts data")
-          setElectiveCounts(cachedCounts)
-          setIsLoadingCounts(false)
-          return
-        }
-
-        console.log("Fetching fresh elective counts data")
-
         // Fetch total course selections count
         const { count: courseCount, error: courseError } = await supabase
           .from("course_selections")
@@ -177,32 +178,16 @@ export default function ManagerDashboard() {
         }
       } catch (error) {
         console.error("Error fetching elective counts:", error)
-      } finally {
-        setIsLoadingCounts(false)
       }
     }
 
     fetchElectiveCounts()
   }, [supabase])
 
-  // Fetch upcoming deadlines with caching
+  // Fetch upcoming deadlines - load cached data first, then fetch fresh data
   useEffect(() => {
     const fetchUpcomingDeadlines = async () => {
-
       try {
-        setIsLoadingDeadlines(true)
-
-        // Check for cached data
-        const cachedDeadlines = getCachedData(DEADLINES_CACHE_KEY)
-        if (cachedDeadlines) {
-          console.log("Using cached deadlines data")
-          setUpcomingDeadlines(cachedDeadlines)
-          setIsLoadingDeadlines(false)
-          return
-        }
-
-        console.log("Fetching fresh deadlines data")
-
         // Get current date
         const now = new Date()
 
@@ -258,8 +243,6 @@ export default function ManagerDashboard() {
         }
       } catch (error) {
         console.error("Error fetching upcoming deadlines:", error)
-      } finally {
-        setIsLoadingDeadlines(false)
       }
     }
 
@@ -430,11 +413,7 @@ export default function ManagerDashboard() {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingCounts ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{electiveCounts.courses}</div>
-              )}
+              <div className="text-2xl font-bold">{electiveCounts.courses}</div>
               <p className="text-xs text-muted-foreground">{t("manager.dashboard.totalCourseElectives")}</p>
               <Button asChild className="w-full mt-4" size="sm">
                 <Link href="/manager/electives/course">{t("manager.dashboard.manageCourseElectives")}</Link>
@@ -448,11 +427,7 @@ export default function ManagerDashboard() {
               <GlobeIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingCounts ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{electiveCounts.exchange}</div>
-              )}
+              <div className="text-2xl font-bold">{electiveCounts.exchange}</div>
               <p className="text-xs text-muted-foreground">{t("manager.dashboard.totalExchangePrograms")}</p>
               <Button asChild className="w-full mt-4" size="sm">
                 <Link href="/manager/electives/exchange">{t("manager.dashboard.manageExchangePrograms")}</Link>
@@ -468,14 +443,7 @@ export default function ManagerDashboard() {
               <CardDescription>{t("manager.dashboard.managerDetails")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingProfile ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ) : (
+              {profile ? (
                 <dl className="space-y-2">
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.name")}:</dt>
@@ -494,6 +462,10 @@ export default function ManagerDashboard() {
                     <dd>{profile?.email || "-"}</dd>
                   </div>
                 </dl>
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  {t("manager.dashboard.loadingProfile", "Loading profile...")}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -504,13 +476,7 @@ export default function ManagerDashboard() {
               <CardDescription>{t("manager.dashboard.importantDates")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingDeadlines ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : upcomingDeadlines.length > 0 ? (
+              {upcomingDeadlines.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingDeadlines.map((deadline) => (
                     <div key={deadline.id} className="flex items-center justify-between">

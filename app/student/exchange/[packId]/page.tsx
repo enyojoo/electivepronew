@@ -158,6 +158,56 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     loadData()
   }, [loadData])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!profile?.id || !packId) return
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+    const channel = supabase
+      .channel(`student-exchange-${packId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_exchange", filter: `id=eq.${packId}` },
+        async () => {
+          console.log("Exchange program pack changed, reloading data")
+          await loadData()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "exchange_universities" },
+        async () => {
+          console.log("Universities changed, reloading university data")
+          await loadData()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "exchange_selections", filter: `student_id=eq.${profile.id}` },
+        async () => {
+          console.log("Student exchange selections changed, reloading selections")
+          // Reload selections only
+          const { data: selectionsData, error: selectionsError } = await supabase
+            .from("exchange_selections")
+            .select("*")
+            .eq("student_id", profile.id)
+            .eq("elective_exchange_id", packId)
+
+          if (!selectionsError && selectionsData) {
+            setExistingSelection(selectionsData[0] || null)
+            setSelectedUniversityIds(selectionsData[0]?.selected_university_ids || [])
+            setSelectionStatus(selectionsData[0]?.status || null)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.id, packId, loadData])
+
   const toggleUniversitySelection = (universityId: string) => {
     setSelectedUniversityIds((prevSelected) => {
       if (prevSelected.includes(universityId)) {

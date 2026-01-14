@@ -242,6 +242,56 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     loadData()
   }, [loadData])
 
+  // Set up real-time subscriptions for instant updates
+  useEffect(() => {
+    if (!profile?.id || !packId) return
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+    const channel = supabase
+      .channel(`student-course-${packId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_courses", filter: `id=eq.${packId}` },
+        async () => {
+          console.log("Elective course pack changed, reloading data")
+          await loadData()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "courses" },
+        async () => {
+          console.log("Courses changed, reloading course data")
+          await loadData()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` },
+        async () => {
+          console.log("Student selections changed, reloading selections")
+          // Reload selections only
+          const { data: selectionsData, error: selectionsError } = await supabase
+            .from("course_selections")
+            .select("*")
+            .eq("student_id", profile.id)
+            .eq("elective_courses_id", packId)
+
+          if (!selectionsError && selectionsData) {
+            setExistingSelection(selectionsData[0] || null)
+            setSelectedIndividualCourseIds(selectionsData[0]?.selected_course_ids || [])
+            setSelectionStatus(selectionsData[0]?.status || null)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.id, packId, loadData])
+
   const toggleCourseSelection = (individualCourseId: string) => {
     setSelectedIndividualCourseIds((prevSelected) => {
       if (prevSelected.includes(individualCourseId)) {
