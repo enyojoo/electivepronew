@@ -116,57 +116,10 @@ interface StudentSelection {
 export default function ElectiveCourseDetailPage() {
   const params = useParams()
 
-  // Initialize with cached data synchronously to prevent flicker
-  const [electiveCourse, setElectiveCourse] = useState<any>(() => {
-    if (typeof window !== "undefined" && params.id) {
-      try {
-        const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
-        const cached = getCachedData(cacheKey)
-        return cached || null
-      } catch (e) {
-        return null
-      }
-    }
-    return null
-  })
-
-  const [courses, setCourses] = useState<Course[]>(() => {
-    if (typeof window !== "undefined" && params.id) {
-      try {
-        const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
-        const cached = getCachedData(cacheKey)
-        return cached?.courses || []
-      } catch (e) {
-        return []
-      }
-    }
-    return []
-  })
-
-  const [studentSelections, setStudentSelections] = useState<StudentSelection[]>(() => {
-    if (typeof window !== "undefined" && params.id) {
-      try {
-        const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${params.id}`
-        const cached = getCachedData(selectionsCacheKey)
-        return cached || []
-      } catch (e) {
-        return []
-      }
-    }
-    return []
-  })
-
-  const [loading, setLoading] = useState(() => {
-    // If we have cached data, don't show loading initially
-    if (typeof window !== "undefined" && params.id) {
-      const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
-      const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${params.id}`
-      const cachedData = getCachedData(cacheKey)
-      const cachedSelections = getCachedData(selectionsCacheKey)
-      return !(cachedData && cachedSelections)
-    }
-    return true
-  })
+  const [electiveCourse, setElectiveCourse] = useState<any>(null)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
+  const [loading, setLoading] = useState(true) // Start loading to prevent flash
 
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -215,37 +168,36 @@ export default function ElectiveCourseDetailPage() {
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
 
-  // Reset state when course ID changes (for navigation between different courses)
+  // Load cached data immediately on mount
   useEffect(() => {
-    if (params.id) {
-      const courseId = params.id as string
-      const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
-      const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+    const courseId = params.id as string
+    const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
+    const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
 
-      // Check if we have cached data for this course
-      const cachedData = getCachedData(cacheKey)
-      const cachedSelections = getCachedData(selectionsCacheKey)
+    // Load cached data first
+    const cachedData = getCachedData(cacheKey)
+    const cachedSelections = getCachedData(selectionsCacheKey)
 
-      // Reset state for new course
-      setElectiveCourse(cachedData || null)
-      setCourses(cachedData?.courses || [])
-      setStudentSelections(cachedSelections || [])
-      setError(null)
-      setSearchTerm("")
-      setSelectedStudent(null)
-      setViewDialogOpen(false)
-      setEditDialogOpen(false)
-      setEditingStudent(null)
-      setEditStatus("")
-      setEditSelectedCourses([])
+    if (cachedData) {
+      setElectiveCourse(cachedData)
+      setCourses(cachedData.courses || [])
+    }
 
-      // Only show loading if we don't have cached data
-      if (!cachedData || !cachedSelections) {
-        setLoading(true)
-        loadData()
-      } else {
-        setLoading(false)
-      }
+    if (cachedSelections) {
+      setStudentSelections(cachedSelections)
+    }
+
+    // Check if we need to fetch from API
+    const needsApiFetch = !cachedData || !cachedSelections
+
+    // If we have cached data, don't show loading
+    if (cachedData && cachedSelections) {
+      setLoading(false)
+    }
+
+    // Always load data to ensure freshness, but only show loading if no cache
+    if (needsApiFetch) {
+      loadData()
     }
   }, [params.id])
 

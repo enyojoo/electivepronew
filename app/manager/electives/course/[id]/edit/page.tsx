@@ -140,7 +140,6 @@ export default function ElectiveCourseEditPage() {
 
     // Reset state for new course
     setElectiveCourse(null)
-    setLoading(true)
     setFormData({
       semester: "",
       groupId: "",
@@ -217,6 +216,8 @@ export default function ElectiveCourseEditPage() {
           description: t("manager.courseBuilder.errorFetchingData"),
           variant: "destructive",
         })
+      } finally {
+        setLoading(false)
       }
     }
 
