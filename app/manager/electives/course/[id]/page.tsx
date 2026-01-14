@@ -115,10 +115,59 @@ interface StudentSelection {
 
 export default function ElectiveCourseDetailPage() {
   const params = useParams()
-  const [electiveCourse, setElectiveCourse] = useState<any>(null)
-  const [courses, setCourses] = useState<Course[]>([])
-  const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(true) // Start loading to prevent flash
+
+  // Initialize with cached data synchronously to prevent flicker
+  const [electiveCourse, setElectiveCourse] = useState<any>(() => {
+    if (typeof window !== "undefined" && params.id) {
+      try {
+        const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
+        const cached = getCachedData(cacheKey)
+        return cached || null
+      } catch (e) {
+        return null
+      }
+    }
+    return null
+  })
+
+  const [courses, setCourses] = useState<Course[]>(() => {
+    if (typeof window !== "undefined" && params.id) {
+      try {
+        const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
+        const cached = getCachedData(cacheKey)
+        return cached?.courses || []
+      } catch (e) {
+        return []
+      }
+    }
+    return []
+  })
+
+  const [studentSelections, setStudentSelections] = useState<StudentSelection[]>(() => {
+    if (typeof window !== "undefined" && params.id) {
+      try {
+        const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${params.id}`
+        const cached = getCachedData(selectionsCacheKey)
+        return cached || []
+      } catch (e) {
+        return []
+      }
+    }
+    return []
+  })
+
+  const [loading, setLoading] = useState(() => {
+    // If we have cached data, don't show loading initially
+    if (typeof window !== "undefined" && params.id) {
+      const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${params.id}`
+      const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${params.id}`
+      const cachedData = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(selectionsCacheKey)
+      return !(cachedData && cachedSelections)
+    }
+    return true
+  })
+
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<StudentSelection | null>(null)
@@ -128,22 +177,31 @@ export default function ElectiveCourseDetailPage() {
   const [editStatus, setEditStatus] = useState("")
   const [editSelectedCourses, setEditSelectedCourses] = useState<string[]>([])
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState("courses")
-
-  const { language, t } = useLanguage()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Handle URL hash for tab navigation
-  useEffect(() => {
+  // Initialize activeTab based on URL hash or default to courses
+  const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "")
       if (hash === "students" || hash === "courses") {
-        setActiveTab(hash)
+        return hash
       }
     }
+    return "courses"
+  })
+
+  const { language, t } = useLanguage()
+
+  // Note: Hash handling is done in useState initializer above
+  // This ensures the initial tab matches the URL hash from manager dashboard links
+
+  // Update URL hash when tab changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && mounted) {
+      window.history.replaceState(null, "", `#${activeTab}`)
+    }
+  }, [activeTab, mounted])
+
+  useEffect(() => {
+    setMounted(true)
   }, [])
 
   // Update URL hash when tab changes
@@ -157,37 +215,11 @@ export default function ElectiveCourseDetailPage() {
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
 
-  // Load cached data immediately on mount
+  // Fetch fresh data (cached data already loaded synchronously)
   useEffect(() => {
-    const courseId = params.id as string
-    const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
-    const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
-
-    // Load cached data first
-    const cachedData = getCachedData(cacheKey)
-    const cachedSelections = getCachedData(selectionsCacheKey)
-
-    if (cachedData) {
-      setElectiveCourse(cachedData)
-      setCourses(cachedData.courses || [])
+    if (params.id) {
+      loadData()
     }
-
-    if (cachedSelections) {
-      setStudentSelections(cachedSelections)
-    }
-
-    // Check if we need to fetch from API
-    const needsApiFetch = !cachedData || !cachedSelections
-
-    // If we have cached data, don't show loading
-    if (cachedData && cachedSelections) {
-      setLoading(false)
-    } else if (needsApiFetch) {
-      setLoading(true)
-    }
-
-    // Fetch fresh data in background or initially
-    loadData()
   }, [params.id])
 
   // Set up real-time subscriptions for instant updates
