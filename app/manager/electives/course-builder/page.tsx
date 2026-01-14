@@ -188,17 +188,11 @@ export default function CourseBuilderPage() {
 
   // Update form data when manager profile loads
   useEffect(() => {
-    console.log("Course Builder - Manager profile changed:", managerProfile)
-    console.log("Course Builder - Academic year ID:", managerProfile?.academic_year_id)
-
     if (managerProfile?.academic_year_id) {
-      console.log("Course Builder - Setting year to:", managerProfile.academic_year_id)
       setFormData((prev) => ({
         ...prev,
         year: managerProfile.academic_year_id,
       }))
-    } else {
-      console.log("Course Builder - No academic_year_id found in manager profile")
     }
   }, [managerProfile?.academic_year_id])
 
