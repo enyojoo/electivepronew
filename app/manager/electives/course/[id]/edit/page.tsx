@@ -250,7 +250,9 @@ export default function ElectiveCourseEditPage() {
 
     try {
       const fileExt = file.name.split(".").pop()
-      const fileName = `statement_templates/${Date.now()}.${fileExt}`
+      const originalFileName = file.name
+      const timestamp = Date.now()
+      const fileName = `statement_templates/${timestamp}_${originalFileName}`
 
       const { error: uploadError } = await supabase.storage.from("documents").upload(fileName, file)
 
@@ -555,7 +557,7 @@ export default function ElectiveCourseEditPage() {
                 maxSize={10}
                 existingFileUrl={electiveCourse?.syllabus_template_url}
                 existingFileName={electiveCourse?.syllabus_template_url
-                  ? electiveCourse.syllabus_template_url.split('/').pop()
+                  ? electiveCourse.syllabus_template_url.split('/').pop()?.split('_').slice(1).join('_')
                   : undefined}
                 onDeleteExisting={() => {
                   setElectiveCourse((prev: any) => ({

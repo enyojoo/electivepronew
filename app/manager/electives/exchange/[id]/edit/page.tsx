@@ -239,7 +239,9 @@ export default function ExchangeEditPage() {
 
     try {
       const fileExt = file.name.split(".").pop()
-      const fileName = `statement_templates/${Date.now()}.${fileExt}`
+      const originalFileName = file.name
+      const timestamp = Date.now()
+      const fileName = `statement_templates/${timestamp}_${originalFileName}`
 
       const { error: uploadError } = await supabase.storage.from("documents").upload(fileName, file)
 
@@ -544,7 +546,7 @@ export default function ExchangeEditPage() {
                 maxSize={10}
                 existingFileUrl={exchangeProgram?.statement_template_url}
                 existingFileName={exchangeProgram?.statement_template_url
-                  ? exchangeProgram.statement_template_url.split('/').pop()
+                  ? exchangeProgram.statement_template_url.split('/').pop()?.split('_').slice(1).join('_')
                   : undefined}
                 onDeleteExisting={() => {
                   setExchangeProgram((prev: any) => ({
