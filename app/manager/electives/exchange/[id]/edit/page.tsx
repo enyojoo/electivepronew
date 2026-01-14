@@ -8,23 +8,18 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { UserRole } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Check, ChevronRight, FileUp, Search, Loader2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ArrowLeft, ChevronRight, Check, Search } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
-import { useToast } from "@/hooks/use-toast"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
+import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Skeleton } from "@/components/ui/skeleton"
-import { getSemesters, type Semester } from "@/actions/semesters"
-import { getYears, type Year } from "@/actions/years"
-import { useCachedGroups } from "@/hooks/use-cached-groups"
-import { useDataCache } from "@/lib/data-cache-context"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
 interface ExchangeEditPageProps {
@@ -33,37 +28,12 @@ interface ExchangeEditPageProps {
   }
 }
 
-interface University {
-  id: string
-  name: string
-  name_ru: string | null
-  country: string
-  max_students: number
-  status: string
-}
-
-interface ExchangeProgram {
-  id: string
-  name: string
-  name_ru: string | null
-  status: string
-  deadline: string
-  max_selections: number
-  statement_template_url: string | null
-  semester: string
-  academic_year: string
-  universities: string[]
-  group_id: string | null
-  created_by: string
-}
-
 export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
-  const { t, language } = useLanguage()
   const router = useRouter()
+  const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  const { groups, isLoading: isLoadingGroups } = useCachedGroups()
-  const { invalidateCache } = useDataCache()
+  const [userId, setUserId] = useState<string | undefined>()
 
   // Get user ID for manager profile
   useEffect(() => {
@@ -72,17 +42,22 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
         const { data, error } = await supabase.auth.getUser()
         if (error) {
           console.error("Error getting user:", error)
+          router.push("/manager/login")
           return
         }
         if (data.user) {
           setUserId(data.user.id)
+        } else {
+          router.push("/manager/login")
         }
       } catch (error) {
         console.error("Error getting user:", error)
       }
     }
     getUser()
-  }, [supabase])
+  }, [supabase, router])
+
+  const { profile: managerProfile } = useCachedManagerProfile(userId)
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
@@ -91,117 +66,172 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   // Loading states
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingUniversities, setIsLoadingUniversities] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Data states
-  const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
-  const [semesters, setSemesters] = useState<Semester[]>([])
-  const [years, setYears] = useState<Year[]>([])
-  const [userId, setUserId] = useState<string | undefined>()
-  const { profile: managerProfile } = useCachedManagerProfile(userId)
+  const [universities, setUniversities] = useState<any[]>([])
+  const [groups, setGroups] = useState<any[]>([])
+  const [semesters, setSemesters] = useState<any[]>([])
+  const [exchangeProgram, setExchangeProgram] = useState<any>(null)
 
-  // Form state
+  // Form state - matching exchange builder exactly
   const [formData, setFormData] = useState({
     semester: "",
-    group: "",
+    groupId: "",
     maxSelections: 2,
     endDate: "",
-    status: "draft",
-    statementTemplateUrl: "",
   })
 
-  // Universities state
-  const [universities, setUniversities] = useState<University[]>([])
+  // Selection state
   const [selectedUniversities, setSelectedUniversities] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState("")
 
   // File upload state
-  const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
-  // Find selected group for display
-  const selectedGroup = groups.find((g) => g.id === formData.group)
-
-  // Fetch exchange program data and initialize form
+  // Load data on component mount
   useEffect(() => {
-    const fetchExchangeProgram = async () => {
-      if (!params.id) return
-
-      setIsLoading(true)
+    const loadData = async () => {
       try {
-        console.log("Fetching exchange program with ID:", params.id)
+        setIsLoading(true)
 
-        // Fetch exchange program data
-        const { data: exchangeData, error: exchangeError } = await supabase
-          .from("elective_exchange")
-          .select("*")
-          .eq("id", params.id)
-          .single()
-
-        if (exchangeError) {
-          console.error("Error fetching exchange program:", exchangeError)
-          throw exchangeError
+        // Load exchange program data
+        const response = await fetch(`/api/manager/electives/exchange/${params.id}`)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to load exchange program")
         }
 
-        console.log("Exchange program data:", exchangeData)
+        const exchangeData = await response.json()
         setExchangeProgram(exchangeData)
 
-        // Fetch semesters and years
-        const [semestersData, yearsData] = await Promise.all([getSemesters(), getYears()])
-
-        setSemesters(semestersData)
-        setYears(yearsData)
-
-        // Pre-populate form data
+        // Populate form with existing data
         setFormData({
           semester: exchangeData.semester || "",
-          year: exchangeData.academic_year || "",
-          group: exchangeData.group_id || "",
+          groupId: exchangeData.group_id || "",
           maxSelections: exchangeData.max_selections || 2,
-          endDate: exchangeData.deadline ? exchangeData.deadline.split("T")[0] : "",
-          status: exchangeData.status || "draft",
-          statementTemplateUrl: exchangeData.statement_template_url || "",
+          endDate: exchangeData.deadline ? exchangeData.deadline.split('T')[0] : "",
         })
 
-        // Set selected universities
-        if (exchangeData.universities && Array.isArray(exchangeData.universities)) {
-          setSelectedUniversities(exchangeData.universities)
-        }
+        // Load selected universities
+        setSelectedUniversities(exchangeData.universities || [])
+
+        // Load available universities for selection
+        await loadAvailableUniversities()
+
       } catch (error) {
-        console.error("Error fetching exchange program:", error)
+        console.error("Error loading data:", error)
         toast({
-          title: t("manager.exchangeBuilder.error"),
-          description: t("manager.exchangeBuilder.errorFetchingData"),
+          title: "Error",
+          description: "Failed to load exchange program data",
           variant: "destructive",
         })
-        router.push("/manager/electives/exchange")
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchExchangeProgram()
-  }, [params.id, supabase, toast, t, router])
-
-  // Fetch universities when entering step 2
-  useEffect(() => {
-    if (currentStep === 2 && universities.length === 0 && !isLoadingUniversities) {
-      fetchUniversities()
+    if (userId) {
+      loadData()
     }
-  }, [currentStep, universities.length, isLoadingUniversities])
+  }, [params.id, userId])
 
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Load available universities
+  const loadAvailableUniversities = async () => {
+    try {
+      setIsLoadingUniversities(true)
+      const { data: universitiesData, error: universitiesError } = await supabase
+        .from("exchange_universities")
+        .select(`
+          id,
+          name,
+          name_ru,
+          country,
+          max_students,
+          status
+        `)
+        .eq("status", "active")
+        .order("name")
+
+      if (universitiesError) {
+        console.error("Error loading universities:", universitiesError)
+      } else {
+        setUniversities(universitiesData || [])
+      }
+    } catch (error) {
+      console.error("Error loading universities:", error)
+    } finally {
+      setIsLoadingUniversities(false)
+    }
+  }
+
+  // Load semesters and groups
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      try {
+        const [semestersData, groupsData] = await Promise.all([
+          import("@/actions/semesters").then(m => m.getSemesters()),
+          supabase.from("groups").select("*").order("name")
+        ])
+
+        setSemesters(semestersData)
+        setGroups(groupsData.data || [])
+      } catch (error) {
+        console.error("Error loading reference data:", error)
+      }
+    }
+
+    loadReferenceData()
+  }, [supabase])
+
+  // Handle form changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // Handle select changes
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  // Handle file upload
+  // Navigation handlers
+  const handleNextStep = () => {
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  // Toggle university selection
+  const toggleUniversitySelection = (universityId: string) => {
+    if (selectedUniversities.includes(universityId)) {
+      setSelectedUniversities(selectedUniversities.filter(id => id !== universityId))
+    } else {
+      setSelectedUniversities([...selectedUniversities, universityId])
+    }
+  }
+
+  // Generate program name
+  const generateProgramName = () => {
+    const selectedSemester = semesters.find((s) => s.code === formData.semester)
+    const selectedYear = managerProfile?.academic_years?.find((y: any) => y.id === managerProfile?.academic_year_id)
+
+    const semesterName = language === "ru"
+      ? selectedSemester?.name_ru || (formData.semester === "fall" ? "Осенний" : "Весенний")
+      : selectedSemester?.name || (formData.semester === "fall" ? "Fall" : "Spring")
+
+    const yearValue = selectedYear?.year || ""
+    const exchangeText = language === "ru" ? "Обмен программами" : "Exchange Program"
+
+    return `${semesterName} ${yearValue} ${exchangeText}`
+  }
+
+  // File upload handler
   const handleFileUpload = async (file: File) => {
     setSelectedFile(file)
     setIsUploading(true)
@@ -217,7 +247,10 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName)
 
       if (urlData) {
-        setFormData((prev) => ({ ...prev, statementTemplateUrl: urlData.publicUrl }))
+        setExchangeProgram((prev: any) => ({
+          ...prev,
+          statement_template_url: urlData.publicUrl,
+        }))
         toast({
           title: t("manager.exchangeBuilder.uploadSuccess", "Upload Successful"),
           description: file.name,
@@ -236,177 +269,36 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     }
   }
 
-  // Fetch universities
-  const fetchUniversities = async () => {
-    setIsLoadingUniversities(true)
+  // Handle publish
+  const handlePublish = async () => {
     try {
-      console.log("Fetching universities...")
-        const { data, error } = await supabase
-          .from("universities")
-          .select("*")
-          .eq("status", "active")
-          .order("name", { ascending: true })
+      const { error } = await supabase
+        .from("elective_exchange")
+        .update({
+          semester: formData.semester,
+          academic_year: managerProfile?.academic_year_id,
+          max_selections: formData.maxSelections,
+          deadline: formData.endDate,
+          universities: selectedUniversities,
+          status: "published",
+        })
+        .eq("id", params.id)
 
       if (error) throw error
 
-      console.log("Universities data:", data)
-      setUniversities(data || [])
-    } catch (error) {
-      console.error("Error fetching universities:", error)
       toast({
-        title: t("manager.exchangeBuilder.error"),
-        description: t("manager.exchangeBuilder.errorFetchingUniversities"),
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoadingUniversities(false)
-    }
-  }
-
-  // Toggle university selection
-  const toggleUniversity = (universityId: string) => {
-    setSelectedUniversities((prev) =>
-      prev.includes(universityId) ? prev.filter((id) => id !== universityId) : [...prev, universityId],
-    )
-  }
-
-  // Filter universities based on search term
-  const filteredUniversities = universities.filter((university) => {
-    if (!searchTerm) return true
-
-    const term = searchTerm.toLowerCase()
-    return (
-      (university.name && university.name.toLowerCase().includes(term)) ||
-      (university.name_ru && university.name_ru.toLowerCase().includes(term))
-    )
-  })
-
-  // Get localized name based on current language
-  const getLocalizedName = (university: University) => {
-    if (language === "ru" && university.name_ru) {
-      return university.name_ru
-    }
-    return university.name
-  }
-
-
-  // Generate program name based on semester and year
-  const generateProgramName = (lang: string = language) => {
-    const selectedSemester = semesters.find((s) => s.code === formData.semester)
-    const selectedYear = years.find((y) => y.id === managerProfile?.academic_year_id)
-
-    const semesterName =
-      lang === "ru"
-        ? selectedSemester?.name_ru || (formData.semester === "fall" ? "Осенний" : "Весенний")
-        : selectedSemester?.name || (formData.semester === "fall" ? "Fall" : "Spring")
-
-    const yearValue = selectedYear?.year || ""
-
-    const exchangeText = lang === "ru" ? "Программа обмена" : "Exchange Program"
-
-    return `${semesterName} ${yearValue} ${exchangeText}`
-  }
-
-  // Handle next step
-  const handleNextStep = () => {
-    if (currentStep === 1) {
-      // Validate step 1
-      if (!formData.semester || !formData.endDate || !formData.group) {
-        toast({
-          title: t("manager.exchangeBuilder.missingInfo"),
-          description: t("manager.exchangeBuilder.requiredFields"),
-          variant: "destructive",
-        })
-        return
-      }
-    } else if (currentStep === 2) {
-      // Validate step 2
-      if (selectedUniversities.length === 0) {
-        toast({
-          title: t("manager.exchangeBuilder.missingInfo"),
-          description: t("manager.exchangeBuilder.universityRequired"),
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    setCurrentStep((prev) => Math.min(prev + 1, totalSteps))
-  }
-
-  // Handle previous step
-  const handlePrevStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1))
-  }
-
-
-  // Handle publish
-  const handlePublish = async () => {
-    await handleSubmit("published")
-  }
-
-  // Handle form submission (UPDATE instead of INSERT)
-  const handleSubmit = async (status: string) => {
-    if (!exchangeProgram?.id) return
-    if (isSubmitting) return
-
-    setIsSubmitting(true)
-
-    try {
-      // Generate both English and Russian program names
-      const programNameEn = generateProgramName("en")
-      const programNameRu = generateProgramName("ru")
-
-      // Update data for the elective_exchange table
-      const updateData = {
-        name: programNameEn,
-        name_ru: programNameRu,
-        status: status,
-        deadline: formData.endDate,
-        max_selections: formData.maxSelections,
-        statement_template_url: formData.statementTemplateUrl,
-        semester: formData.semester,
-        academic_year: managerProfile?.academic_year_id,
-        universities: selectedUniversities, // Store university IDs as an array of UUIDs
-        group_id: formData.group || null,
-      }
-
-      console.log("Updating exchange program with data:", updateData)
-
-      // Update the elective_exchange table
-      const { data: exchangeData, error: exchangeError } = await supabase
-        .from("elective_exchange")
-        .update(updateData)
-        .eq("id", exchangeProgram.id)
-        .select()
-
-      if (exchangeError) {
-        console.error("Error updating exchange program:", exchangeError)
-        throw exchangeError
-      }
-
-      console.log("Updated exchange program:", exchangeData)
-
-      // Invalidate the cache for the exchange programs list and dashboard
-      invalidateCache("exchangePrograms")
-      localStorage.removeItem("admin_dashboard_stats_cache")
-
-      toast({
-        title: t("manager.exchangeBuilder.updateSuccess"),
-        description: t("manager.exchangeBuilder.successDesc"),
+        title: "Success",
+        description: "Exchange program updated successfully",
       })
 
-      // Redirect to exchange program details page
       router.push(`/manager/electives/exchange/${params.id}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating exchange program:", error)
       toast({
-        title: t("manager.exchangeBuilder.error"),
-        description: t("manager.exchangeBuilder.errorUpdating"),
+        title: "Error",
+        description: error.message || "Failed to update exchange program",
         variant: "destructive",
       })
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -414,12 +306,12 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <Skeleton className="h-8 w-64" />
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">{t("manager.exchangeBuilder.loading", "Loading...")}</p>
+            </div>
           </div>
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-96 w-full" />
         </div>
       </DashboardLayout>
     )
@@ -428,39 +320,53 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   if (!exchangeProgram) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <h2 className="text-2xl font-bold mb-2">{t("manager.exchangeBuilder.notFound")}</h2>
-          <p className="text-muted-foreground mb-4">{t("manager.exchangeBuilder.notFoundDesc")}</p>
-          <Link href="/manager/electives/exchange">
-            <Button>{t("manager.exchangeBuilder.backToList")}</Button>
-          </Link>
+        <div className="space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">{t("manager.exchangeBuilder.notFound", "Exchange program not found")}</h1>
+            <Button onClick={() => router.push("/manager/electives/exchange")} className="mt-4">
+              {t("manager.exchangeBuilder.backToList", "Back to Exchange Programs")}
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
     )
   }
 
+  // Filter universities based on search term
+  const filteredUniversities = universities.filter((university) => {
+    if (!searchTerm) return true
+    const term = searchTerm.toLowerCase()
+    const universityName = university.name || ""
+    const country = university.country || ""
+    return (
+      universityName.toLowerCase().includes(term) ||
+      country.toLowerCase().includes(term)
+    )
+  })
+
   return (
     <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
             <Link href={`/manager/electives/exchange/${params.id}`}>
               <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{t("manager.exchangeBuilder.editTitle")}</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {t("manager.exchangeBuilder.editTitle", "Edit Exchange Program")}
+              </h1>
               <p className="text-muted-foreground">
-                <Badge variant="outline" className="mt-1">
-                  {t(`manager.status.${formData.status.toLowerCase()}`)}
-                </Badge>
+                {t("manager.exchangeBuilder.editSubtitle", "Modify the exchange program details and selections")}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Step indicator */}
+        {/* Stepper */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex items-center">
@@ -472,7 +378,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 {currentStep > 1 ? <Check className="h-4 w-4" /> : "1"}
               </div>
               <div className="ml-2 hidden sm:block">
-                <p className="text-sm font-medium">{t("manager.exchangeBuilder.programInfo")}</p>
+                <p className="text-sm font-medium">{t("manager.exchangeBuilder.programInfo", "Program Information")}</p>
               </div>
             </div>
 
@@ -487,7 +393,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 {currentStep > 2 ? <Check className="h-4 w-4" /> : "2"}
               </div>
               <div className="ml-2 hidden sm:block">
-                <p className="text-sm font-medium">{t("manager.exchangeBuilder.addUniversities")}</p>
+                <p className="text-sm font-medium">{t("manager.exchangeBuilder.addUniversities", "Select Universities")}</p>
               </div>
             </div>
 
@@ -502,145 +408,151 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 3
               </div>
               <div className="ml-2 hidden sm:block">
-                <p className="text-sm font-medium">{t("manager.exchangeBuilder.programDetails")}</p>
+                <p className="text-sm font-medium">{t("manager.exchangeBuilder.programDetails", "Confirmation")}</p>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="text-sm text-muted-foreground">
-            {t("manager.exchangeBuilder.step")} {currentStep} {t("manager.exchangeBuilder.of")} {totalSteps}
+        {/* Mobile Stepper */}
+        <div className="md:hidden">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-medium">
+              {t("manager.exchangeBuilder.step")} {currentStep} {t("manager.exchangeBuilder.of")} {totalSteps}
+            </p>
+            <p className="text-sm font-medium">
+              {currentStep === 1 && t("manager.exchangeBuilder.programInfo", "Program Information")}
+              {currentStep === 2 && t("manager.exchangeBuilder.addUniversities", "Select Universities")}
+              {currentStep === 3 && t("manager.exchangeBuilder.programDetails", "Confirmation")}
+            </p>
+          </div>
+          <div className="w-full bg-muted h-2 rounded-full mb-6">
+            <div
+              className="bg-primary h-2 rounded-full"
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+            ></div>
           </div>
         </div>
 
-        {/* Step 1: Basic Information */}
+        {/* Step 1: Program Information */}
         {currentStep === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t("manager.exchangeBuilder.programInfo")}</CardTitle>
+              <CardTitle>{t("manager.exchangeBuilder.programInfo", "Program Information")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="semester">{t("manager.exchangeBuilder.semester")}</Label>
-                  <Select value={formData.semester} onValueChange={(value) => handleSelectChange("semester", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("manager.exchangeBuilder.selectSemester")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {semesters.length > 0 ? (
-                        semesters.map((semester) => (
-                          <SelectItem key={semester.id} value={semester.code}>
-                            {language === "ru" && semester.name_ru ? semester.name_ru : semester.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <>
+                  <Label htmlFor="semester">{t("manager.exchangeBuilder.semester", "Semester")}</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.semester} onValueChange={(value) => handleSelectChange("semester", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.exchangeBuilder.selectSemester", "Select a semester")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {semesters.length > 0 ? (
+                          semesters.map((semester) => (
+                            <SelectItem key={semester.id} value={semester.code}>
+                              {language === "ru" && semester.name_ru ? semester.name_ru : semester.name}
+                            </SelectItem>
+                          ))
+                        ) : (
                           <SelectItem value="fall">{language === "ru" ? "Осенний" : "Fall"}</SelectItem>
-                          <SelectItem value="spring">{language === "ru" ? "Весенний" : "Spring"}</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="group">{t("manager.exchangeBuilder.group", "Group")}</Label>
-                {isLoadingGroups ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Select value={formData.group} onValueChange={(value) => handleSelectChange("group", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("manager.exchangeBuilder.selectGroup", "Select a group")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups.length > 0 ? (
-                        groups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
-                            {group.name}
+                <div className="space-y-2">
+                  <Label htmlFor="group">{t("manager.exchangeBuilder.group", "Group")}</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.groupId} onValueChange={(value) => handleSelectChange("groupId", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.exchangeBuilder.selectGroup", "Select a group")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups.length > 0 ? (
+                          groups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-groups" disabled>
+                            {t("manager.exchangeBuilder.noGroupsAvailable", "No groups available")}
                           </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-groups" disabled>
-                          {t("manager.exchangeBuilder.noGroupsAvailable", "No groups available")}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label>{t("manager.exchangeBuilder.namePreview")}</Label>
-                <div className="p-3 bg-muted rounded-md">{generateProgramName()}</div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.selectionRules")}</h3>
+                <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.selectionRules", "Selection Rules")}</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="maxSelections">{t("manager.exchangeBuilder.maxSelections")}</Label>
-                    <Input
-                      id="maxSelections"
-                      name="maxSelections"
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={formData.maxSelections}
-                      onChange={handleChange}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t("manager.exchangeBuilder.universitiesPerStudent")}
-                    </p>
+                    <Label htmlFor="maxSelections">{t("manager.exchangeBuilder.maxSelections", "Max Selections")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="maxSelections"
+                        name="maxSelections"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={formData.maxSelections}
+                        onChange={handleChange}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("manager.exchangeBuilder.studentsPerProgram", "Maximum number of students per exchange program")}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="endDate">{t("manager.exchangeBuilder.deadline")}</Label>
+                    <Label htmlFor="endDate">{t("manager.exchangeBuilder.deadline", "Deadline")}</Label>
                     <Input id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleChange} />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.statementUpload")}</h3>
-                <p className="text-sm text-muted-foreground">{t("manager.exchangeBuilder.statementDescription")}</p>
-
-                <div>
-                  <ModernFileUploader
-                    title={t("manager.exchangeBuilder.uploadStatementFile", "Upload Statement File")}
-                    description={t(
-                      "manager.exchangeBuilder.statementDescription",
-                      "Upload a blank statement file that students will download, sign, and re-upload."
-                    )}
-                    selectedFile={selectedFile}
-                    onFileSelect={(file) => {
-                      if (file) {
-                        handleFileUpload(file)
-                      } else {
-                        setSelectedFile(null)
-                      }
-                    }}
-                    isUploading={isUploading}
-                    uploadProgress={0}
-                    accept=".pdf,.doc,.docx"
-                    maxSize={10}
-                    existingFileUrl={exchangeProgram?.statement_template_url}
-                    existingFileName={exchangeProgram?.statement_template_url ? "Statement Template" : undefined}
-                    onDeleteExisting={() => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        statementTemplateUrl: "",
-                      }))
-                    }}
-                  />
-                </div>
-              </div>
+              <ModernFileUploader
+                title={t("manager.exchangeBuilder.statementUpload", "Statement Upload")}
+                description={t(
+                  "manager.exchangeBuilder.statementDescription",
+                  "Upload a blank statement file that students will download, sign, and re-upload."
+                )}
+                selectedFile={selectedFile}
+                onFileSelect={(file) => {
+                  if (file) {
+                    handleFileUpload(file)
+                  } else {
+                    setSelectedFile(null)
+                  }
+                }}
+                isUploading={isUploading}
+                uploadProgress={0}
+                accept=".pdf,.doc,.docx"
+                maxSize={10}
+                existingFileUrl={exchangeProgram?.statement_template_url}
+                existingFileName={exchangeProgram?.statement_template_url ? "Statement Template" : undefined}
+                onDeleteExisting={() => {
+                  setExchangeProgram((prev: any) => ({
+                    ...prev,
+                    statement_template_url: null,
+                  }))
+                }}
+              />
 
               <div className="pt-4 flex justify-end">
-                <Button type="button" onClick={handleNextStep}>
-                  {t("manager.exchangeBuilder.next")}
+                <Button type="button" onClick={handleNextStep} disabled={isLoading}>
+                  {t("manager.exchangeBuilder.next", "Next")}
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -648,11 +560,11 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
           </Card>
         )}
 
-        {/* Step 2: Add Universities */}
+        {/* Step 2: Select Universities */}
         {currentStep === 2 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t("manager.exchangeBuilder.addUniversities")}</CardTitle>
+              <CardTitle>{t("manager.exchangeBuilder.addUniversities", "Select Universities")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
@@ -660,7 +572,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder={t("manager.exchangeBuilder.searchUniversities")}
+                    placeholder={t("manager.exchangeBuilder.searchUniversities", "Search universities...")}
                     className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -669,7 +581,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
 
                 <div className="text-sm text-muted-foreground">
                   <span className="font-medium">{selectedUniversities.length}</span>{" "}
-                  {t("manager.exchangeBuilder.universitiesSelected")}
+                  {t("manager.exchangeBuilder.universitiesSelected", "universities selected")}
                 </div>
               </div>
 
@@ -678,9 +590,9 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[50px]"></TableHead>
-                      <TableHead>{t("manager.exchangeBuilder.name")}</TableHead>
-                      <TableHead>{t("manager.exchangeBuilder.country")}</TableHead>
-                      <TableHead>{t("manager.exchangeBuilder.maxStudents")}</TableHead>
+                      <TableHead>{t("manager.exchangeBuilder.universityName", "University Name")}</TableHead>
+                      <TableHead>{t("manager.exchangeBuilder.country", "Country")}</TableHead>
+                      <TableHead>{t("manager.exchangeBuilder.maxStudents", "Max Students")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -697,37 +609,37 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                             <Skeleton className="h-4 w-full" />
                           </TableCell>
                           <TableCell>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-16" />
+                            <Skeleton className="h-4 w-12" />
                           </TableCell>
                         </TableRow>
                       ))
                     ) : filteredUniversities.length > 0 ? (
-                      filteredUniversities.map((university) => (
-                        <TableRow
-                          key={university.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => toggleUniversity(university.id)}
-                        >
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedUniversities.includes(university.id)}
-                              onCheckedChange={() => toggleUniversity(university.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{getLocalizedName(university)}</TableCell>
-                          <TableCell>{university.country}</TableCell>
-                          <TableCell>{university.max_students}</TableCell>
-                        </TableRow>
-                      ))
+                      filteredUniversities.map((university) => {
+                        const universityName = language === "ru" && university.name_ru ? university.name_ru : university.name
+                        return (
+                          <TableRow
+                            key={university.id}
+                            className={`border-b hover:bg-muted/50 cursor-pointer ${
+                              selectedUniversities.includes(university.id) ? "bg-primary/10" : ""
+                            }`}
+                            onClick={() => toggleUniversitySelection(university.id)}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedUniversities.includes(university.id)}
+                                onChange={() => {}}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{universityName}</TableCell>
+                            <TableCell>{university.country}</TableCell>
+                            <TableCell>{university.max_students || 0}</TableCell>
+                          </TableRow>
+                        )
+                      })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center">
-                          {universities.length === 0
-                            ? t("manager.exchangeBuilder.noUniversitiesAvailable")
-                            : t("manager.exchangeBuilder.noUniversitiesFound")}
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {t("manager.exchangeBuilder.noUniversitiesFound", "No universities found")}
                         </TableCell>
                       </TableRow>
                     )}
@@ -735,11 +647,12 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 </Table>
               </div>
 
-              <div className="pt-4 flex justify-between">
-                <Button type="button" variant="outline" onClick={handlePrevStep}>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={handlePrevStep}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   {t("manager.exchangeBuilder.back")}
                 </Button>
-                <Button type="button" onClick={handleNextStep} disabled={isLoadingUniversities}>
+                <Button onClick={handleNextStep}>
                   {t("manager.exchangeBuilder.next")}
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -748,18 +661,18 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
           </Card>
         )}
 
-        {/* Step 3: Review & Update */}
+        {/* Step 3: Confirmation */}
         {currentStep === 3 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t("manager.exchangeBuilder.programDetails")}</CardTitle>
+              <CardTitle>{t("manager.exchangeBuilder.programDetails", "Program Details")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Program details in a single row */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("manager.exchangeBuilder.programName")}
+                    {t("manager.exchangeBuilder.programName", "Program Name")}
                   </h3>
                   <p className="text-lg">{generateProgramName()}</p>
                 </div>
@@ -768,77 +681,77 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">
                     {t("manager.exchangeBuilder.group", "Group")}
                   </h3>
-                  <p className="text-lg">{selectedGroup?.name || "N/A"}</p>
+                  <p className="text-lg">{groups.find((g) => g.id === formData.groupId)?.name || "N/A"}</p>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("manager.exchangeBuilder.maxSelectionsLabel")}
+                    {t("manager.exchangeBuilder.maxSelectionsLabel", "Max Selections")}
                   </h3>
                   <p className="text-lg">{formData.maxSelections}</p>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("manager.exchangeBuilder.deadline")}
+                    {t("manager.exchangeBuilder.deadline", "Deadline")}
                   </h3>
                   <p className="text-lg">{formData.endDate}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.selectedUniversities")}</h3>
+                <h3 className="text-lg font-medium">
+                  {t("manager.exchangeBuilder.selectedUniversities", "Selected Universities")}
+                </h3>
 
                 {selectedUniversities.length > 0 ? (
                   <div className="rounded-md border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>{t("manager.exchangeBuilder.name")}</TableHead>
-                          <TableHead>{t("manager.exchangeBuilder.country")}</TableHead>
-                          <TableHead>{t("manager.exchangeBuilder.maxStudents")}</TableHead>
+                          <TableHead>{t("manager.exchangeBuilder.universityName", "University Name")}</TableHead>
+                          <TableHead>{t("manager.exchangeBuilder.country", "Country")}</TableHead>
+                          <TableHead>{t("manager.exchangeBuilder.maxStudents", "Max Students")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {universities
-                          .filter((university) => selectedUniversities.includes(university.id))
-                          .map((university) => (
+                        {selectedUniversities.map((universityId) => {
+                          const university = universities.find((u) => u.id === universityId)
+                          if (!university) return null
+
+                          const universityName = language === "ru" && university.name_ru ? university.name_ru : university.name
+
+                          return (
                             <TableRow key={university.id}>
-                              <TableCell className="font-medium">{getLocalizedName(university)}</TableCell>
+                              <TableCell className="font-medium">{universityName}</TableCell>
                               <TableCell>{university.country}</TableCell>
-                              <TableCell>{university.max_students}</TableCell>
+                              <TableCell>{university.max_students || 0}</TableCell>
                             </TableRow>
-                          ))}
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
                 ) : (
-                  <div className="p-8 text-center border rounded-md">
-                    <h3 className="text-lg font-medium mb-2">{t("manager.exchangeBuilder.noUniversitiesSelected")}</h3>
-                    <p className="text-muted-foreground mb-4">{t("manager.exchangeBuilder.goBackToAdd")}</p>
-                    <Button variant="outline" onClick={handlePrevStep}>
-                      {t("manager.exchangeBuilder.back")}
-                    </Button>
-                  </div>
+                  <p className="text-muted-foreground">{t("manager.exchangeBuilder.noUniversitiesSelected", "No universities selected")}</p>
                 )}
               </div>
 
-              <div className="pt-4 flex justify-between">
-                <Button type="button" variant="outline" onClick={handlePrevStep}>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={handlePrevStep}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   {t("manager.exchangeBuilder.back")}
                 </Button>
-                <div className="flex gap-2">
-                  <Button type="button" onClick={handlePublish} disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("manager.exchangeBuilder.updating")}
-                      </>
-                    ) : (
-                      t("manager.exchangeBuilder.updateProgram")
-                    )}
-                  </Button>
-                </div>
+                <Button
+                  onClick={handlePublish}
+                  disabled={
+                    !formData.semester ||
+                    !formData.endDate ||
+                    selectedUniversities.length === 0
+                  }
+                >
+                  {t("manager.exchangeBuilder.publishExchangeProgram", "Publish Exchange Program")}
+                </Button>
               </div>
             </CardContent>
           </Card>

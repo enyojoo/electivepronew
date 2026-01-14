@@ -5,22 +5,22 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { UserRole, ElectivePackStatus } from "@/lib/types"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { UserRole } from "@/lib/types"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowLeft, ArrowRight, Calendar, Check, ChevronRight, Info, Search } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ArrowLeft, ChevronRight, Check, Search } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
-import { getYears, type Year } from "@/actions/years"
 
 interface ElectiveCourseEditPageProps {
   params: {
@@ -30,221 +30,212 @@ interface ElectiveCourseEditPageProps {
 
 export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPageProps) {
   const router = useRouter()
-  const { t } = useLanguage()
-  const [currentStep, setCurrentStep] = useState(1)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCourses, setSelectedCourses] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { t, language } = useLanguage()
   const { toast } = useToast()
-
-  // Form state
-  const [packDetails, setPackDetails] = useState({
-    semester: "",
-    maxSelections: 2,
-    endDate: "",
-    status: ElectivePackStatus.DRAFT,
-  })
-
   const supabase = getSupabaseBrowserClient()
-  const [availableCourses, setAvailableCourses] = useState<any[]>([])
-  const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [userId, setUserId] = useState<string | undefined>()
-  const [years, setYears] = useState<Year[]>([])
-  const { profile: managerProfile } = useCachedManagerProfile(userId)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
 
-  // Mock available courses data (REMOVED - now using real data)
-  const mockAvailableCourses = [
-    {
-      id: "1",
-      name: "Business Ethics",
-      description: "Explore ethical principles and moral challenges in business decision-making.",
-      maxStudents: 30,
-      teacher: "Dr. Anna Ivanova",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "2",
-      name: "Digital Marketing",
-      description: "Learn modern digital marketing strategies and tools for business growth.",
-      maxStudents: 25,
-      teacher: "Prof. Mikhail Petrov",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "3",
-      name: "Sustainable Business",
-      description: "Study sustainable business practices and their impact on the environment and society.",
-      maxStudents: 35,
-      teacher: "Dr. Elena Smirnova",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["Management", "International Management", "Public Administration"],
-    },
-    {
-      id: "4",
-      name: "Project Management",
-      description: "Master the principles and methodologies of effective project management.",
-      maxStudents: 30,
-      teacher: "Prof. Sergei Kuznetsov",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["Management", "International Management", "Public Administration"],
-    },
-    {
-      id: "5",
-      name: "International Business Law",
-      description: "Understand legal frameworks governing international business operations.",
-      maxStudents: 25,
-      teacher: "Dr. Olga Volkova",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["International Management"],
-    },
-    {
-      id: "6",
-      name: "Financial Markets",
-      description: "Analyze financial markets, instruments, and investment strategies.",
-      maxStudents: 30,
-      teacher: "Prof. Dmitry Sokolov",
-      academicYear: 2,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "7",
-      name: "Strategic Management",
-      description: "Develop strategic thinking and decision-making skills for business leadership.",
-      maxStudents: 30,
-      teacher: "Prof. Natalia Volkova",
-      academicYear: 3,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-    {
-      id: "8",
-      name: "Data Analytics for Business",
-      description: "Learn to analyze and interpret data for business decision-making.",
-      maxStudents: 25,
-      teacher: "Dr. Ivan Petrov",
-      academicYear: 3,
-      degree: "Bachelor",
-      programs: ["Management", "International Management"],
-    },
-  ]
-
-  // Filter courses based on search query
-  const filteredCourses = availableCourses.filter((course) => {
-    if (!searchQuery) return true
-    const term = searchQuery.toLowerCase()
-    const courseName = course.name || ""
-    const instructor = course.instructor_en || course.instructor_ru || ""
-    const description = course.description || ""
-    return (
-      courseName.toLowerCase().includes(term) ||
-      instructor.toLowerCase().includes(term) ||
-      description.toLowerCase().includes(term)
-    )
-  })
-
-  // Toggle course selection
-  const toggleCourseSelection = (courseId: string) => {
-    if (selectedCourses.includes(courseId)) {
-      setSelectedCourses(selectedCourses.filter((id) => id !== courseId))
-    } else {
-      setSelectedCourses([...selectedCourses, courseId])
-    }
-  }
-
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setPackDetails({
-      ...packDetails,
-      [name]: value,
-    })
-  }
-
-  // Handle select changes
-  const handleSelectChange = (name: string, value: string) => {
-    setPackDetails({
-      ...packDetails,
-      [name]: value,
-    })
-  }
-
-  // Get user ID and years data
+  // Get user ID for manager profile
   useEffect(() => {
     const getUser = async () => {
       try {
         const { data, error } = await supabase.auth.getUser()
         if (error) {
           console.error("Error getting user:", error)
+          router.push("/manager/login")
           return
         }
         if (data.user) {
           setUserId(data.user.id)
+        } else {
+          router.push("/manager/login")
         }
       } catch (error) {
         console.error("Error getting user:", error)
       }
     }
+    getUser()
+  }, [supabase, router])
 
-    const loadYears = async () => {
+  const { profile: managerProfile } = useCachedManagerProfile(userId)
+
+  // Step state
+  const [currentStep, setCurrentStep] = useState(1)
+  const totalSteps = 3
+
+  // Loading states
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false)
+
+  // Data states
+  const [courses, setCourses] = useState<any[]>([])
+  const [groups, setGroups] = useState<any[]>([])
+  const [semesters, setSemesters] = useState<any[]>([])
+  const [electiveCourse, setElectiveCourse] = useState<any>(null)
+
+  // Form state - matching course builder exactly
+  const [formData, setFormData] = useState({
+    semester: "",
+    groupId: "",
+    maxSelections: 2,
+    endDate: "",
+  })
+
+  // Selection state
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
       try {
-        const yearsData = await getYears()
-        setYears(yearsData)
+        setIsLoading(true)
+
+        // Load elective data
+        const response = await fetch(`/api/manager/electives/course/${params.id}`)
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to load course program")
+        }
+
+        const electiveData = await response.json()
+        setElectiveCourse(electiveData)
+
+        // Populate form with existing data
+        setFormData({
+          semester: electiveData.semester || "",
+          groupId: electiveData.group_id || "",
+          maxSelections: electiveData.max_selections || 2,
+          endDate: electiveData.deadline ? electiveData.deadline.split('T')[0] : "",
+        })
+
+        // Load selected courses
+        setSelectedCourses(electiveData.courses || [])
+
+        // Load available courses for selection
+        await loadAvailableCourses()
+
       } catch (error) {
-        console.error("Error loading years:", error)
+        console.error("Error loading data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load course program data",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    getUser()
-    loadYears()
-  }, [supabase])
+    if (userId) {
+      loadData()
+    }
+  }, [params.id, userId])
 
-  // Updated steps for the 3-step wizard
-  const steps = [
-    { title: t("manager.courseBuilder.step1") },
-    { title: t("manager.courseBuilder.step2") },
-    { title: t("manager.courseBuilder.step3") },
-  ]
+  // Load available courses
+  const loadAvailableCourses = async () => {
+    try {
+      setIsLoadingCourses(true)
+      const { data: coursesData, error: coursesError } = await supabase
+        .from("courses")
+        .select(`
+          id,
+          name,
+          name_ru,
+          instructor_en,
+          instructor_ru,
+          degree_id,
+          max_students,
+          degrees(
+            name,
+            name_ru
+          )
+        `)
+        .order("name")
 
-  // Add a computed pack name function
-  const getPackName = () => {
-    if (!packDetails.semester) return ""
-
-    const selectedYear = years.find((y) => y.id === managerProfile?.academic_year_id)
-    const yearValue = selectedYear?.year || ""
-
-    const semester =
-      packDetails.semester === "fall" ? t("manager.courseBuilder.fall") : t("manager.courseBuilder.spring")
-
-    const courseText = language === "ru" ? "Выбор курсов" : "Course Selection"
-
-    return `${semester} ${yearValue} ${courseText}`
+      if (coursesError) {
+        console.error("Error loading courses:", coursesError)
+      } else {
+        setCourses(coursesData || [])
+      }
+    } catch (error) {
+      console.error("Error loading courses:", error)
+    } finally {
+      setIsLoadingCourses(false)
+    }
   }
 
-  // Handle next step
+  // Load semesters and groups
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      try {
+        const [semestersData, groupsData] = await Promise.all([
+          import("@/actions/semesters").then(m => m.getSemesters()),
+          supabase.from("groups").select("*").order("name")
+        ])
+
+        setSemesters(semestersData)
+        setGroups(groupsData.data || [])
+      } catch (error) {
+        console.error("Error loading reference data:", error)
+      }
+    }
+
+    loadReferenceData()
+  }, [supabase])
+
+  // Handle form changes
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  // Navigation handlers
   const handleNextStep = () => {
-    if (currentStep < steps.length) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
     }
   }
 
-  // Handle previous step
   const handlePrevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
   }
 
-  // Handle file upload
+  // Toggle course selection
+  const toggleCourseSelection = (courseId: string) => {
+    if (selectedCourses.includes(courseId)) {
+      setSelectedCourses(selectedCourses.filter(id => id !== courseId))
+    } else {
+      setSelectedCourses([...selectedCourses, courseId])
+    }
+  }
+
+  // Generate program name
+  const generateProgramName = () => {
+    const selectedSemester = semesters.find((s) => s.code === formData.semester)
+    const selectedYear = managerProfile?.academic_years?.find((y: any) => y.id === managerProfile?.academic_year_id)
+
+    const semesterName = language === "ru"
+      ? selectedSemester?.name_ru || (formData.semester === "fall" ? "Осенний" : "Весенний")
+      : selectedSemester?.name || (formData.semester === "fall" ? "Fall" : "Spring")
+
+    const yearValue = selectedYear?.year || ""
+    const courseText = language === "ru" ? "Выбор курсов" : "Course Selection"
+
+    return `${semesterName} ${yearValue} ${courseText}`
+  }
+
+  // File upload handler
   const handleFileUpload = async (file: File) => {
     setSelectedFile(file)
     setIsUploading(true)
@@ -260,7 +251,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName)
 
       if (urlData) {
-        // Update the elective course with the new template URL
         setElectiveCourse((prev: any) => ({
           ...prev,
           syllabus_template_url: urlData.publicUrl,
@@ -283,17 +273,16 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
     }
   }
 
-
   // Handle publish
   const handlePublish = async () => {
     try {
       const { error } = await supabase
         .from("elective_courses")
         .update({
-          semester: packDetails.semester,
+          semester: formData.semester,
           academic_year: managerProfile?.academic_year_id,
-          max_selections: packDetails.maxSelections,
-          deadline: packDetails.endDate,
+          max_selections: formData.maxSelections,
+          deadline: formData.endDate,
           courses: selectedCourses,
           status: "published",
         })
@@ -302,31 +291,67 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
       if (error) throw error
 
       toast({
-        title: t("toast.success", "Success"),
-        description: t("toast.published", "Published successfully"),
+        title: "Success",
+        description: "Course program updated successfully",
       })
 
       router.push(`/manager/electives/course/${params.id}`)
     } catch (error: any) {
-      console.error("Error publishing:", error)
+      console.error("Error updating course:", error)
       toast({
-        title: t("toast.error", "Error"),
-        description: error.message || t("toast.errorDesc", "Failed to publish"),
+        title: "Error",
+        description: error.message || "Failed to update course program",
         variant: "destructive",
       })
     }
   }
 
-  // Format date for input fields
-  const formatDateForInput = (dateString: string) => {
-    if (!dateString) return ""
-    const date = new Date(dateString)
-    return date.toISOString().split("T")[0]
+  if (isLoading) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">{t("manager.courseBuilder.loading", "Loading...")}</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
   }
+
+  if (!electiveCourse) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold">{t("manager.courseBuilder.notFound", "Course program not found")}</h1>
+            <Button onClick={() => router.push("/manager/electives/course")} className="mt-4">
+              {t("manager.courseBuilder.backToList", "Back to Course Programs")}
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // Filter courses based on search term
+  const filteredCourses = courses.filter((course) => {
+    if (!searchTerm) return true
+    const term = searchTerm.toLowerCase()
+    const courseName = course.name || ""
+    const instructor = course.instructor_en || course.instructor_ru || ""
+    return (
+      courseName.toLowerCase().includes(term) ||
+      instructor.toLowerCase().includes(term)
+    )
+  })
 
   return (
     <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
             <Link href={`/manager/electives/course/${params.id}`}>
@@ -336,12 +361,16 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
             </Link>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                {t("manager.courseBuilder.editTitle") || t("manager.courseBuilder.title")}
+                {t("manager.courseBuilder.editTitle", "Edit Course Program")}
               </h1>
+              <p className="text-muted-foreground">
+                {t("manager.courseBuilder.editSubtitle", "Modify the course program details and selections")}
+              </p>
             </div>
           </div>
         </div>
 
+        {/* Stepper */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex items-center">
@@ -393,7 +422,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-medium">
-              {t("manager.courseBuilder.step")} {currentStep} {t("manager.courseBuilder.of")} {steps.length}
+              {t("manager.courseBuilder.step")} {currentStep} {t("manager.courseBuilder.of")} {totalSteps}
             </p>
             <p className="text-sm font-medium">
               {currentStep === 1 && t("manager.courseBuilder.programInfo", "Program Information")}
@@ -404,338 +433,335 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
           <div className="w-full bg-muted h-2 rounded-full mb-6">
             <div
               className="bg-primary h-2 rounded-full"
-              style={{ width: `${(currentStep / steps.length) * 100}%` }}
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
             ></div>
           </div>
         </div>
 
-        {/* Step Content */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {currentStep === 1 && t("manager.courseBuilder.programInfo", "Program Information")}
-              {currentStep === 2 && t("manager.courseBuilder.addCourses", "Select Courses")}
-              {currentStep === 3 && t("manager.courseBuilder.programDetails", "Confirmation")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Step 1: Basic Information & Selection Rules (Combined) */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                {/* Basic Information Section */}
-                <div>
-                  <h3 className="text-lg font-medium mb-4">{t("manager.courseBuilder.courseInfo")}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="semester">{t("manager.courseBuilder.semester")}</Label>
-                      <Select
-                        value={packDetails.semester}
-                        onValueChange={(value) => handleSelectChange("semester", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t("manager.courseBuilder.semester")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="fall">{t("manager.courseBuilder.fall")}</SelectItem>
-                          <SelectItem value="spring">{t("manager.courseBuilder.spring")}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {packDetails.semester && (
-                    <div className="p-4 bg-muted rounded-md mt-4">
-                      <div className="flex items-center gap-2">
-                        <Info className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">{t("manager.courseBuilder.namePreview")}</p>
-                          <p className="text-lg font-semibold">{getPackName()}</p>
-                        </div>
-                      </div>
-                    </div>
+        {/* Step 1: Program Information */}
+        {currentStep === 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("manager.courseBuilder.programInfo", "Program Information")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="semester">{t("manager.courseBuilder.semester", "Semester")}</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.semester} onValueChange={(value) => handleSelectChange("semester", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.courseBuilder.selectSemester", "Select a semester")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {semesters.length > 0 ? (
+                          semesters.map((semester) => (
+                            <SelectItem key={semester.id} value={semester.code}>
+                              {language === "ru" && semester.name_ru ? semester.name_ru : semester.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="fall">{language === "ru" ? "Осенний" : "Fall"}</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
 
-                {/* Selection Rules Section */}
-                <div>
-                  <h3 className="text-lg font-medium mb-4">{t("manager.courseBuilder.selectionRules")}</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="maxSelections">{t("manager.courseBuilder.maxSelections")}</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="maxSelections"
-                          name="maxSelections"
-                          type="number"
-                          min={1}
-                          placeholder="e.g. 2"
-                          value={packDetails.maxSelections}
-                          onChange={handleInputChange}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {t("manager.courseBuilder.coursesPerStudent")}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endDate">{t("manager.courseBuilder.deadline", "Deadline")}</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="group">{t("manager.courseBuilder.group", "Group")}</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.groupId} onValueChange={(value) => handleSelectChange("groupId", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.courseBuilder.selectGroup", "Select a group")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups.length > 0 ? (
+                          groups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-groups" disabled>
+                            {t("manager.courseBuilder.noGroupsAvailable", "No groups available")}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">{t("manager.courseBuilder.selectionRules", "Selection Rules")}</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="maxSelections">{t("manager.courseBuilder.maxSelections", "Max Selections")}</Label>
+                    <div className="flex items-center gap-2">
                       <Input
-                        id="endDate"
-                        name="endDate"
-                        type="date"
-                        value={formatDateForInput(packDetails.endDate)}
-                        onChange={handleInputChange}
+                        id="maxSelections"
+                        name="maxSelections"
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={formData.maxSelections}
+                        onChange={handleChange}
                       />
-                    </div>
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
-                      <div className="flex items-start gap-2">
-                        <Info className="h-5 w-5 text-amber-500 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-amber-800">
-                            {t("manager.courseBuilder.importantNote")}
-                          </p>
-                          <p className="text-sm text-amber-700">{t("manager.courseBuilder.dateRangeNote")}</p>
-                        </div>
-                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("manager.courseBuilder.coursesPerStudent", "Maximum number of courses a student can select")}
+                      </p>
                     </div>
                   </div>
-                </div>
 
-                {/* Statement Upload Section */}
-                <div>
-                  <ModernFileUploader
-                    title={t("manager.courseBuilder.statementUpload", "Statement Upload")}
-                    description={t(
-                      "manager.courseBuilder.statementDescription",
-                      "Upload a blank statement file that students will download, sign, and re-upload."
-                    )}
-                    selectedFile={selectedFile}
-                    onFileSelect={(file) => {
-                      if (file) {
-                        handleFileUpload(file)
-                      } else {
-                        setSelectedFile(null)
-                      }
-                    }}
-                    isUploading={isUploading}
-                    uploadProgress={0}
-                    accept=".pdf,.doc,.docx"
-                    maxSize={10}
-                    existingFileUrl={electiveCourse?.syllabus_template_url}
-                    existingFileName={electiveCourse?.syllabus_template_url ? "Statement Template" : undefined}
-                    onDeleteExisting={() => {
-                      setElectiveCourse((prev: any) => ({
-                        ...prev,
-                        syllabus_template_url: null,
-                      }))
-                    }}
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">{t("manager.courseBuilder.deadline", "Deadline")}</Label>
+                    <Input id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleChange} />
+                  </div>
+                </div>
+              </div>
+
+              <ModernFileUploader
+                title={t("manager.courseBuilder.statementUpload", "Statement Upload")}
+                description={t(
+                  "manager.courseBuilder.statementDescription",
+                  "Upload a blank statement file that students will download, sign, and re-upload."
+                )}
+                selectedFile={selectedFile}
+                onFileSelect={(file) => {
+                  if (file) {
+                    handleFileUpload(file)
+                  } else {
+                    setSelectedFile(null)
+                  }
+                }}
+                isUploading={isUploading}
+                uploadProgress={0}
+                accept=".pdf,.doc,.docx"
+                maxSize={10}
+                existingFileUrl={electiveCourse?.syllabus_template_url}
+                existingFileName={electiveCourse?.syllabus_template_url ? "Statement Template" : undefined}
+                onDeleteExisting={() => {
+                  setElectiveCourse((prev: any) => ({
+                    ...prev,
+                    syllabus_template_url: null,
+                  }))
+                }}
+              />
+
+              <div className="pt-4 flex justify-end">
+                <Button type="button" onClick={handleNextStep} disabled={isLoading}>
+                  {t("manager.courseBuilder.next", "Next")}
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Select Courses */}
+        {currentStep === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("manager.courseBuilder.addCourses", "Select Courses")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder={t("manager.courseBuilder.searchCourses", "Search courses...")}
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-              </div>
-            )}
 
-            {/* Step 2: Add Courses */}
-            {currentStep === 2 && (
-              <div className="space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="relative w-full md:w-auto">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder={t("manager.courseBuilder.searchCourses")}
-                      className="pl-8 w-full md:w-[300px]"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {selectedCourses.length} {t("manager.courseBuilder.coursesSelected")}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="rounded-md border">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="w-[50px] py-3 px-4 text-left text-sm font-medium"></th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseBuilder.name")}</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">
-                          {t("manager.courseBuilder.teacher")}
-                        </th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">
-                          {t("manager.courseBuilder.maxStudents")}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCourses.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-6 text-center text-muted-foreground">
-                            {t("manager.courseBuilder.noCoursesFound")}
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredCourses.map((course) => {
-                          const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
-                          const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
-                          return (
-                            <tr
-                              key={course.id}
-                              className={`border-b hover:bg-muted/50 cursor-pointer ${
-                                selectedCourses.includes(course.id) ? "bg-primary/10" : ""
-                              }`}
-                              onClick={() => toggleCourseSelection(course.id)}
-                            >
-                              <td className="py-3 px-4 text-sm">
-                                <Checkbox
-                                  checked={selectedCourses.includes(course.id)}
-                                  onCheckedChange={() => toggleCourseSelection(course.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </td>
-                              <td className="py-3 px-4 text-sm">{courseName}</td>
-                              <td className="py-3 px-4 text-sm">{instructor}</td>
-                              <td className="py-3 px-4 text-sm">{course.max_students || 0}</td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-medium">{selectedCourses.length}</span>{" "}
+                  {t("manager.courseBuilder.coursesSelected", "courses selected")}
                 </div>
               </div>
-            )}
 
-            {/* Step 3: Review & Publish */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-medium mb-2">{t("manager.courseBuilder.courseSelectionDetails")}</h3>
-                    <dl className="space-y-2">
-                      <div className="flex justify-between">
-                        <dt className="font-medium">{t("manager.courseBuilder.name")}:</dt>
-                        <dd>{getPackName() || t("manager.courseBuilder.notSpecified")}</dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="font-medium">{t("manager.courseBuilder.maxSelectionsLabel")}</dt>
-                        <dd>
-                          {packDetails.maxSelections} {t("manager.courseBuilder.courses")}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="font-medium">{t("manager.courseBuilder.selectionPeriod")}</dt>
-                        <dd>
-                          {packDetails.startDate && packDetails.endDate
-                            ? `${new Date(packDetails.startDate).toLocaleDateString()} - ${new Date(packDetails.endDate).toLocaleDateString()}`
-                            : t("manager.courseBuilder.notSpecified")}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="font-medium">{t("manager.courseBuilder.courses")}</dt>
-                        <dd>{selectedCourses.length}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium mb-2">{t("manager.courseBuilder.selectedCourses")}</h3>
-                  {selectedCourses.length === 0 ? (
-                    <div className="text-center py-8 border rounded-md">
-                      <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
-                      <h3 className="mt-4 text-lg font-semibold">{t("manager.courseBuilder.noCoursesSelected")}</h3>
-                      <p className="mt-2 text-muted-foreground">{t("manager.courseBuilder.goBackToAdd")}</p>
-                    </div>
-                  ) : (
-                    <div className="rounded-md border">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="py-3 px-4 text-left text-sm font-medium">
-                              {t("manager.courseBuilder.name")}
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-medium">
-                              {t("manager.courseBuilder.teacher")}
-                            </th>
-                            <th className="py-3 px-4 text-left text-sm font-medium">
-                              {t("manager.courseBuilder.maxStudents")}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {availableCourses
-                            .filter((course) => selectedCourses.includes(course.id))
-                            .map((course) => {
-                              const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
-                              const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
-                              return (
-                                <tr key={course.id} className="border-b">
-                                  <td className="py-3 px-4 text-sm">{courseName}</td>
-                                  <td className="py-3 px-4 text-sm">{instructor}</td>
-                                  <td className="py-3 px-4 text-sm">{course.max_students || 0}</td>
-                                </tr>
-                              )
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Validation warnings */}
-                {(!packDetails.semester ||
-                  !packDetails.endDate ||
-                  selectedCourses.length === 0) && (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-5 w-5 text-amber-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-amber-800">{t("manager.courseBuilder.missingInfo")}</p>
-                        <ul className="text-sm text-amber-700 list-disc list-inside">
-                          {!packDetails.semester && <li>{t("manager.courseBuilder.semesterRequired")}</li>}
-                          {!packDetails.endDate && <li>{t("manager.courseBuilder.deadlineRequired", "Deadline is required")}</li>}
-                          {selectedCourses.length === 0 && <li>{t("manager.courseBuilder.courseRequired")}</li>}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead>{t("manager.courseBuilder.courseName", "Course Name")}</TableHead>
+                      <TableHead>{t("manager.courseBuilder.instructor", "Instructor")}</TableHead>
+                      <TableHead>{t("manager.courseBuilder.maxStudents", "Max Students")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingCourses ? (
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <TableRow key={index}>
+                          <TableCell>
+                            <Skeleton className="h-4 w-4" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-full" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-full" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-12" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : filteredCourses.length > 0 ? (
+                      filteredCourses.map((course) => {
+                        const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                        const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
+                        return (
+                          <TableRow
+                            key={course.id}
+                            className={`border-b hover:bg-muted/50 cursor-pointer ${
+                              selectedCourses.includes(course.id) ? "bg-primary/10" : ""
+                            }`}
+                            onClick={() => toggleCourseSelection(course.id)}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedCourses.includes(course.id)}
+                                onChange={() => {}}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{courseName}</TableCell>
+                            <TableCell>{instructor}</TableCell>
+                            <TableCell>{course.max_students || 0}</TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          {t("manager.courseBuilder.noCoursesFound", "No courses found")}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <div>
-              {currentStep > 1 && (
+
+              <div className="flex justify-between">
                 <Button variant="outline" onClick={handlePrevStep}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   {t("manager.courseBuilder.back")}
                 </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              {currentStep < steps.length ? (
                 <Button onClick={handleNextStep}>
                   {t("manager.courseBuilder.next")}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
-              ) : (
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Confirmation */}
+        {currentStep === 3 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("manager.courseBuilder.programDetails", "Program Details")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Program details in a single row */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    {t("manager.courseBuilder.programName", "Program Name")}
+                  </h3>
+                  <p className="text-lg">{generateProgramName()}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    {t("manager.courseBuilder.group", "Group")}
+                  </h3>
+                  <p className="text-lg">{groups.find((g) => g.id === formData.groupId)?.name || "N/A"}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    {t("manager.courseBuilder.maxSelectionsLabel", "Max Selections")}
+                  </h3>
+                  <p className="text-lg">{formData.maxSelections}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                    {t("manager.courseBuilder.deadline", "Deadline")}
+                  </h3>
+                  <p className="text-lg">{formData.endDate}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">
+                  {t("manager.courseBuilder.selectedCourses", "Selected Courses")}
+                </h3>
+
+                {selectedCourses.length > 0 ? (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("manager.courseBuilder.courseName", "Course Name")}</TableHead>
+                          <TableHead>{t("manager.courseBuilder.instructor", "Instructor")}</TableHead>
+                          <TableHead>{t("manager.courseBuilder.maxStudents", "Max Students")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedCourses.map((courseId) => {
+                          const course = courses.find((c) => c.id === courseId)
+                          if (!course) return null
+
+                          const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
+                          const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
+
+                          return (
+                            <TableRow key={course.id}>
+                              <TableCell className="font-medium">{courseName}</TableCell>
+                              <TableCell>{instructor}</TableCell>
+                              <TableCell>{course.max_students || 0}</TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">{t("manager.courseBuilder.noCoursesSelected", "No courses selected")}</p>
+                )}
+              </div>
+
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={handlePrevStep}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {t("manager.courseBuilder.back")}
+                </Button>
                 <Button
                   onClick={handlePublish}
                   disabled={
-                    !packDetails.semester ||
-                    !packDetails.endDate ||
+                    !formData.semester ||
+                    !formData.endDate ||
                     selectedCourses.length === 0
                   }
                 >
-                  {t("manager.courseBuilder.publishCourseSelection")}
+                  {t("manager.courseBuilder.publishCourseSelection", "Publish Course Selection")}
                 </Button>
-              )}
-            </div>
-          </CardFooter>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   )
