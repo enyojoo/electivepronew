@@ -197,10 +197,8 @@ export default function ElectiveCourseDetailPage() {
       setLoading(true)
     }
 
-    // Always load data to ensure freshness
-    if (needsApiFetch) {
-      loadData()
-    }
+    // Fetch fresh data in background or initially
+    loadData()
   }, [params.id])
 
   // Set up real-time subscriptions for instant updates
