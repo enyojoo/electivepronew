@@ -105,6 +105,8 @@ export default function ExchangeEditPage() {
         }
 
         const exchangeData = await response.json()
+        console.log("Loaded exchange data:", exchangeData)
+        console.log("Statement URL:", exchangeData.statement_template_url)
         setExchangeProgram(exchangeData)
 
         // Populate form with existing data
@@ -560,9 +562,14 @@ export default function ExchangeEditPage() {
                 accept=".pdf,.doc,.docx"
                 maxSize={10}
                 existingFileUrl={exchangeProgram?.statement_template_url}
-                existingFileName={exchangeProgram?.statement_template_url
-                  ? exchangeProgram.statement_template_url.split('/').pop()?.split('_').slice(1).join('_')
-                  : undefined}
+                existingFileName={(() => {
+                  const url = exchangeProgram?.statement_template_url
+                  if (!url) return undefined
+
+                  const extracted = url.split('/').pop()?.split('_').slice(1).join('_')
+                  console.log("Exchange extracted filename:", extracted, "from URL:", url)
+                  return extracted
+                })()}
                 onDeleteExisting={() => {
                   setExchangeProgram((prev: any) => ({
                     ...prev,
