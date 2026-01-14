@@ -218,11 +218,18 @@ export default function ElectiveCourseDetailPage() {
   // Reset state when course ID changes (for navigation between different courses)
   useEffect(() => {
     if (params.id) {
+      const courseId = params.id as string
+      const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
+      const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+
+      // Check if we have cached data for this course
+      const cachedData = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(selectionsCacheKey)
+
       // Reset state for new course
-      setElectiveCourse(null)
-      setCourses([])
-      setStudentSelections([])
-      setLoading(true)
+      setElectiveCourse(cachedData || null)
+      setCourses(cachedData?.courses || [])
+      setStudentSelections(cachedSelections || [])
       setError(null)
       setSearchTerm("")
       setSelectedStudent(null)
@@ -232,8 +239,13 @@ export default function ElectiveCourseDetailPage() {
       setEditStatus("")
       setEditSelectedCourses([])
 
-      // Load data for new course
-      loadData()
+      // Only show loading if we don't have cached data
+      if (!cachedData || !cachedSelections) {
+        setLoading(true)
+        loadData()
+      } else {
+        setLoading(false)
+      }
     }
   }, [params.id])
 
