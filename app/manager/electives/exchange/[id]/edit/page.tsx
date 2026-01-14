@@ -16,6 +16,7 @@ import { ArrowLeft, Check, ChevronRight, FileUp, Search, Loader2 } from "lucide-
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
+import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -180,39 +181,35 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   }
 
   // Handle file upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  const handleFileUpload = async (file: File) => {
     setSelectedFile(file)
     setIsUploading(true)
 
     try {
-      // Upload file to storage
       const fileExt = file.name.split(".").pop()
       const fileName = `statement_templates/${Date.now()}.${fileExt}`
 
-      const { error: uploadError, data } = await supabase.storage.from("documents").upload(fileName, file)
+      const { error: uploadError } = await supabase.storage.from("documents").upload(fileName, file)
 
       if (uploadError) throw uploadError
 
-      // Get public URL
       const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName)
 
       if (urlData) {
         setFormData((prev) => ({ ...prev, statementTemplateUrl: urlData.publicUrl }))
         toast({
-          title: t("manager.exchangeBuilder.uploadSuccess"),
+          title: t("manager.exchangeBuilder.uploadSuccess", "Upload Successful"),
           description: file.name,
         })
       }
     } catch (error) {
       console.error("Error uploading file:", error)
       toast({
-        title: t("manager.exchangeBuilder.uploadError"),
-        description: t("manager.exchangeBuilder.uploadErrorDesc"),
+        title: t("manager.exchangeBuilder.uploadError", "Upload Error"),
+        description: t("manager.exchangeBuilder.uploadErrorDesc", "Failed to upload file"),
         variant: "destructive",
       })
+      setSelectedFile(null)
     } finally {
       setIsUploading(false)
     }
@@ -612,27 +609,26 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                 <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.statementUpload")}</h3>
                 <p className="text-sm text-muted-foreground">{t("manager.exchangeBuilder.statementDescription")}</p>
 
-                <div className="flex items-center gap-4">
-                  <Label
-                    htmlFor="statement-file"
-                    className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                  >
-                    <FileUp className="mr-2 h-4 w-4" />
-                    {t("manager.exchangeBuilder.uploadStatementFile")}
-                  </Label>
-                  <Input
-                    id="statement-file"
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
+                <div>
+                  <ModernFileUploader
+                    title={t("manager.exchangeBuilder.uploadStatementFile", "Upload Statement File")}
+                    description={t(
+                      "manager.exchangeBuilder.statementDescription",
+                      "Upload a blank statement file that students will download, sign, and re-upload."
+                    )}
+                    selectedFile={selectedFile}
+                    onFileSelect={(file) => {
+                      if (file) {
+                        handleFileUpload(file)
+                      } else {
+                        setSelectedFile(null)
+                      }
+                    }}
+                    isUploading={isUploading}
+                    uploadProgress={0}
+                    accept=".pdf,.doc,.docx"
+                    maxSize={10}
                   />
-
-                  {selectedFile && <span className="text-sm">{selectedFile.name}</span>}
-                  {formData.statementTemplateUrl && !selectedFile && (
-                    <span className="text-sm text-muted-foreground">{t("manager.exchangeBuilder.fileUploaded")}</span>
-                  )}
                 </div>
               </div>
 
