@@ -131,78 +131,18 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
       setLoading(true)
       setError(null)
 
-      // Load course program
-      const { data: program, error: programError } = await supabase
-        .from("elective_courses")
-        .select(`
-          *,
-          academic_year:academic_year(
-            id,
-            year,
-            is_active
-          ),
-          group:group_id(
-            id,
-            name
-          ),
-          created_by_profile:created_by(
-            id,
-            full_name
-          )
-        `)
-        .eq("id", params.id)
-        .single()
-
-      if (programError) {
-        throw new Error("Failed to load course program")
+      // Load course program data from API
+      const response = await fetch(`/api/manager/electives/course/${params.id}`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to load course program")
       }
 
-      setElectiveCourse(program)
+      const data = await response.json()
 
-      // Load courses using the UUIDs from the courses column
-      if (program?.courses && Array.isArray(program.courses) && program.courses.length > 0) {
-        const { data: coursesData, error: coursesError } = await supabase
-          .from("courses")
-          .select(`
-    id,
-    name,
-    name_ru,
-    instructor_en,
-    instructor_ru,
-    degree_id,
-    max_students,
-    degrees(
-      name,
-      name_ru
-    )
-  `)
-          .in("id", program.courses)
-
-        if (coursesError) {
-          console.error("Error loading courses:", coursesError)
-        } else if (coursesData) {
-          setCourses(coursesData)
-        }
-      }
-
-      // Load student selections with profile information
-      const { data: selections, error: selectionsError } = await supabase
-        .from("course_selections")
-        .select(`
-    *,
-    profiles!student_id(
-      id,
-      full_name,
-      email
-    )
-  `)
-        .eq("elective_courses_id", params.id)
-
-      if (selectionsError) {
-        console.error("Error loading student selections:", selectionsError)
-      } else if (selections) {
-        setStudentSelections(selections)
-      }
+      setElectiveCourse(data)
+      setCourses(data.courses || [])
+      setStudentSelections(data.studentSelections || [])
     } catch (error) {
       console.error("Error loading data:", error)
       setError("Failed to load course program data")
