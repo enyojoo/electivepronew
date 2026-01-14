@@ -3,6 +3,9 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    console.log("Exchange API Route called with params:", params)
+    console.log("Exchange API Route params.id:", params.id)
+
     const supabase = await createServerComponentClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -26,6 +29,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Access denied - Program manager required" }, { status: 403 })
     }
 
+    const exchangeId = params.id
+    console.log("Using exchangeId:", exchangeId)
+
+    if (!exchangeId || exchangeId === 'undefined') {
+      console.error("Invalid exchange ID:", exchangeId)
+      return NextResponse.json({ error: "Invalid exchange ID" }, { status: 400 })
+    }
+
     // Fetch exchange program with relationships
     const { data: exchangeProgram, error } = await (supabaseAdmin as any)
       .from("elective_exchange")
@@ -45,7 +56,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           full_name
         )
       `)
-      .eq("id", params.id)
+      .eq("id", exchangeId)
       .eq("created_by", userId)
       .single()
 

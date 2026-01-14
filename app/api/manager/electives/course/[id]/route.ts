@@ -6,6 +6,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log("API Route called with params:", params)
+    console.log("API Route params.id:", params.id)
+
     const supabase = await createServerComponentClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
@@ -29,6 +32,14 @@ export async function GET(
       return NextResponse.json({ error: "Access denied - Program manager required" }, { status: 403 })
     }
 
+    const courseId = params.id
+    console.log("Using courseId:", courseId)
+
+    if (!courseId || courseId === 'undefined') {
+      console.error("Invalid course ID:", courseId)
+      return NextResponse.json({ error: "Invalid course ID" }, { status: 400 })
+    }
+
     // Fetch elective course with relationships
     const { data: course, error: courseError } = await supabaseAdmin
       .from("elective_courses")
@@ -48,7 +59,7 @@ export async function GET(
           full_name
         )
       `)
-      .eq("id", params.id)
+      .eq("id", courseId)
       .eq("created_by", userId) // Only allow managers to view courses they created
       .single()
 
