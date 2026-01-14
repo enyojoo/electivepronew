@@ -118,7 +118,6 @@ export default function ElectiveCourseDetailPage() {
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<StudentSelection | null>(null)
@@ -133,18 +132,26 @@ export default function ElectiveCourseDetailPage() {
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
 
+  // Load cached data immediately on mount
   useEffect(() => {
-    // Set loading to true only if we don't have cached data
     const courseId = params.id as string
     const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
     const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+
+    // Load cached data first
     const cachedData = getCachedData(cacheKey)
     const cachedSelections = getCachedData(selectionsCacheKey)
 
-    if (!cachedData || !cachedSelections) {
-      setLoading(true)
+    if (cachedData) {
+      setElectiveCourse(cachedData)
+      setCourses(cachedData.courses || [])
     }
 
+    if (cachedSelections) {
+      setStudentSelections(cachedSelections)
+    }
+
+    // Fetch fresh data in background
     loadData()
   }, [params.id])
 
@@ -190,37 +197,13 @@ export default function ElectiveCourseDetailPage() {
     }
   }, [supabase, params.id])
 
-  const loadData = async (forceRefresh = false) => {
+  const loadData = async () => {
     try {
       setError(null)
 
       const courseId = params.id as string
       const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
       const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
-
-      // Try to load from cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedData = getCachedData(cacheKey)
-        const cachedSelections = getCachedData(selectionsCacheKey)
-
-        if (cachedData) {
-          setElectiveCourse(cachedData)
-          setCourses(cachedData.courses || [])
-        }
-
-        if (cachedSelections) {
-          setStudentSelections(cachedSelections)
-        }
-
-        // If we have both cached data, don't fetch from API and don't set loading
-        if (cachedData && cachedSelections) {
-          setLoading(false) // Ensure loading is false if we have cached data
-          return
-        }
-      }
-
-      // Set loading only when we need to fetch from API
-      setLoading(true)
 
       // Load course program data from API
       const response = await fetch(`/api/manager/electives/course/${courseId}`)
@@ -251,8 +234,6 @@ export default function ElectiveCourseDetailPage() {
         description: "Failed to load course program data",
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -603,18 +584,6 @@ export default function ElectiveCourseDetailPage() {
     )
   })
 
-  if (loading) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
 
   if (error) {
     return (

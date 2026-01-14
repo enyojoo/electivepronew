@@ -130,7 +130,6 @@ export default function ExchangeDetailPage() {
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [universities, setUniversities] = useState<University[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -146,18 +145,26 @@ export default function ExchangeDetailPage() {
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
 
+  // Load cached data immediately on mount
   useEffect(() => {
-    // Set loading to true only if we don't have cached data
     const exchangeId = params.id as string
     const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${exchangeId}`
     const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${exchangeId}`
+
+    // Load cached data first
     const cachedData = getCachedData(cacheKey)
     const cachedSelections = getCachedData(selectionsCacheKey)
 
-    if (!cachedData || !cachedSelections) {
-      setLoading(true)
+    if (cachedData) {
+      setExchangeProgram(cachedData)
+      setUniversities(cachedData.universities || [])
     }
 
+    if (cachedSelections) {
+      setStudentSelections(cachedSelections)
+    }
+
+    // Fetch fresh data in background
     loadData()
   }, [params.id])
 
@@ -198,37 +205,13 @@ export default function ExchangeDetailPage() {
     }
   }, [supabase, params.id])
 
-  const loadData = async (forceRefresh = false) => {
+  const loadData = async () => {
     try {
       setError(null)
 
       const exchangeId = params.id as string
       const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${exchangeId}`
       const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${exchangeId}`
-
-      // Try to load from cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedData = getCachedData(cacheKey)
-        const cachedSelections = getCachedData(selectionsCacheKey)
-
-        if (cachedData) {
-          setExchangeProgram(cachedData)
-          setUniversities(cachedData.universities || [])
-        }
-
-        if (cachedSelections) {
-          setStudentSelections(cachedSelections)
-        }
-
-        // If we have both cached data, don't fetch from API and don't set loading
-        if (cachedData && cachedSelections) {
-          setLoading(false) // Ensure loading is false if we have cached data
-          return
-        }
-      }
-
-      // Set loading only when we need to fetch from API
-      setLoading(true)
 
       console.log("Loading exchange program with ID:", exchangeId)
 
@@ -262,8 +245,6 @@ export default function ExchangeDetailPage() {
         description: "Failed to load exchange program data",
         variant: "destructive",
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -585,18 +566,6 @@ export default function ExchangeDetailPage() {
     )
   })
 
-  if (loading) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
 
   if (error) {
     return (

@@ -95,8 +95,6 @@ export default function ExchangeEditPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
 
-  // Loading states
-  const [isLoadingUniversities, setIsLoadingUniversities] = useState(false)
 
   // Data states
   const [universities, setUniversities] = useState<any[]>([])
@@ -150,9 +148,6 @@ export default function ExchangeEditPage() {
         return
       }
 
-      // Set loading only when fetching from API
-      setLoading(true)
-
       try {
         // Load exchange program data from API (refresh cache in background)
         const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
@@ -193,8 +188,6 @@ export default function ExchangeEditPage() {
           description: "Failed to load exchange program data",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -204,7 +197,6 @@ export default function ExchangeEditPage() {
   // Load available universities
   const loadAvailableUniversities = async () => {
     try {
-      setIsLoadingUniversities(true)
       const { data: universitiesData, error: universitiesError } = await supabase
         .from("exchange_universities")
         .select(`
@@ -225,8 +217,6 @@ export default function ExchangeEditPage() {
       }
     } catch (error) {
       console.error("Error loading universities:", error)
-    } finally {
-      setIsLoadingUniversities(false)
     }
   }
 
@@ -385,22 +375,8 @@ export default function ExchangeEditPage() {
     }
   }
 
-  // Show loading skeleton only when actually loading from API
-  if (isLoadingUniversities && !exchangeProgram) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Show not found only after loading is complete and no data
-  if (!isLoadingUniversities && !exchangeProgram) {
+  // Show not found if no data
+  if (!exchangeProgram) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
@@ -695,24 +671,7 @@ export default function ExchangeEditPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoadingUniversities ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-12" />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : filteredUniversities.length > 0 ? (
+                    {filteredUniversities.length > 0 ? (
                       filteredUniversities.map((university) => {
                         const universityName = language === "ru" && university.name_ru ? university.name_ru : university.name
                         return (

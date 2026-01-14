@@ -97,8 +97,6 @@ export default function ElectiveCourseEditPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
 
-  // Loading states
-  const [isLoadingCourses, setIsLoadingCourses] = useState(false)
 
   // Data states
   const [courses, setCourses] = useState<any[]>([])
@@ -152,9 +150,6 @@ export default function ElectiveCourseEditPage() {
         return
       }
 
-      // Set loading only when fetching from API
-      setLoading(true)
-
       try {
         // Load elective data from API (refresh cache in background)
         const response = await fetch(`/api/manager/electives/course/${courseId}`)
@@ -195,8 +190,6 @@ export default function ElectiveCourseEditPage() {
           description: "Failed to load course program data",
           variant: "destructive",
         })
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -206,7 +199,6 @@ export default function ElectiveCourseEditPage() {
   // Load available courses
   const loadAvailableCourses = async () => {
     try {
-      setIsLoadingCourses(true)
       const { data: coursesData, error: coursesError } = await supabase
         .from("courses")
         .select(`
@@ -231,8 +223,6 @@ export default function ElectiveCourseEditPage() {
       }
     } catch (error) {
       console.error("Error loading courses:", error)
-    } finally {
-      setIsLoadingCourses(false)
     }
   }
 
@@ -391,22 +381,8 @@ export default function ElectiveCourseEditPage() {
     }
   }
 
-  // Show loading skeleton only when actually loading from API
-  if (isLoadingCourses && !electiveCourse) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
-
-  // Show not found only after loading is complete and no data
-  if (!isLoadingCourses && !electiveCourse) {
+  // Show not found if no data
+  if (!electiveCourse) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
@@ -701,24 +677,7 @@ export default function ElectiveCourseEditPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {isLoadingCourses ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Skeleton className="h-4 w-4" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-full" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton className="h-4 w-12" />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : filteredCourses.length > 0 ? (
+                    {filteredCourses.length > 0 ? (
                       filteredCourses.map((course) => {
                         const courseName = language === "ru" && course.name_ru ? course.name_ru : course.name
                         const instructor = language === "ru" && course.instructor_ru ? course.instructor_ru : course.instructor_en || ""
