@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -66,7 +67,8 @@ interface StudentSelection {
   }
 }
 
-export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetailPageProps) {
+export default function ElectiveCourseDetailPage() {
+  const params = useParams()
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
@@ -91,14 +93,14 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
     const channel = supabase
-      .channel(`course-selections-${params.id}`)
+      .channel(`course-selections-${params.id as string}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "course_selections",
-          filter: `elective_courses_id=eq.${params.id}`,
+          filter: `elective_courses_id=eq.${params.id as string}`,
         },
         async () => {
           // Refetch student selections when they change
@@ -112,7 +114,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
                 email
               )
             `)
-            .eq("elective_courses_id", params.id)
+            .eq("elective_courses_id", params.id as string)
 
           if (!selectionsError && selections) {
             setStudentSelections(selections)
@@ -132,7 +134,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
       setError(null)
 
       // Load course program data from API
-      const response = await fetch(`/api/manager/electives/course/${params.id}`)
+      const response = await fetch(`/api/manager/electives/course/${params.id as string}`)
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to load course program")
@@ -563,7 +565,7 @@ export default function ElectiveCourseDetailPage({ params }: ElectiveCourseDetai
           <div className="flex items-center gap-2">
             {getStatusBadge(electiveCourse.status)}
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/manager/electives/course/${params.id}/edit`}>
+              <Link href={`/manager/electives/course/${params.id as string}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Link>

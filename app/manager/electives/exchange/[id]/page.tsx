@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -86,7 +87,8 @@ interface StudentSelection {
   } | null
 }
 
-export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPageProps) {
+export default function ExchangeDetailPage() {
+  const params = useParams()
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [universities, setUniversities] = useState<University[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
@@ -112,19 +114,19 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
     const channel = supabase
-      .channel(`exchange-selections-${params.id}`)
+      .channel(`exchange-selections-${params.id as string}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "exchange_selections",
-          filter: `elective_exchange_id=eq.${params.id}`,
+          filter: `elective_exchange_id=eq.${params.id as string}`,
         },
         async () => {
           // Refetch student selections when they change
           try {
-            const selections = await getExchangeSelections(params.id)
+            const selections = await getExchangeSelections(params.id as string)
             setStudentSelections(selections)
           } catch (error) {
             console.error("Error refetching exchange selections after real-time update:", error)
@@ -146,7 +148,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
       console.log("Loading exchange program with ID:", params.id)
 
       // Load exchange program
-      const program = await getExchangeProgram(params.id)
+      const program = await getExchangeProgram(params.id as string)
       console.log("Exchange program loaded:", program)
       setExchangeProgram(program)
 
@@ -163,7 +165,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
 
       // Load student selections
       console.log("Loading student selections for exchange ID:", params.id)
-      const selections = await getExchangeSelections(params.id)
+      const selections = await getExchangeSelections(params.id as string)
       console.log("Student selections loaded:", selections)
       setStudentSelections(selections)
     } catch (error) {
@@ -258,7 +260,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
   // Function to export university selection data to CSV
   const exportUniversityToCSV = async (university: University) => {
     try {
-      const selectionData = await getUniversitySelectionData(university.id, params.id)
+      const selectionData = await getUniversitySelectionData(university.id, params.id as string)
 
       // Define column headers based on language
       const headers = {
@@ -557,7 +559,7 @@ export default function ExchangeDetailPage({ params }: ExchangeProgramDetailPage
           <div className="flex items-center gap-2">
             {getStatusBadge(exchangeProgram.status)}
             <Button variant="outline" size="sm" asChild>
-              <Link href={`/manager/electives/exchange/${params.id}/edit`}>
+              <Link href={`/manager/electives/exchange/${params.id as string}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Link>
