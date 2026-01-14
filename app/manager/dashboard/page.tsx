@@ -529,12 +529,12 @@ export default function ManagerDashboard() {
             </CardHeader>
             <CardContent>
               {upcomingDeadlines.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto space-y-4">
-                  {upcomingDeadlines.slice(0, 3).map((deadline) => (
-                    <div key={deadline.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{deadline.title}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(deadline.date, language === "ru" ? "ru-RU" : "en-US")}</p>
+                <div className="max-h-48 overflow-y-auto pr-2 space-y-4">
+                  {upcomingDeadlines.map((deadline) => (
+                    <div key={deadline.id} className="flex items-center justify-between min-w-0">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="font-medium truncate">{deadline.title}</p>
+                        <p className="text-sm text-muted-foreground truncate">{formatDate(deadline.date, language === "ru" ? "ru-RU" : "en-US")}</p>
                       </div>
                       <Link
                         href={
@@ -542,9 +542,10 @@ export default function ManagerDashboard() {
                             ? `/manager/electives/course/${deadline.id}`
                             : `/manager/electives/exchange/${deadline.id}`
                         }
+                        className="flex-shrink-0"
                       >
                         <div
-                          className={`px-2 py-1 rounded-md text-xs font-medium cursor-pointer ${
+                          className={`px-2 py-1 rounded-md text-xs font-medium cursor-pointer whitespace-nowrap ${
                             deadline.daysLeft < 7
                               ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                               : deadline.daysLeft < 30
@@ -557,13 +558,6 @@ export default function ManagerDashboard() {
                       </Link>
                     </div>
                   ))}
-                  {upcomingDeadlines.length > 3 && (
-                    <div className="text-center pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        +{upcomingDeadlines.length - 3} more deadlines
-                      </p>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="py-8 text-center text-muted-foreground">
