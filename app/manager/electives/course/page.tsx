@@ -413,11 +413,13 @@ export default function ManagerCourseElectivesPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/manager/electives/course/${pack.id}`}>{t("common.view", "View")}</Link>
+                                <DropdownMenuItem>
+                                  <Link href={`/manager/electives/course/${pack.id}`} className="w-full">
+                                    {t("common.view", "View")}
+                                  </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/manager/electives/course/${pack.id}/edit`}>
+                                <DropdownMenuItem>
+                                  <Link href={`/manager/electives/course/${pack.id}/edit`} className="w-full">
                                     {t("common.edit", "Edit")}
                                   </Link>
                                 </DropdownMenuItem>
