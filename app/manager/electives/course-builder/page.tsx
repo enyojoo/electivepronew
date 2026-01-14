@@ -529,9 +529,6 @@ export default function CourseBuilderPage() {
             </div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {t("manager.courseBuilder.step", "Step")} {currentStep} {t("manager.courseBuilder.of", "of")} {totalSteps}
-          </div>
         </div>
 
         {/* Step 1: Program Information */}

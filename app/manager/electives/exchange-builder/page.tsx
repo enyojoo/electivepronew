@@ -517,10 +517,6 @@ export default function ExchangeBuilderPage() {
             </div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-            {t("manager.exchangeBuilder.step")} {currentStep} {t("manager.exchangeBuilder.of")}
-            {totalSteps}
-          </div>
         </div>
 
         {/* Step 1: Basic Information */}
