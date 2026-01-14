@@ -16,6 +16,9 @@ interface ModernFileUploaderProps {
   className?: string
   title?: string
   description?: string
+  existingFileUrl?: string
+  existingFileName?: string
+  onDeleteExisting?: () => void
 }
 
 export function ModernFileUploader({
@@ -28,6 +31,9 @@ export function ModernFileUploader({
   className,
   title,
   description,
+  existingFileUrl,
+  existingFileName,
+  onDeleteExisting,
 }: ModernFileUploaderProps) {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -121,7 +127,41 @@ export function ModernFileUploader({
         </div>
       )}
 
-      {!selectedFile ? (
+      {existingFileUrl && !selectedFile ? (
+        <div className="border rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <File className="h-4 w-4 text-blue-600" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium truncate">
+                  {existingFileName || "Uploaded file"}
+                </p>
+                <span className="text-xs text-muted-foreground">
+                  (existing file)
+                </span>
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              {onDeleteExisting && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDeleteExisting()
+                  }}
+                  className="p-1 rounded-md hover:bg-destructive/10 text-destructive"
+                  title="Delete existing file"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : !selectedFile && !existingFileUrl ? (
         <div
           className={cn(
             "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",

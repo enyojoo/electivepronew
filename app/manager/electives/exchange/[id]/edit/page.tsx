@@ -626,6 +626,14 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                     uploadProgress={0}
                     accept=".pdf,.doc,.docx"
                     maxSize={10}
+                    existingFileUrl={exchangeProgram?.statement_template_url}
+                    existingFileName={exchangeProgram?.statement_template_url ? "Statement Template" : undefined}
+                    onDeleteExisting={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        statementTemplateUrl: "",
+                      }))
+                    }}
                   />
                 </div>
               </div>
