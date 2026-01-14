@@ -133,12 +133,27 @@ export default function ElectiveCourseEditPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  // Load data on component mount
+  // Load data on component mount - reset state when course ID changes
   useEffect(() => {
-    const loadData = async () => {
-      const courseId = params.id as string
-      if (!courseId || courseId === 'undefined' || !userId) return
+    const courseId = params.id as string
+    if (!courseId || courseId === 'undefined' || !userId) return
 
+    // Reset state for new course
+    setElectiveCourse(null)
+    setLoading(true)
+    setFormData({
+      semester: "",
+      groupId: "",
+      maxSelections: 2,
+      endDate: "",
+    })
+    setSelectedCourses([])
+    setSearchTerm("")
+    setSelectedFile(null)
+    setIsUploading(false)
+    setUploadProgress(0)
+
+    const loadData = async () => {
       const cacheKey = `${COURSE_EDIT_CACHE_KEY}_${courseId}`
 
       // Try to load from cache first for instant loading

@@ -215,9 +215,24 @@ export default function ElectiveCourseDetailPage() {
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
 
-  // Fetch fresh data (cached data already loaded synchronously)
+  // Reset state when course ID changes (for navigation between different courses)
   useEffect(() => {
     if (params.id) {
+      // Reset state for new course
+      setElectiveCourse(null)
+      setCourses([])
+      setStudentSelections([])
+      setLoading(true)
+      setError(null)
+      setSearchTerm("")
+      setSelectedStudent(null)
+      setViewDialogOpen(false)
+      setEditDialogOpen(false)
+      setEditingStudent(null)
+      setEditStatus("")
+      setEditSelectedCourses([])
+
+      // Load data for new course
       loadData()
     }
   }, [params.id])
