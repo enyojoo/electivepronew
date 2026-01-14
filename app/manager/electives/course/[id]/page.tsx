@@ -193,9 +193,11 @@ export default function ElectiveCourseDetailPage() {
     // If we have cached data, don't show loading
     if (cachedData && cachedSelections) {
       setLoading(false)
+    } else if (needsApiFetch) {
+      setLoading(true)
     }
 
-    // Always load data to ensure freshness, but only show loading if no cache
+    // Always load data to ensure freshness
     if (needsApiFetch) {
       loadData()
     }
