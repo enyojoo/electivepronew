@@ -67,6 +67,7 @@ export default function ElectivesPage() {
           .from("elective_courses")
           .select("*")
           .eq("group_id", profile.group.id)
+          .eq("status", "published")
           .order("deadline", { ascending: false })
 
         if (coursesError) {
