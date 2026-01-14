@@ -84,8 +84,150 @@ update on exchange_selections for EACH row
 execute FUNCTION update_updated_at ();
 
 -- Enable Row Level Security
+ALTER TABLE public.elective_courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.elective_exchange ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_selections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exchange_selections ENABLE ROW LEVEL SECURITY;
+
+-- Elective Courses RLS Policies
+
+-- Students can view published courses for their group
+CREATE POLICY "Students can view published courses for their group" ON public.elective_courses
+    FOR SELECT USING (
+        status = 'published' AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid()
+            AND p.role = 'student'
+            AND p.group_id = elective_courses.group_id
+        )
+    );
+
+-- Managers can view courses they created
+CREATE POLICY "Managers can view courses they created" ON public.elective_courses
+    FOR SELECT USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can insert courses
+CREATE POLICY "Managers can insert courses" ON public.elective_courses
+    FOR INSERT WITH CHECK (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can update courses they created
+CREATE POLICY "Managers can update courses they created" ON public.elective_courses
+    FOR UPDATE USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    )
+    WITH CHECK (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can delete courses they created
+CREATE POLICY "Managers can delete courses they created" ON public.elective_courses
+    FOR DELETE USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Admins have full access to elective courses
+CREATE POLICY "Admins have full access to elective courses" ON public.elective_courses
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'admin'
+        )
+    );
+
+-- Elective Exchange RLS Policies
+
+-- Students can view published exchange programs for their group
+CREATE POLICY "Students can view published exchange programs for their group" ON public.elective_exchange
+    FOR SELECT USING (
+        status = 'published' AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid()
+            AND p.role = 'student'
+            AND p.group_id = elective_exchange.group_id
+        )
+    );
+
+-- Managers can view exchange programs they created
+CREATE POLICY "Managers can view exchange programs they created" ON public.elective_exchange
+    FOR SELECT USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can insert exchange programs
+CREATE POLICY "Managers can insert exchange programs" ON public.elective_exchange
+    FOR INSERT WITH CHECK (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can update exchange programs they created
+CREATE POLICY "Managers can update exchange programs they created" ON public.elective_exchange
+    FOR UPDATE USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    )
+    WITH CHECK (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Managers can delete exchange programs they created
+CREATE POLICY "Managers can delete exchange programs they created" ON public.elective_exchange
+    FOR DELETE USING (
+        created_by = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'program_manager'
+        )
+    );
+
+-- Admins have full access to elective exchange
+CREATE POLICY "Admins have full access to elective exchange" ON public.elective_exchange
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles p
+            WHERE p.id = auth.uid() AND p.role = 'admin'
+        )
+    );
 
 -- Course Selections RLS Policies
 
