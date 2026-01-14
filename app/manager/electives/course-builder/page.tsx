@@ -21,7 +21,41 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
-import { useDataCache } from "@/lib/data-cache-context"
+// Cache constants
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions (same as admin/student/manager dashboards)
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
 
 interface Course {
   id: string
@@ -79,20 +113,38 @@ export default function CourseBuilderPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  // Fetch semesters, years, and groups on component mount
+  // Fetch semesters, years, and groups on component mount with caching
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        console.log("Fetching semesters, years, and groups data...")
-        const [semestersData, yearsData, groupsResponse] = await Promise.all([
-          getSemesters(),
-          getYears(),
-          supabase.from("groups").select("id, name"),
-        ])
+        console.log("Loading semesters, years, and groups data...")
 
-        const { data: groupsData, error: groupsError } = groupsResponse
-        if (groupsError) throw groupsError
+        // Check cache for semesters
+        let semestersData = getCachedData("courseBuilderSemesters")
+        if (!semestersData) {
+          console.log("Fetching semesters from API...")
+          semestersData = await getSemesters()
+          setCachedData("courseBuilderSemesters", semestersData)
+        }
+
+        // Check cache for years
+        let yearsData = getCachedData("courseBuilderYears")
+        if (!yearsData) {
+          console.log("Fetching years from API...")
+          yearsData = await getYears()
+          setCachedData("courseBuilderYears", yearsData)
+        }
+
+        // Check cache for groups
+        let groupsData = getCachedData("courseBuilderGroups")
+        if (!groupsData) {
+          console.log("Fetching groups from API...")
+          const { data, error } = await supabase.from("groups").select("id, name")
+          if (error) throw error
+          groupsData = data || []
+          setCachedData("courseBuilderGroups", groupsData)
+        }
 
         console.log("Semesters data:", semestersData)
         console.log("Years data:", yearsData)
@@ -100,7 +152,7 @@ export default function CourseBuilderPage() {
 
         setSemesters(semestersData)
         setYears(yearsData)
-        setGroups(groupsData || [])
+        setGroups(groupsData)
 
         // Set default semester if available
         if (semestersData.length > 0) {
@@ -130,7 +182,7 @@ export default function CourseBuilderPage() {
     }
 
     fetchData()
-  }, [toast, t, supabase])
+  }, [toast, t, supabase]) // Keep dependencies as they are stable
 
   // Fetch courses when entering step 2
   useEffect(() => {
@@ -189,21 +241,29 @@ export default function CourseBuilderPage() {
     }
   }
 
-  // Fetch courses
+  // Fetch courses with caching
   const fetchCourses = async () => {
     setIsLoadingCourses(true)
     try {
-      console.log("Fetching courses...")
-      const { data, error } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("status", "active")
-        .order("name", { ascending: true })
+      console.log("Loading courses...")
 
-      if (error) throw error
+      // Check cache for courses
+      let coursesData = getCachedData("courseBuilderCourses")
+      if (!coursesData) {
+        console.log("Fetching courses from API...")
+        const { data, error } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("status", "active")
+          .order("name", { ascending: true })
 
-      console.log("Courses data:", data)
-      setCourses(data || [])
+        if (error) throw error
+        coursesData = data || []
+        setCachedData("courseBuilderCourses", coursesData)
+      }
+
+      console.log("Courses data:", coursesData)
+      setCourses(coursesData)
     } catch (error) {
       console.error("Error fetching courses:", error)
       toast({

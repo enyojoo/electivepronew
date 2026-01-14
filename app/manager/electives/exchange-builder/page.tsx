@@ -22,7 +22,41 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
 import { useCachedGroups } from "@/hooks/use-cached-groups"
-import { useDataCache } from "@/lib/data-cache-context"
+// Cache constants
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions (same as admin/student/manager dashboards)
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
 
 interface University {
   id: string
@@ -77,13 +111,28 @@ export default function ExchangeBuilderPage() {
   // Find selected group for display
   const selectedGroup = groups.find((g) => g.id === formData.group)
 
-  // Fetch semesters, years, and academic years on component mount
+  // Fetch semesters and years on component mount with caching
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true)
       try {
-        console.log("Fetching semesters and years data...")
-        const [semestersData, yearsData] = await Promise.all([getSemesters(), getYears()])
+        console.log("Loading semesters and years data...")
+
+        // Check cache for semesters
+        let semestersData = getCachedData("exchangeBuilderSemesters")
+        if (!semestersData) {
+          console.log("Fetching semesters from API...")
+          semestersData = await getSemesters()
+          setCachedData("exchangeBuilderSemesters", semestersData)
+        }
+
+        // Check cache for years
+        let yearsData = getCachedData("exchangeBuilderYears")
+        if (!yearsData) {
+          console.log("Fetching years from API...")
+          yearsData = await getYears()
+          setCachedData("exchangeBuilderYears", yearsData)
+        }
 
         console.log("Semesters data:", semestersData)
         console.log("Years data:", yearsData)
@@ -119,7 +168,7 @@ export default function ExchangeBuilderPage() {
     }
 
     fetchData()
-  }, [toast, t])
+  }, [toast, t]) // Keep dependencies as they are stable
 
   // Fetch universities when entering step 2
   useEffect(() => {
@@ -178,21 +227,29 @@ export default function ExchangeBuilderPage() {
     }
   }
 
-  // Fetch universities
+  // Fetch universities with caching
   const fetchUniversities = async () => {
     setIsLoadingUniversities(true)
     try {
-      console.log("Fetching universities...")
-      const { data, error } = await supabase
-        .from("universities")
-        .select("*")
-        .eq("status", "active")
-        .order("name", { ascending: true })
+      console.log("Loading universities...")
 
-      if (error) throw error
+      // Check cache for universities
+      let universitiesData = getCachedData("exchangeBuilderUniversities")
+      if (!universitiesData) {
+        console.log("Fetching universities from API...")
+        const { data, error } = await supabase
+          .from("universities")
+          .select("*")
+          .eq("status", "active")
+          .order("name", { ascending: true })
 
-      console.log("Universities data:", data)
-      setUniversities(data || [])
+        if (error) throw error
+        universitiesData = data || []
+        setCachedData("exchangeBuilderUniversities", universitiesData)
+      }
+
+      console.log("Universities data:", universitiesData)
+      setUniversities(universitiesData)
     } catch (error) {
       console.error("Error fetching universities:", error)
       toast({
