@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { BookOpen, Calendar, ClipboardList, AlertCircle } from "lucide-react"
@@ -247,71 +247,73 @@ export default function StudentDashboard() {
     fetchElectiveCounts()
   }, [supabase, userId])
 
-  // Fetch upcoming deadlines with caching
-  useEffect(() => {
-    const fetchUpcomingDeadlines = async () => {
-      try {
-        console.log("Fetching fresh deadlines data")
+  // Fetch upcoming deadlines
+  const fetchUpcomingDeadlines = useCallback(async () => {
+    try {
+      console.log("Fetching fresh deadlines data")
 
-        // Get current date
-        const now = new Date()
+      // Get current date
+      const now = new Date()
 
-        // Fetch course electives with deadlines
-        // elective_courses has name, deadline, status directly
-        const { data: courseElectives, error: courseError } = await supabase
-          .from("elective_courses")
-          .select("id, name, name_ru, deadline, status")
-          .eq("status", "active")
-          .not("deadline", "is", null)
-          .gte("deadline", now.toISOString())
-          .order("deadline", { ascending: true })
-          .limit(5)
+      // Fetch course electives with deadlines
+      // elective_courses has name, deadline, status directly
+      const { data: courseElectives, error: courseError } = await supabase
+        .from("elective_courses")
+        .select("id, name, name_ru, deadline, status")
+        .eq("status", "active")
+        .not("deadline", "is", null)
+        .gte("deadline", now.toISOString())
+        .order("deadline", { ascending: true })
+        .limit(5)
 
-        // Fetch exchange programs with deadlines
-        const { data: exchangePrograms, error: exchangeError } = await supabase
-          .from("elective_exchange")
-          .select("id, name, name_ru, deadline, status")
-          .eq("status", "published")
-          .not("deadline", "is", null)
-          .gte("deadline", now.toISOString())
-          .order("deadline", { ascending: true })
-          .limit(5)
+      // Fetch exchange programs with deadlines
+      const { data: exchangePrograms, error: exchangeError } = await supabase
+        .from("elective_exchange")
+        .select("id, name, name_ru, deadline, status")
+        .eq("status", "published")
+        .not("deadline", "is", null)
+        .gte("deadline", now.toISOString())
+        .order("deadline", { ascending: true })
+        .limit(5)
 
-        if (!courseError && !exchangeError) {
-          // Process course electives
-          const courseDeadlines = (courseElectives || []).map((item) => ({
-            id: item.id,
-            title: language === "ru" && item.name_ru ? item.name_ru : item.name,
-            date: item.deadline,
-            daysLeft: calculateDaysLeft(item.deadline),
-            type: "course" as const,
-          }))
+      if (!courseError && !exchangeError) {
+        // Process course electives
+        const courseDeadlines = (courseElectives || []).map((item) => ({
+          id: item.id,
+          title: language === "ru" && item.name_ru ? item.name_ru : item.name,
+          date: item.deadline,
+          daysLeft: calculateDaysLeft(item.deadline),
+          type: "course" as const,
+        }))
 
-          // Process exchange programs
-          const exchangeDeadlines = (exchangePrograms || []).map((item) => ({
-            id: item.id,
-            title: language === "ru" && item.name_ru ? item.name_ru : item.name,
-            date: item.deadline,
-            daysLeft: calculateDaysLeft(item.deadline),
-            type: "exchange" as const,
-          }))
+        // Process exchange programs
+        const exchangeDeadlines = (exchangePrograms || []).map((item) => ({
+          id: item.id,
+          title: language === "ru" && item.name_ru ? item.name_ru : item.name,
+          date: item.deadline,
+          daysLeft: calculateDaysLeft(item.deadline),
+          type: "exchange" as const,
+        }))
 
-          // Combine and sort by closest deadline
-          const allDeadlines = [...courseDeadlines, ...exchangeDeadlines]
-            .sort((a, b) => a.daysLeft - b.daysLeft)
-            .slice(0, 5) // Take top 5 closest deadlines
+        // Combine and sort by closest deadline
+        const allDeadlines = [...courseDeadlines, ...exchangeDeadlines]
+          .sort((a, b) => a.daysLeft - b.daysLeft)
+          .slice(0, 5) // Take top 5 closest deadlines
 
-          setUpcomingDeadlines(allDeadlines)
+        setUpcomingDeadlines(allDeadlines)
 
-          // Cache the data
-          setCachedData(DEADLINES_CACHE_KEY, allDeadlines)
-        }
-      } catch (error) {
-        console.error("Error fetching upcoming deadlines:", error)
+        // Cache the data
+        setCachedData(DEADLINES_CACHE_KEY, allDeadlines)
+      }
+    } catch (error) {
+      console.error("Error fetching upcoming deadlines:", error)
     }
-
-    fetchUpcomingDeadlines()
   }, [supabase, language])
+
+  // Fetch upcoming deadlines on mount
+  useEffect(() => {
+    fetchUpcomingDeadlines()
+  }, [fetchUpcomingDeadlines])
 
 
   // Log when component mounts/unmounts to track re-renders
@@ -398,11 +400,7 @@ export default function StudentDashboard() {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingElectiveCounts ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{electiveCounts.required.total}</div>
-              )}
+              <div className="text-2xl font-bold">{electiveCounts.required.total}</div>
               <p className="text-xs text-muted-foreground">
                 {electiveCounts.required.courses} {t("student.dashboard.courses")}, {electiveCounts.required.exchange}{" "}
                 {t("student.dashboard.exchange")}
@@ -416,11 +414,7 @@ export default function StudentDashboard() {
               <ClipboardList className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingElectiveCounts ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{electiveCounts.selected.total}</div>
-              )}
+              <div className="text-2xl font-bold">{electiveCounts.selected.total}</div>
               <p className="text-xs text-muted-foreground">
                 {electiveCounts.selected.courses} {t("student.dashboard.courses")}, {electiveCounts.selected.exchange}{" "}
                 {t("student.dashboard.exchange")}
@@ -434,11 +428,7 @@ export default function StudentDashboard() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoadingElectiveCounts ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <div className="text-2xl font-bold">{electiveCounts.pending.total}</div>
-              )}
+              <div className="text-2xl font-bold">{electiveCounts.pending.total}</div>
               <p className="text-xs text-muted-foreground">
                 {electiveCounts.pending.courses} {t("student.dashboard.courses")}, {electiveCounts.pending.exchange}{" "}
                 {t("student.dashboard.exchange")}
@@ -495,13 +485,7 @@ export default function StudentDashboard() {
               <CardDescription>{t("student.dashboard.importantDates")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingDeadlines ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : upcomingDeadlines.length > 0 ? (
+              {upcomingDeadlines.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingDeadlines.map((deadline) => (
                     <div key={deadline.id} className="flex items-center justify-between">
