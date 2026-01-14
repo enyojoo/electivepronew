@@ -130,8 +130,10 @@ export default function ManagerExchangeElectivesPage() {
         }
 
         const cachedData = getCachedData(cacheKey)
+        console.log("Exchange list: cacheKey =", cacheKey, "cachedData =", !!cachedData, "shouldForceRefresh =", shouldForceRefresh)
 
         if (cachedData && !shouldForceRefresh) {
+          console.log("Exchange list: Using cached data")
           setElectivePacks(cachedData)
           setFilteredPacks(cachedData)
           setIsLoading(false)

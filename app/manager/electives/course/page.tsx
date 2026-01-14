@@ -70,19 +70,22 @@ export default function ManagerCourseElectivesPage() {
   const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
-    const fetchElectivePacks = async (forceRefresh = false) => {
+    const fetchElectivePacks = async () => {
       try {
         setIsLoading(true)
         const cacheKey = "coursePrograms"
 
         // Check if we need to force refresh (e.g., coming from course builder)
-        const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshCourseList')
+        const shouldForceRefresh = getForceRefreshFlag('forceRefreshCourseList')
         if (shouldForceRefresh) {
           clearForceRefreshFlag('forceRefreshCourseList')
         }
 
         const cachedData = getCachedData(cacheKey)
+        console.log("Course list: cacheKey =", cacheKey, "cachedData =", !!cachedData, "shouldForceRefresh =", shouldForceRefresh)
+
         if (cachedData && !shouldForceRefresh) {
+          console.log("Course list: Using cached data")
           setElectivePacks(cachedData)
           setFilteredPacks(cachedData)
           setIsLoading(false)
@@ -109,9 +112,9 @@ export default function ManagerCourseElectivesPage() {
 
         const packsWithCounts = await response.json()
 
+        setCachedData(cacheKey, packsWithCounts)
         setElectivePacks(packsWithCounts)
         setFilteredPacks(packsWithCounts)
-        setCachedData(cacheKey, packsWithCounts)
       } catch (error) {
         console.error("Error fetching elective packs:", error)
         toast({
