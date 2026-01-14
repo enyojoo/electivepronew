@@ -471,13 +471,13 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
   if (profileLoading || isLoadingPage)
     return (
-      <DashboardLayout userRole={UserRole.STUDENT}>
+      <DashboardLayout>
         <PageSkeleton />
       </DashboardLayout>
     )
   if (fetchError)
     return (
-      <DashboardLayout userRole={UserRole.STUDENT}>
+      <DashboardLayout>
         <div className="p-4">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -489,7 +489,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     )
   if (!exchangePackData)
     return (
-      <DashboardLayout userRole={UserRole.STUDENT}>
+      <DashboardLayout>
         <div className="p-4 text-center">{t("student.exchange.notFound")}</div>
       </DashboardLayout>
     )
@@ -505,7 +505,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const areUnisSelected = selectedUniversityIds.length > 0
 
   return (
-    <DashboardLayout userRole={UserRole.STUDENT}>
+    <DashboardLayout>
       <div className="space-y-6 p-4 md:p-6 lg:p-8">
         <div className="flex items-center gap-3">
           <Link href="/student/exchange" passHref>

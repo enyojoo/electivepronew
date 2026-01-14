@@ -198,8 +198,8 @@ export default function ElectiveCourseEditPage() {
       } catch (error) {
         console.error("Error loading data:", error)
         toast({
-          title: t("manager.courseBuilder.error", "Error"),
-          description: t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"),
+          title: t("manager.courseBuilder.error"),
+          description: t("manager.courseBuilder.errorFetchingData"),
           variant: "destructive",
         })
       }
@@ -342,14 +342,14 @@ export default function ElectiveCourseEditPage() {
           syllabus_template_url: urlData.publicUrl,
         }))
         toast({
-          title: t("manager.courseBuilder.uploadSuccess", "Upload Successful"),
+          title: t("manager.courseBuilder.uploadSuccess"),
           description: file.name,
         })
       }
     } catch (error) {
       console.error("Error uploading file:", error)
       toast({
-        title: t("manager.courseBuilder.uploadError", "Upload Error"),
+        title: t("manager.courseBuilder.uploadError"),
         description: t("manager.courseBuilder.uploadErrorDesc", "Failed to upload file"),
         variant: "destructive",
       })
@@ -389,7 +389,7 @@ export default function ElectiveCourseEditPage() {
     } catch (error: any) {
       console.error("Error updating course:", error)
       toast({
-        title: t("manager.courseBuilder.error", "Error"),
+        title: t("manager.courseBuilder.error"),
         description: error.message || t("manager.courseBuilder.errorUpdating", "Failed to update course program"),
         variant: "destructive",
       })
@@ -411,7 +411,7 @@ export default function ElectiveCourseEditPage() {
 
   if (loading) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -423,7 +423,7 @@ export default function ElectiveCourseEditPage() {
   }
 
   return (
-    <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

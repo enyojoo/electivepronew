@@ -5,6 +5,7 @@ import { Menu } from "lucide-react"
 import { LanguageSwitcher } from "@/components/language-switcher"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import Logo from "@/components/logo"
 
 interface HeaderProps {
   sidebarOpen: boolean
@@ -28,6 +29,12 @@ export function Header({ sidebarOpen, setSidebarOpen, className }: HeaderProps) 
           <span className="sr-only">Toggle sidebar</span>
         </Button>
       </div>
+
+      {/* Mobile logo in center */}
+      <div className="flex items-center justify-center md:hidden">
+        <Logo className="h-6 w-auto max-w-[120px]" />
+      </div>
+
       <div className="flex items-center gap-4">
         <LanguageSwitcher />
       </div>

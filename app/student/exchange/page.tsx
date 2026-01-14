@@ -12,7 +12,7 @@ import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
-import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { CardGridSkeleton } from "@/components/ui/page-skeleton"
 
 export default function ExchangePage() {
   const { t, language } = useLanguage()
@@ -222,20 +222,20 @@ export default function ExchangePage() {
 
   if (profileLoading || isLoading) {
     return (
-      <DashboardLayout userRole={UserRole.STUDENT}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{t("student.exchange.title")}</h1>
             <p className="text-muted-foreground">{t("student.exchange.subtitle")}</p>
           </div>
-          <TableSkeleton numberOfRows={3} />
+          <CardGridSkeleton itemCount={3} />
         </div>
       </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout userRole={UserRole.STUDENT}>
+    <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("student.exchange.title")}</h1>

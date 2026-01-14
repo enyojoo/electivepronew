@@ -3,11 +3,12 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log("API Route called with params:", params)
-    console.log("API Route params.id:", params.id)
+    const resolvedParams = await params
+    console.log("API Route called with params:", resolvedParams)
+    console.log("API Route params.id:", resolvedParams.id)
 
     // Extract ID from URL pathname as fallback
     const url = new URL(request.url)
@@ -17,7 +18,7 @@ export async function GET(
     console.log("URL pathname:", url.pathname)
     console.log("Extracted courseId from URL:", courseIdFromUrl)
 
-    const courseId = params.id || courseIdFromUrl
+    const courseId = resolvedParams.id || courseIdFromUrl
     console.log("Final courseId:", courseId)
 
     const supabase = await createServerComponentClient()
@@ -118,7 +119,7 @@ export async function GET(
           email
         )
       `)
-      .eq("elective_courses_id", params.id)
+      .eq("elective_courses_id", resolvedParams.id)
 
     if (selectionsError) {
       console.error("Error loading student selections:", selectionsError)

@@ -12,7 +12,7 @@ import { useLanguage } from "@/lib/language-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
-import { TableSkeleton } from "@/components/ui/table-skeleton"
+import { CardGridSkeleton } from "@/components/ui/page-skeleton"
 
 export default function ElectivesPage() {
   const { t, language } = useLanguage()
@@ -20,8 +20,15 @@ export default function ElectivesPage() {
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
   const [electiveCourses, setElectiveCourses] = useState<any[]>([])
   const [courseSelections, setCourseSelections] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [mounted, setMounted] = useState<boolean>(false)
   const supabaseClient = getSupabaseBrowserClient()
   const [fetchError, setFetchError] = useState<string | null>(null)
+
+  // Set mounted to true after component mounts to avoid hydration mismatches
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     console.log("ElectivesPage: useEffect triggered.")
@@ -175,6 +182,8 @@ export default function ElectivesPage() {
   }, [supabaseClient, profile?.id, profile?.group?.id])
 
   const formatDate = (dateString: string) => {
+    // Only format dates on client side to avoid hydration mismatches
+    if (!mounted) return ""
     const date = new Date(dateString)
     return date.toLocaleDateString(language === "ru" ? "ru-RU" : "en-US", {
       year: "numeric",
@@ -223,20 +232,20 @@ export default function ElectivesPage() {
 
   if (profileLoading || isLoading) {
     return (
-      <DashboardLayout userRole={UserRole.STUDENT}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{t("student.courses.title")}</h1>
             <p className="text-muted-foreground">{t("student.courses.subtitle")}</p>
           </div>
-          <TableSkeleton numberOfRows={3} />
+          <CardGridSkeleton itemCount={3} />
         </div>
       </DashboardLayout>
     )
   }
 
   return (
-    <DashboardLayout userRole={UserRole.STUDENT}>
+    <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("student.courses.title")}</h1>

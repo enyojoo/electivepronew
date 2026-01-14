@@ -311,25 +311,25 @@ export default function ExchangeDetailPage() {
       case "draft":
         return (
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200" suppressHydrationWarning>
-            {t("manager.exchangeDetails.draft", "Draft")}
+            {t("manager.exchangeDetails.draft")}
           </Badge>
         )
       case "published":
         return (
           <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200" suppressHydrationWarning>
-            {t("manager.exchangeDetails.published", "Published")}
+            {t("manager.exchangeDetails.published")}
           </Badge>
         )
       case "closed":
         return (
           <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200" suppressHydrationWarning>
-            {t("manager.exchangeDetails.closed", "Closed")}
+            {t("manager.exchangeDetails.closed")}
           </Badge>
         )
       case "archived":
         return (
           <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200" suppressHydrationWarning>
-            {t("manager.exchangeDetails.archived", "Archived")}
+            {t("manager.exchangeDetails.archived")}
           </Badge>
         )
       default:
@@ -611,10 +611,10 @@ export default function ExchangeDetailPage() {
 
   if (error) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600">{t("manager.exchangeDetails.errorLoadingData", "Error Loading Data")}</h1>
+            <h1 className="text-2xl font-bold text-red-600">{t("manager.exchangeDetails.errorLoadingData")}</h1>
             <p className="text-muted-foreground mt-2">{error}</p>
             <Button onClick={loadData} className="mt-4">
               Try Again
@@ -628,7 +628,7 @@ export default function ExchangeDetailPage() {
 
   if (loading) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -640,7 +640,7 @@ export default function ExchangeDetailPage() {
   }
 
   return (
-    <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -660,7 +660,7 @@ export default function ExchangeDetailPage() {
             <Button variant="outline" size="sm" asChild>
               <Link href={`/manager/electives/exchange/${params.id as string}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
-                {t("manager.exchangeDetails.edit", "Edit")}
+                {t("manager.exchangeDetails.edit")}
               </Link>
             </Button>
           </div>
@@ -668,33 +668,33 @@ export default function ExchangeDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t("manager.exchangeDetails.programDetails", "Program Details")}</CardTitle>
+            <CardTitle>{t("manager.exchangeDetails.programDetails")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2">
               <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.deadline", "Deadline")}:</dt>
-                <dd>{exchangeProgram?.deadline ? formatDate(exchangeProgram.deadline, language === "ru" ? "ru-RU" : "en-US") : t("manager.exchangeDetails.loading", "Loading...")}</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.deadline")}:</dt>
+                <dd>{exchangeProgram?.deadline ? formatDate(exchangeProgram.deadline, language === "ru" ? "ru-RU" : "en-US") : t("manager.exchangeDetails.loading")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.maxSelections", "Max Selections")}:</dt>
-                <dd>{exchangeProgram?.max_selections || 0} {t("manager.exchangeDetails.universities", "universities")}</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.maxSelections")}:</dt>
+                <dd>{exchangeProgram?.max_selections || 0} {t("manager.exchangeDetails.universities")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.universitiesTab", "Universities")}:</dt>
+                <dt className="font-medium">{t("manager.exchangeDetails.universitiesTab")}:</dt>
                 <dd>{universities.length}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.studentsEnrolled", "Students Enrolled")}:</dt>
+                <dt className="font-medium">{t("manager.exchangeDetails.studentsEnrolled")}:</dt>
                 <dd>{getTotalStudentsEnrolled()}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">{t("manager.exchangeDetails.created", "Created")}:</dt>
-                <dd>{exchangeProgram?.created_at ? formatDate(exchangeProgram.created_at) : t("manager.exchangeDetails.loading", "Loading...")}</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.created")}:</dt>
+                <dd>{exchangeProgram?.created_at ? formatDate(exchangeProgram.created_at) : t("manager.exchangeDetails.loading")}</dd>
               </div>
               {exchangeProgram?.description && (
                 <div className="flex flex-col gap-1">
-                  <dt className="font-medium">{t("manager.exchangeDetails.description", "Description")}:</dt>
+                  <dt className="font-medium">{t("manager.exchangeDetails.description")}:</dt>
                   <dd className="text-sm text-muted-foreground">
                     {language === "ru" && exchangeProgram.description_ru
                       ? exchangeProgram.description_ru
@@ -708,30 +708,30 @@ export default function ExchangeDetailPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="universities">{t("manager.exchangeDetails.universitiesTab", "Universities")}</TabsTrigger>
-            <TabsTrigger value="students">{t("manager.exchangeDetails.studentsTab", "Student Selections")}</TabsTrigger>
+            <TabsTrigger value="universities">{t("manager.exchangeDetails.universitiesTab")}</TabsTrigger>
+            <TabsTrigger value="students">{t("manager.exchangeDetails.studentsTab")}</TabsTrigger>
           </TabsList>
           <TabsContent value="universities" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>{t("manager.exchangeDetails.universitiesTab", "Universities")}</CardTitle>
+                <CardTitle>{t("manager.exchangeDetails.universitiesTab")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
                   <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name", "Name")}</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.country", "Country")}</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.enrollment", "Enrollment")}</th>
-                          <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.export", "Export")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.country")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.enrollment")}</th>
+                          <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.export")}</th>
                         </tr>
                       </thead>
                     <tbody>
                       {universities.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="py-8 text-center text-muted-foreground">
-                            {t("manager.exchangeDetails.noUniversities", "No universities configured for this exchange program")}
+                            {t("manager.exchangeDetails.noUniversities")}
                           </td>
                         </tr>
                       ) : (
@@ -761,7 +761,7 @@ export default function ExchangeDetailPage() {
                                   className="flex mx-auto"
                                 >
                                   <Download className="h-4 w-4 mr-1" />
-                                  {t("manager.exchangeDetails.download", "Download")}
+                                  {t("manager.exchangeDetails.download")}
                                 </Button>
                               </td>
                             </tr>
@@ -802,7 +802,7 @@ export default function ExchangeDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name", "Name")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name")}</th>
                         <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.email", "Email")}</th>
                         <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.selectionDate", "Selection Date")}</th>
                         <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.status", "Status")}</th>
@@ -954,7 +954,7 @@ export default function ExchangeDetailPage() {
                                       }}
                                     >
                                       <Edit className="mr-2 h-4 w-4" />
-                                      {t("manager.exchangeDetails.edit", "Edit")}
+                                      {t("manager.exchangeDetails.edit")}
                                     </DropdownMenuItem>
                                     {selection.status === "pending" && (
                                       <>

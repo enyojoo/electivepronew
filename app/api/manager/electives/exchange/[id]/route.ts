@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    console.log("Exchange API Route called with params:", params)
-    console.log("Exchange API Route params.id:", params.id)
+    const resolvedParams = await params
+    console.log("Exchange API Route called with params:", resolvedParams)
+    console.log("Exchange API Route params.id:", resolvedParams.id)
 
     // Extract ID from URL pathname as fallback
     const url = new URL(request.url)
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     console.log("URL pathname:", url.pathname)
     console.log("Extracted exchangeId from URL:", exchangeIdFromUrl)
 
-    const exchangeId = params.id || exchangeIdFromUrl
+    const exchangeId = resolvedParams.id || exchangeIdFromUrl
     console.log("Final exchangeId:", exchangeId)
 
     const supabase = await createServerComponentClient()

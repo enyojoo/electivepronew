@@ -391,7 +391,7 @@ export default function ExchangeEditPage() {
 
   if (loading) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -403,7 +403,7 @@ export default function ExchangeEditPage() {
   }
 
   return (
-    <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+    <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

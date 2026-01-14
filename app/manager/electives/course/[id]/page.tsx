@@ -259,10 +259,10 @@ export default function ElectiveCourseDetailPage() {
       setStudentSelections(data.studentSelections || [])
     } catch (error) {
       console.error("Error loading data:", error)
-      setError(t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"))
+      setError(t("manager.courseBuilder.errorFetchingData"))
       toast({
-        title: t("manager.courseBuilder.error", "Error"),
-        description: t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"),
+        title: t("manager.courseBuilder.error"),
+        description: t("manager.courseBuilder.errorFetchingData"),
         variant: "destructive",
       })
     }
@@ -282,25 +282,25 @@ export default function ElectiveCourseDetailPage() {
       case "draft":
         return (
           <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200" suppressHydrationWarning>
-            {mounted ? t("manager.status.draft", "Draft") : "Draft"}
+            {mounted ? t("manager.status.draft") : "Draft"}
           </Badge>
         )
       case "published":
         return (
           <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200" suppressHydrationWarning>
-            {mounted ? t("manager.status.published", "Published") : "Published"}
+            {mounted ? t("manager.status.published") : "Published"}
           </Badge>
         )
       case "closed":
         return (
           <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200" suppressHydrationWarning>
-            {mounted ? t("manager.status.closed", "Closed") : "Closed"}
+            {mounted ? t("manager.status.closed") : "Closed"}
           </Badge>
         )
       case "archived":
         return (
           <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200" suppressHydrationWarning>
-            {mounted ? t("manager.status.archived", "Archived") : "Archived"}
+            {mounted ? t("manager.status.archived") : "Archived"}
           </Badge>
         )
       default:
@@ -314,14 +314,14 @@ export default function ElectiveCourseDetailPage() {
         return (
           <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200" suppressHydrationWarning>
             <CheckCircle className="mr-1 h-3 w-3" />
-            {mounted ? t("manager.status.approved", "Approved") : "Approved"}
+            {mounted ? t("manager.status.approved") : "Approved"}
           </Badge>
         )
       case "pending":
         return (
           <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200" suppressHydrationWarning>
             <Clock className="mr-1 h-3 w-3" />
-            {mounted ? t("manager.status.pending", "Pending") : "Pending"}
+            {mounted ? t("manager.status.pending") : "Pending"}
           </Badge>
         )
       case "rejected":
@@ -366,7 +366,7 @@ export default function ElectiveCourseDetailPage() {
       })
     } catch (error) {
       toast({
-        title: t("manager.courseBuilder.error", "Error"),
+        title: t("manager.courseBuilder.error"),
         description: t("manager.courseDetails.errorUpdatingSelection", `Failed to ${newStatus} selection`),
         variant: "destructive",
       })
@@ -440,7 +440,7 @@ export default function ElectiveCourseDetailPage() {
     } catch (error) {
       console.error("Error exporting course data:", error)
       toast({
-        title: t("manager.courseBuilder.error", "Error"),
+        title: t("manager.courseBuilder.error"),
         description: t("manager.courseDetails.exportError", "Failed to export course data"),
         variant: "destructive",
       })
@@ -589,7 +589,7 @@ export default function ElectiveCourseDetailPage() {
     } catch (error) {
       console.error("Error updating selection:", error)
       toast({
-        title: t("manager.courseBuilder.error", "Error"),
+        title: t("manager.courseBuilder.error"),
         description: t("manager.courseDetails.errorUpdatingSelection", "Failed to update selection"),
         variant: "destructive",
       })
@@ -618,7 +618,7 @@ export default function ElectiveCourseDetailPage() {
 
   if (error) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-red-600">{t("manager.courseDetails.errorLoading", "Error Loading Data")}</h1>
@@ -635,7 +635,7 @@ export default function ElectiveCourseDetailPage() {
 
   if (loading) {
     return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+      <DashboardLayout>
         <div className="space-y-6">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
@@ -647,7 +647,7 @@ export default function ElectiveCourseDetailPage() {
   }
 
   return (
-    <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-2">

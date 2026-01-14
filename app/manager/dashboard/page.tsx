@@ -422,7 +422,7 @@ export default function ManagerDashboard() {
 
 
   return (
-    <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+    <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("manager.dashboard.title")}</h1>
