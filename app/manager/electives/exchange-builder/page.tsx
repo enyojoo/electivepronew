@@ -424,6 +424,12 @@ export default function ExchangeBuilderPage() {
         created_by: profileId, // Store the user ID as the creator
       }
 
+      // Use manager's academic year, fallback to form data if not available
+      const academicYearId = managerProfile?.academic_year_id || formData.year
+
+      // Update insert data with correct academic year
+      insertData.academic_year = academicYearId
+
       console.log("Creating exchange program with data:", insertData)
 
       // Insert into elective_exchange table

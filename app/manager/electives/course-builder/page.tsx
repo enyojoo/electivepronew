@@ -420,6 +420,9 @@ export default function CourseBuilderPage() {
 
       console.log("Using profile ID:", profileId)
 
+      // Use manager's academic year, fallback to form data if not available
+      const academicYearId = managerProfile?.academic_year_id || formData.year
+
       // Create elective_courses entry
       const { data: electiveCoursesData, error: electiveCoursesError } = await supabase
         .from("elective_courses")
@@ -432,7 +435,7 @@ export default function CourseBuilderPage() {
             max_selections: formData.maxSelections,
             syllabus_template_url: formData.syllabusTemplateUrl,
             semester: formData.semester,
-            academic_year: formData.year,
+            academic_year: academicYearId,
             group_id: formData.groupId,
             courses: selectedCourses, // Store course IDs as an array of UUIDs
             created_by: profileId,
