@@ -145,13 +145,24 @@ export default function ExchangeEditPage() {
 
         // Load selected universities - map to IDs only
         setSelectedUniversities(cachedData.universities?.map((university: any) => university.id) || [])
+
+        // Don't set loading, data is available instantly from cache
+        return
       }
+
+      // Set loading only when fetching from API
+      setLoading(true)
 
       try {
         // Load exchange program data from API (refresh cache in background)
         const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
         if (!response.ok) {
           const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed") {
+            router.push("/manager/login")
+            return
+          }
           throw new Error(errorData.error || "Failed to load exchange program")
         }
 
@@ -182,6 +193,8 @@ export default function ExchangeEditPage() {
           description: "Failed to load exchange program data",
           variant: "destructive",
         })
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -372,9 +385,22 @@ export default function ExchangeEditPage() {
     }
   }
 
-  // No loading spinner - page loads instantly from cache
+  // Show loading skeleton only when actually loading from API
+  if (isLoadingUniversities && !exchangeProgram) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
-  if (!exchangeProgram) {
+  // Show not found only after loading is complete and no data
+  if (!isLoadingUniversities && !exchangeProgram) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">

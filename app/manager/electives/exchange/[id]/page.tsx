@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 
@@ -130,7 +130,7 @@ export default function ExchangeDetailPage() {
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [universities, setUniversities] = useState<University[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -144,8 +144,20 @@ export default function ExchangeDetailPage() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
+  const router = useRouter()
 
   useEffect(() => {
+    // Set loading to true only if we don't have cached data
+    const exchangeId = params.id as string
+    const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${exchangeId}`
+    const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${exchangeId}`
+    const cachedData = getCachedData(cacheKey)
+    const cachedSelections = getCachedData(selectionsCacheKey)
+
+    if (!cachedData || !cachedSelections) {
+      setLoading(true)
+    }
+
     loadData()
   }, [params.id])
 
@@ -188,7 +200,6 @@ export default function ExchangeDetailPage() {
 
   const loadData = async (forceRefresh = false) => {
     try {
-      setLoading(true)
       setError(null)
 
       const exchangeId = params.id as string
@@ -209,12 +220,15 @@ export default function ExchangeDetailPage() {
           setStudentSelections(cachedSelections)
         }
 
-        // If we have both cached data, don't fetch from API
+        // If we have both cached data, don't fetch from API and don't set loading
         if (cachedData && cachedSelections) {
-          setLoading(false)
+          setLoading(false) // Ensure loading is false if we have cached data
           return
         }
       }
+
+      // Set loading only when we need to fetch from API
+      setLoading(true)
 
       console.log("Loading exchange program with ID:", exchangeId)
 
@@ -222,6 +236,11 @@ export default function ExchangeDetailPage() {
       const response = await fetch(`/api/manager/electives/exchange/${exchangeId}`)
       if (!response.ok) {
         const errorData = await response.json()
+        // Redirect to login on authentication errors
+        if (errorData.error === "Authentication failed") {
+          router.push("/manager/login")
+          return
+        }
         throw new Error(errorData.error || "Failed to load exchange program")
       }
 

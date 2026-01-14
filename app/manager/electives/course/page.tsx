@@ -135,6 +135,11 @@ export default function ManagerCourseElectivesPage() {
 
         if (!response.ok) {
           const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed") {
+            window.location.href = "/manager/login"
+            return
+          }
           throw new Error(errorData.error || `API error: ${response.status}`)
         }
 
@@ -194,6 +199,11 @@ export default function ManagerCourseElectivesPage() {
 
         if (!response.ok) {
           const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed") {
+            window.location.href = "/manager/login"
+            return
+          }
           console.error("Error refetching elective packs:", errorData)
           return
         }

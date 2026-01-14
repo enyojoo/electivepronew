@@ -147,13 +147,24 @@ export default function ElectiveCourseEditPage() {
 
         // Load selected courses - map to IDs only
         setSelectedCourses(cachedData.courses?.map((course: any) => course.id) || [])
+
+        // Don't set loading, data is available instantly from cache
+        return
       }
+
+      // Set loading only when fetching from API
+      setLoading(true)
 
       try {
         // Load elective data from API (refresh cache in background)
         const response = await fetch(`/api/manager/electives/course/${courseId}`)
         if (!response.ok) {
           const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed") {
+            router.push("/manager/login")
+            return
+          }
           throw new Error(errorData.error || "Failed to load course program")
         }
 
@@ -184,6 +195,8 @@ export default function ElectiveCourseEditPage() {
           description: "Failed to load course program data",
           variant: "destructive",
         })
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -378,9 +391,22 @@ export default function ElectiveCourseEditPage() {
     }
   }
 
-  // No loading spinner - page loads instantly from cache
+  // Show loading skeleton only when actually loading from API
+  if (isLoadingCourses && !electiveCourse) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
-  if (!electiveCourse) {
+  // Show not found only after loading is complete and no data
+  if (!isLoadingCourses && !electiveCourse) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">

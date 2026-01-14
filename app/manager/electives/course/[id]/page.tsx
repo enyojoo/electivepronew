@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 
@@ -118,7 +118,7 @@ export default function ElectiveCourseDetailPage() {
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<StudentSelection | null>(null)
@@ -131,8 +131,20 @@ export default function ElectiveCourseDetailPage() {
   const { language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
+  const router = useRouter()
 
   useEffect(() => {
+    // Set loading to true only if we don't have cached data
+    const courseId = params.id as string
+    const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${courseId}`
+    const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${courseId}`
+    const cachedData = getCachedData(cacheKey)
+    const cachedSelections = getCachedData(selectionsCacheKey)
+
+    if (!cachedData || !cachedSelections) {
+      setLoading(true)
+    }
+
     loadData()
   }, [params.id])
 
@@ -180,7 +192,6 @@ export default function ElectiveCourseDetailPage() {
 
   const loadData = async (forceRefresh = false) => {
     try {
-      setLoading(true)
       setError(null)
 
       const courseId = params.id as string
@@ -201,17 +212,25 @@ export default function ElectiveCourseDetailPage() {
           setStudentSelections(cachedSelections)
         }
 
-        // If we have both cached data, don't fetch from API
+        // If we have both cached data, don't fetch from API and don't set loading
         if (cachedData && cachedSelections) {
-          setLoading(false)
+          setLoading(false) // Ensure loading is false if we have cached data
           return
         }
       }
+
+      // Set loading only when we need to fetch from API
+      setLoading(true)
 
       // Load course program data from API
       const response = await fetch(`/api/manager/electives/course/${courseId}`)
       if (!response.ok) {
         const errorData = await response.json()
+        // Redirect to login on authentication errors
+        if (errorData.error === "Authentication failed") {
+          router.push("/manager/login")
+          return
+        }
         throw new Error(errorData.error || "Failed to load course program")
       }
 
