@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, ArrowRight, Calendar, Check, ChevronRight, Info, Search } from "lucide-react"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
-import { DocumentUpload } from "@/components/document-upload"
+import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
@@ -29,7 +29,7 @@ interface ElectiveCourseEditPageProps {
 export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPageProps) {
   const router = useRouter()
   const { t } = useLanguage()
-  const [activeStep, setActiveStep] = useState(0)
+  const [currentStep, setCurrentStep] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCourses, setSelectedCourses] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -48,6 +48,8 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   const supabase = getSupabaseBrowserClient()
   const [availableCourses, setAvailableCourses] = useState<any[]>([])
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   // Mock available courses data (REMOVED - now using real data)
   const mockAvailableCourses = [
@@ -192,15 +194,54 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
 
   // Handle next step
   const handleNextStep = () => {
-    if (activeStep < steps.length - 1) {
-      setActiveStep(activeStep + 1)
+    if (currentStep < steps.length) {
+      setCurrentStep(currentStep + 1)
     }
   }
 
   // Handle previous step
   const handlePrevStep = () => {
-    if (activeStep > 0) {
-      setActiveStep(activeStep - 1)
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    setSelectedFile(file)
+    setIsUploading(true)
+
+    try {
+      const fileExt = file.name.split(".").pop()
+      const fileName = `statement_templates/${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage.from("documents").upload(fileName, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName)
+
+      if (urlData) {
+        // Update the elective course with the new template URL
+        setElectiveCourse((prev: any) => ({
+          ...prev,
+          syllabus_template_url: urlData.publicUrl,
+        }))
+        toast({
+          title: t("manager.courseBuilder.uploadSuccess", "Upload Successful"),
+          description: file.name,
+        })
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error)
+      toast({
+        title: t("manager.courseBuilder.uploadError", "Upload Error"),
+        description: t("manager.courseBuilder.uploadErrorDesc", "Failed to upload file"),
+        variant: "destructive",
+      })
+      setSelectedFile(null)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -302,41 +343,69 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
           </div>
         </div>
 
-        {/* Stepper */}
-        <div className="hidden md:flex items-center justify-between">
-          {steps.map((step, index) => (
-            <div key={index} className="flex items-center">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center">
               <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                  index === activeStep
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : index < activeStep
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground text-muted-foreground"
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  currentStep >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
-                {index < activeStep ? <Check className="h-5 w-5" /> : <span>{index + 1}</span>}
+                {currentStep > 1 ? <Check className="h-4 w-4" /> : "1"}
               </div>
-              <div className="ml-4 mr-8">
-                <p className="text-sm font-medium">{step.title}</p>
+              <div className="ml-2 hidden sm:block">
+                <p className="text-sm font-medium">{t("manager.courseBuilder.programInfo", "Program Information")}</p>
               </div>
-              {index < steps.length - 1 && <ChevronRight className="h-5 w-5 text-muted-foreground mr-8" />}
             </div>
-          ))}
+
+            <div className="mx-2 h-px w-8 bg-muted" />
+
+            <div className="flex items-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  currentStep >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {currentStep > 2 ? <Check className="h-4 w-4" /> : "2"}
+              </div>
+              <div className="ml-2 hidden sm:block">
+                <p className="text-sm font-medium">{t("manager.courseBuilder.addCourses", "Select Courses")}</p>
+              </div>
+            </div>
+
+            <div className="mx-2 h-px w-8 bg-muted" />
+
+            <div className="flex items-center">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  currentStep >= 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                3
+              </div>
+              <div className="ml-2 hidden sm:block">
+                <p className="text-sm font-medium">{t("manager.courseBuilder.programDetails", "Confirmation")}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Mobile Stepper */}
         <div className="md:hidden">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-medium">
-              {t("manager.courseBuilder.step")} {activeStep + 1} {t("manager.courseBuilder.of")} {steps.length}
+              {t("manager.courseBuilder.step")} {currentStep} {t("manager.courseBuilder.of")} {steps.length}
             </p>
-            <p className="text-sm font-medium">{steps[activeStep].title}</p>
+            <p className="text-sm font-medium">
+              {currentStep === 1 && t("manager.courseBuilder.programInfo", "Program Information")}
+              {currentStep === 2 && t("manager.courseBuilder.addCourses", "Select Courses")}
+              {currentStep === 3 && t("manager.courseBuilder.programDetails", "Confirmation")}
+            </p>
           </div>
           <div className="w-full bg-muted h-2 rounded-full mb-6">
             <div
               className="bg-primary h-2 rounded-full"
-              style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }}
+              style={{ width: `${(currentStep / steps.length) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -344,11 +413,15 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
         {/* Step Content */}
         <Card>
           <CardHeader>
-            <CardTitle>{steps[activeStep].title}</CardTitle>
+            <CardTitle>
+              {currentStep === 1 && t("manager.courseBuilder.programInfo", "Program Information")}
+              {currentStep === 2 && t("manager.courseBuilder.addCourses", "Select Courses")}
+              {currentStep === 3 && t("manager.courseBuilder.programDetails", "Confirmation")}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {/* Step 1: Basic Information & Selection Rules (Combined) */}
-            {activeStep === 0 && (
+            {currentStep === 1 && (
               <div className="space-y-6">
                 {/* Basic Information Section */}
                 <div>
@@ -451,11 +524,34 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                     </div>
                   </div>
                 </div>
+
+                {/* Statement Upload Section */}
+                <div>
+                  <ModernFileUploader
+                    title={t("manager.courseBuilder.statementUpload", "Statement Upload")}
+                    description={t(
+                      "manager.courseBuilder.statementDescription",
+                      "Upload a blank statement file that students will download, sign, and re-upload."
+                    )}
+                    selectedFile={selectedFile}
+                    onFileSelect={(file) => {
+                      if (file) {
+                        handleFileUpload(file)
+                      } else {
+                        setSelectedFile(null)
+                      }
+                    }}
+                    isUploading={isUploading}
+                    uploadProgress={0}
+                    accept=".pdf,.doc,.docx"
+                    maxSize={10}
+                  />
+                </div>
               </div>
             )}
 
             {/* Step 2: Add Courses */}
-            {activeStep === 1 && (
+            {currentStep === 2 && (
               <div className="space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="relative w-full md:w-auto">
@@ -529,7 +625,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
             )}
 
             {/* Step 3: Review & Publish */}
-            {activeStep === 2 && (
+            {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -632,7 +728,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
           </CardContent>
           <CardFooter className="flex justify-between">
             <div>
-              {activeStep > 0 && (
+              {currentStep > 1 && (
                 <Button variant="outline" onClick={handlePrevStep}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   {t("manager.courseBuilder.back")}
@@ -643,7 +739,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
               <Button variant="outline" onClick={handleSaveAsDraft}>
                 {t("manager.courseBuilder.saveAsDraft")}
               </Button>
-              {activeStep < steps.length - 1 ? (
+              {currentStep < steps.length ? (
                 <Button onClick={handleNextStep}>
                   {t("manager.courseBuilder.next")}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -665,33 +761,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
             </div>
           </CardFooter>
         </Card>
-        <div className="mt-6">
-          <DocumentUpload
-            courseId={params.id}
-            onUploadComplete={(url, fileName) => {
-              // In a real app, you would save this to the database
-              console.log("Document uploaded:", url, fileName)
-              toast({
-                title: "Document uploaded",
-                description: `${fileName} has been uploaded successfully.`,
-              })
-            }}
-            existingDocuments={
-              [
-                // In a real app, you would fetch these from the database
-                // This is just a placeholder
-              ]
-            }
-            onDelete={(id) => {
-              // In a real app, you would delete this from the database and storage
-              console.log("Delete document:", id)
-              toast({
-                title: "Document deleted",
-                description: "The document has been deleted successfully.",
-              })
-            }}
-          />
-        </div>
       </div>
     </DashboardLayout>
   )

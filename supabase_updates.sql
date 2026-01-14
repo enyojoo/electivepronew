@@ -91,15 +91,13 @@ ALTER TABLE public.exchange_selections ENABLE ROW LEVEL SECURITY;
 
 -- Elective Courses RLS Policies
 
--- Students can view published courses for their group
-CREATE POLICY "Students can view published courses for their group" ON public.elective_courses
+-- Students can view published courses
+CREATE POLICY "Students can view published courses" ON public.elective_courses
     FOR SELECT USING (
         status = 'published' AND
         EXISTS (
             SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid()
-            AND p.role = 'student'
-            AND p.group_id = elective_courses.group_id
+            WHERE p.id = auth.uid() AND p.role = 'student'
         )
     );
 
@@ -161,15 +159,13 @@ CREATE POLICY "Admins have full access to elective courses" ON public.elective_c
 
 -- Elective Exchange RLS Policies
 
--- Students can view published exchange programs for their group
-CREATE POLICY "Students can view published exchange programs for their group" ON public.elective_exchange
+-- Students can view published exchange programs
+CREATE POLICY "Students can view published exchange programs" ON public.elective_exchange
     FOR SELECT USING (
         status = 'published' AND
         EXISTS (
             SELECT 1 FROM public.profiles p
-            WHERE p.id = auth.uid()
-            AND p.role = 'student'
-            AND p.group_id = elective_exchange.group_id
+            WHERE p.id = auth.uid() AND p.role = 'student'
         )
     );
 
