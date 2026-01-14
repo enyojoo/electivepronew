@@ -283,38 +283,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
     }
   }
 
-  // Handle save as draft
-  const handleSaveAsDraft = async () => {
-    try {
-      const { error } = await supabase
-        .from("elective_courses")
-        .update({
-          semester: packDetails.semester,
-          academic_year: managerProfile?.academic_year_id,
-          max_selections: packDetails.maxSelections,
-          deadline: packDetails.endDate,
-          courses: selectedCourses,
-          status: "draft",
-        })
-        .eq("id", params.id)
-
-      if (error) throw error
-
-      toast({
-        title: t("toast.success", "Success"),
-        description: t("toast.savedAsDraft", "Saved as draft successfully"),
-      })
-
-      router.push(`/manager/electives/course/${params.id}`)
-    } catch (error: any) {
-      console.error("Error saving as draft:", error)
-      toast({
-        title: t("toast.error", "Error"),
-        description: error.message || t("toast.errorDesc", "Failed to save as draft"),
-        variant: "destructive",
-      })
-    }
-  }
 
   // Handle publish
   const handlePublish = async () => {
@@ -371,9 +339,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                 {t("manager.courseBuilder.editTitle") || t("manager.courseBuilder.title")}
               </h1>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{t("manager.courseBuilder.draft")}</Badge>
           </div>
         </div>
 
@@ -743,9 +708,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleSaveAsDraft}>
-                {t("manager.courseBuilder.saveAsDraft")}
-              </Button>
               {currentStep < steps.length ? (
                 <Button onClick={handleNextStep}>
                   {t("manager.courseBuilder.next")}

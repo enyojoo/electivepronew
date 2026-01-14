@@ -339,10 +339,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
     setCurrentStep((prev) => Math.max(prev - 1, 1))
   }
 
-  // Handle save as draft
-  const handleSaveAsDraft = async () => {
-    await handleSubmit("draft")
-  }
 
   // Handle publish
   const handlePublish = async () => {
@@ -824,16 +820,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                   {t("manager.exchangeBuilder.back")}
                 </Button>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={handleSaveAsDraft} disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("manager.exchangeBuilder.saving")}
-                      </>
-                    ) : (
-                      t("manager.exchangeBuilder.saveAsDraft")
-                    )}
-                  </Button>
                   <Button type="button" onClick={handlePublish} disabled={isSubmitting}>
                     {isSubmitting ? (
                       <>
