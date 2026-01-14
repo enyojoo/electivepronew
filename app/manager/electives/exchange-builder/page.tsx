@@ -75,7 +75,32 @@ export default function ExchangeBuilderPage() {
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const { groups, isLoading: isLoadingGroups } = useCachedGroups()
-  const { profile: managerProfile } = useCachedManagerProfile()
+  const [userId, setUserId] = useState<string | undefined>()
+
+  // Get user ID for manager profile
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error("Error getting user:", error)
+          router.push("/manager/login")
+          return
+        }
+        if (data.user) {
+          setUserId(data.user.id)
+        } else {
+          router.push("/manager/login")
+        }
+      } catch (error) {
+        console.error("Error getting user:", error)
+        router.push("/manager/login")
+      }
+    }
+    getUser()
+  }, [supabase, router])
+
+  const { profile: managerProfile } = useCachedManagerProfile(userId)
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
