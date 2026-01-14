@@ -529,8 +529,8 @@ export default function ManagerDashboard() {
             </CardHeader>
             <CardContent>
               {upcomingDeadlines.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingDeadlines.map((deadline) => (
+                <div className="max-h-48 overflow-y-auto space-y-4">
+                  {upcomingDeadlines.slice(0, 3).map((deadline) => (
                     <div key={deadline.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{deadline.title}</p>
@@ -557,6 +557,13 @@ export default function ManagerDashboard() {
                       </Link>
                     </div>
                   ))}
+                  {upcomingDeadlines.length > 3 && (
+                    <div className="text-center pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        +{upcomingDeadlines.length - 3} more deadlines
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="py-8 text-center text-muted-foreground">
