@@ -25,6 +25,7 @@ import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
 import { useCachedGroups } from "@/hooks/use-cached-groups"
 import { useDataCache } from "@/lib/data-cache-context"
+import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 
 interface ExchangeEditPageProps {
   params: {
@@ -64,6 +65,25 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   const { groups, isLoading: isLoadingGroups } = useCachedGroups()
   const { invalidateCache } = useDataCache()
 
+  // Get user ID for manager profile
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error("Error getting user:", error)
+          return
+        }
+        if (data.user) {
+          setUserId(data.user.id)
+        }
+      } catch (error) {
+        console.error("Error getting user:", error)
+      }
+    }
+    getUser()
+  }, [supabase])
+
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
   const totalSteps = 3
@@ -77,11 +97,12 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [semesters, setSemesters] = useState<Semester[]>([])
   const [years, setYears] = useState<Year[]>([])
+  const [userId, setUserId] = useState<string | undefined>()
+  const { profile: managerProfile } = useCachedManagerProfile(userId)
 
   // Form state
   const [formData, setFormData] = useState({
     semester: "",
-    year: "",
     group: "",
     maxSelections: 2,
     endDate: "",
@@ -272,7 +293,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   // Generate program name based on semester and year
   const generateProgramName = (lang: string = language) => {
     const selectedSemester = semesters.find((s) => s.code === formData.semester)
-    const selectedYear = years.find((y) => y.id === formData.year)
+    const selectedYear = years.find((y) => y.id === managerProfile?.academic_year_id)
 
     const semesterName =
       lang === "ru"
@@ -290,7 +311,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
   const handleNextStep = () => {
     if (currentStep === 1) {
       // Validate step 1
-      if (!formData.semester || !formData.year || !formData.endDate || !formData.group) {
+      if (!formData.semester || !formData.endDate || !formData.group) {
         toast({
           title: t("manager.exchangeBuilder.missingInfo"),
           description: t("manager.exchangeBuilder.requiredFields"),
@@ -349,7 +370,7 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
         max_selections: formData.maxSelections,
         statement_template_url: formData.statementTemplateUrl,
         semester: formData.semester,
-        academic_year: formData.year,
+        academic_year: managerProfile?.academic_year_id,
         universities: selectedUniversities, // Store university IDs as an array of UUIDs
         group_id: formData.group || null,
       }
@@ -526,25 +547,6 @@ export default function ExchangeEditPage({ params }: ExchangeEditPageProps) {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="year">{t("manager.exchangeBuilder.year")}</Label>
-                  <Select value={formData.year} onValueChange={(value) => handleSelectChange("year", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("manager.exchangeBuilder.selectYear")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {years.length > 0 ? (
-                        years.map((year) => (
-                          <SelectItem key={year.id} value={year.id}>
-                            {year.year}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="default">{new Date().getFullYear()}</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="space-y-2">

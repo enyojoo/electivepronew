@@ -19,6 +19,8 @@ import { useLanguage } from "@/lib/language-context"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
 import { useToast } from "@/components/ui/use-toast"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
+import { getYears, type Year } from "@/actions/years"
 
 interface ElectiveCourseEditPageProps {
   params: {
@@ -38,9 +40,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   // Form state
   const [packDetails, setPackDetails] = useState({
     semester: "",
-    year: new Date().getFullYear(),
     maxSelections: 2,
-    startDate: "",
     endDate: "",
     status: ElectivePackStatus.DRAFT,
   })
@@ -48,6 +48,9 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   const supabase = getSupabaseBrowserClient()
   const [availableCourses, setAvailableCourses] = useState<any[]>([])
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
+  const [userId, setUserId] = useState<string | undefined>()
+  const [years, setYears] = useState<Year[]>([])
+  const { profile: managerProfile } = useCachedManagerProfile(userId)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
@@ -175,6 +178,36 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
     })
   }
 
+  // Get user ID and years data
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        if (error) {
+          console.error("Error getting user:", error)
+          return
+        }
+        if (data.user) {
+          setUserId(data.user.id)
+        }
+      } catch (error) {
+        console.error("Error getting user:", error)
+      }
+    }
+
+    const loadYears = async () => {
+      try {
+        const yearsData = await getYears()
+        setYears(yearsData)
+      } catch (error) {
+        console.error("Error loading years:", error)
+      }
+    }
+
+    getUser()
+    loadYears()
+  }, [supabase])
+
   // Updated steps for the 3-step wizard
   const steps = [
     { title: t("manager.courseBuilder.step1") },
@@ -184,12 +217,17 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
 
   // Add a computed pack name function
   const getPackName = () => {
-    if (!packDetails.semester || !packDetails.year) return ""
+    if (!packDetails.semester) return ""
+
+    const selectedYear = years.find((y) => y.id === managerProfile?.academic_year_id)
+    const yearValue = selectedYear?.year || ""
 
     const semester =
       packDetails.semester === "fall" ? t("manager.courseBuilder.fall") : t("manager.courseBuilder.spring")
 
-    return `${semester} ${packDetails.year}`
+    const courseText = language === "ru" ? "Выбор курсов" : "Course Selection"
+
+    return `${semester} ${yearValue} ${courseText}`
   }
 
   // Handle next step
@@ -248,15 +286,13 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   // Handle save as draft
   const handleSaveAsDraft = async () => {
     try {
-      const deadline = packDetails.startDate && packDetails.endDate ? packDetails.endDate : null
-
       const { error } = await supabase
         .from("elective_courses")
         .update({
           semester: packDetails.semester,
-          year: packDetails.year,
+          academic_year: managerProfile?.academic_year_id,
           max_selections: packDetails.maxSelections,
-          deadline: deadline,
+          deadline: packDetails.endDate,
           courses: selectedCourses,
           status: "draft",
         })
@@ -283,15 +319,13 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
   // Handle publish
   const handlePublish = async () => {
     try {
-      const deadline = packDetails.startDate && packDetails.endDate ? packDetails.endDate : null
-
       const { error } = await supabase
         .from("elective_courses")
         .update({
           semester: packDetails.semester,
-          year: packDetails.year,
+          academic_year: managerProfile?.academic_year_id,
           max_selections: packDetails.maxSelections,
-          deadline: deadline,
+          deadline: packDetails.endDate,
           courses: selectedCourses,
           status: "published",
         })
@@ -442,20 +476,9 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="year">{t("manager.courseBuilder.year")}</Label>
-                      <Input
-                        id="year"
-                        name="year"
-                        type="number"
-                        placeholder="e.g. 2025"
-                        value={packDetails.year}
-                        onChange={handleInputChange}
-                      />
-                    </div>
                   </div>
 
-                  {packDetails.semester && packDetails.year && (
+                  {packDetails.semester && (
                     <div className="p-4 bg-muted rounded-md mt-4">
                       <div className="flex items-center gap-2">
                         <Info className="h-5 w-5 text-muted-foreground" />
@@ -489,27 +512,15 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                         </span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="startDate">{t("manager.courseBuilder.startDate")}</Label>
-                        <Input
-                          id="startDate"
-                          name="startDate"
-                          type="date"
-                          value={formatDateForInput(packDetails.startDate)}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="endDate">{t("manager.courseBuilder.endDate")}</Label>
-                        <Input
-                          id="endDate"
-                          name="endDate"
-                          type="date"
-                          value={formatDateForInput(packDetails.endDate)}
-                          onChange={handleInputChange}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="endDate">{t("manager.courseBuilder.deadline", "Deadline")}</Label>
+                      <Input
+                        id="endDate"
+                        name="endDate"
+                        type="date"
+                        value={formatDateForInput(packDetails.endDate)}
+                        onChange={handleInputChange}
+                      />
                     </div>
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
                       <div className="flex items-start gap-2">
@@ -703,8 +714,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
 
                 {/* Validation warnings */}
                 {(!packDetails.semester ||
-                  !packDetails.year ||
-                  !packDetails.startDate ||
                   !packDetails.endDate ||
                   selectedCourses.length === 0) && (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
@@ -714,9 +723,7 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                         <p className="text-sm font-medium text-amber-800">{t("manager.courseBuilder.missingInfo")}</p>
                         <ul className="text-sm text-amber-700 list-disc list-inside">
                           {!packDetails.semester && <li>{t("manager.courseBuilder.semesterRequired")}</li>}
-                          {!packDetails.year && <li>{t("manager.courseBuilder.yearRequired")}</li>}
-                          {!packDetails.startDate && <li>{t("manager.courseBuilder.startDateRequired")}</li>}
-                          {!packDetails.endDate && <li>{t("manager.courseBuilder.endDateRequired")}</li>}
+                          {!packDetails.endDate && <li>{t("manager.courseBuilder.deadlineRequired", "Deadline is required")}</li>}
                           {selectedCourses.length === 0 && <li>{t("manager.courseBuilder.courseRequired")}</li>}
                         </ul>
                       </div>
@@ -749,8 +756,6 @@ export default function ElectiveCourseEditPage({ params }: ElectiveCourseEditPag
                   onClick={handlePublish}
                   disabled={
                     !packDetails.semester ||
-                    !packDetails.year ||
-                    !packDetails.startDate ||
                     !packDetails.endDate ||
                     selectedCourses.length === 0
                   }
