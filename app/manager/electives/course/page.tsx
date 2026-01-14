@@ -402,7 +402,6 @@ export default function ManagerCourseElectivesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[20%]">{t("manager.electives.name", "Name")}</TableHead>
-                      <TableHead>{t("manager.electives.academicYear", "Academic Year")}</TableHead>
                       <TableHead>{t("manager.electives.group", "Group")}</TableHead>
                       <TableHead>{t("manager.electives.deadline", "Deadline")}</TableHead>
                       <TableHead>{t("manager.electives.courses", "Courses")}</TableHead>
@@ -412,18 +411,11 @@ export default function ManagerCourseElectivesPage() {
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
-                      <TableSkeleton columns={7} rows={5} />
+                      <TableSkeleton columns={6} rows={5} />
                     ) : filteredPacks.length > 0 ? (
                       filteredPacks.map((pack) => (
                         <TableRow key={pack.id}>
                           <TableCell className="font-medium">{getLocalizedName(pack)}</TableCell>
-                          <TableCell>
-                            {pack.academic_year ? (
-                              pack.academic_year.year
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
                           <TableCell>
                             {pack.group?.name || <span className="text-muted-foreground">—</span>}
                           </TableCell>
