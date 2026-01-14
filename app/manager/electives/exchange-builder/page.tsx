@@ -172,6 +172,22 @@ export default function ExchangeBuilderPage() {
     fetchData()
   }, [toast, t]) // Keep dependencies as they are stable
 
+  // Update form data when manager profile loads
+  useEffect(() => {
+    console.log("Exchange Builder - Manager profile changed:", managerProfile)
+    console.log("Exchange Builder - Academic year ID:", managerProfile?.academic_year_id)
+
+    if (managerProfile?.academic_year_id) {
+      console.log("Exchange Builder - Setting year to:", managerProfile.academic_year_id)
+      setFormData((prev) => ({
+        ...prev,
+        year: managerProfile.academic_year_id,
+      }))
+    } else {
+      console.log("Exchange Builder - No academic_year_id found in manager profile")
+    }
+  }, [managerProfile?.academic_year_id])
+
   // Fetch universities when entering step 2
   useEffect(() => {
     if (currentStep === 2 && universities.length === 0 && !isLoadingUniversities) {
