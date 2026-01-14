@@ -23,6 +23,7 @@ import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
 import { useCachedGroups } from "@/hooks/use-cached-groups"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
+import { ModernFileUploader } from "@/components/modern-file-uploader"
 // Cache constants
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
@@ -107,6 +108,7 @@ export default function ExchangeBuilderPage() {
   // File upload state
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
 
   // Find selected group for display
   const selectedGroup = groups.find((g) => g.id === formData.group)
@@ -189,19 +191,27 @@ export default function ExchangeBuilderPage() {
   }
 
   // Handle file upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setSelectedFile(file)
+  const handleFileUpload = async (file: File) => {
     setIsUploading(true)
+    setUploadProgress(0)
 
     try {
       // Upload file to storage
       const fileExt = file.name.split(".").pop()
       const fileName = `statement_templates/${Date.now()}.${fileExt}`
 
+      // Simulate upload progress (Supabase doesn't provide progress callbacks easily)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + Math.random() * 15
+          return newProgress > 90 ? 90 : newProgress
+        })
+      }, 200)
+
       const { error: uploadError, data } = await supabase.storage.from("documents").upload(fileName, file)
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
 
       if (uploadError) throw uploadError
 
@@ -224,6 +234,8 @@ export default function ExchangeBuilderPage() {
       })
     } finally {
       setIsUploading(false)
+      setSelectedFile(null)
+      setUploadProgress(0)
     }
   }
 
@@ -602,30 +614,25 @@ export default function ExchangeBuilderPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">{t("manager.exchangeBuilder.statementUpload")}</h3>
-                <p className="text-sm text-muted-foreground">{t("manager.exchangeBuilder.statementDescription")}</p>
-
-                <div className="flex items-center gap-4">
-                  <Label
-                    htmlFor="statement-file"
-                    className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                  >
-                    <FileUp className="mr-2 h-4 w-4" />
-                    {t("manager.exchangeBuilder.uploadStatementFile")}
-                  </Label>
-                  <Input
-                    id="statement-file"
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
-                  />
-
-                  {selectedFile && <span className="text-sm">{selectedFile.name}</span>}
-                </div>
-              </div>
+              <ModernFileUploader
+                title={t("manager.exchangeBuilder.statementUpload", "Statement Upload")}
+                description={t(
+                  "manager.exchangeBuilder.statementDescription",
+                  "Upload a blank statement file that students will download, sign, and re-upload."
+                )}
+                selectedFile={selectedFile}
+                onFileSelect={(file) => {
+                  if (file) {
+                    handleFileUpload(file)
+                  } else {
+                    setSelectedFile(null)
+                  }
+                }}
+                isUploading={isUploading}
+                uploadProgress={uploadProgress}
+                accept=".pdf,.doc,.docx"
+                maxSize={10}
+              />
 
               <div className="pt-4 flex justify-end">
                 <Button type="button" onClick={handleNextStep} disabled={isLoading || isLoadingGroups}>
