@@ -502,7 +502,7 @@ export default function ExchangeEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="semester">{t("manager.exchangeBuilder.semester", "Semester")}</Label>
-                  {isLoading ? (
+                  {false ? (
                     <Skeleton className="h-10 w-full" />
                   ) : (
                     <Select value={formData.semester} onValueChange={(value) => handleSelectChange("semester", value)}>
@@ -526,7 +526,7 @@ export default function ExchangeEditPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="group">{t("manager.exchangeBuilder.group", "Group")}</Label>
-                  {isLoading ? (
+                  {false ? (
                     <Skeleton className="h-10 w-full" />
                   ) : (
                     <Select value={formData.groupId} onValueChange={(value) => handleSelectChange("groupId", value)}>
@@ -616,7 +616,7 @@ export default function ExchangeEditPage() {
               />
 
               <div className="pt-4 flex justify-end">
-                <Button type="button" onClick={handleNextStep} disabled={isLoading}>
+                <Button type="button" onClick={handleNextStep} disabled={false}>
                   {t("manager.exchangeBuilder.next", "Next")}
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
