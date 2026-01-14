@@ -557,33 +557,33 @@ export default function CourseBuilderPage() {
                   )}
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="group">{t("manager.courseBuilder.group", "Group")}</Label>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.groupId} onValueChange={(value) => handleSelectChange("groupId", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.courseBuilder.selectGroup", "Select a group")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups.length > 0 ? (
+                          groups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-groups" disabled>
+                            {t("manager.courseBuilder.noGroupsAvailable", "No groups available")}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="group">{t("manager.courseBuilder.group", "Group")}</Label>
-                {isLoading ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Select value={formData.groupId} onValueChange={(value) => handleSelectChange("groupId", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("manager.courseBuilder.selectGroup", "Select a group")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups.length > 0 ? (
-                        groups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
-                            {group.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-groups" disabled>
-                          {t("manager.courseBuilder.noGroupsAvailable", "No groups available")}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
 
 
               <div className="space-y-2">

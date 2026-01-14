@@ -546,33 +546,33 @@ export default function ExchangeBuilderPage() {
                   )}
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="group">{t("manager.exchangeBuilder.group", "Group")}</Label>
+                  {isLoadingGroups ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <Select value={formData.group} onValueChange={(value) => handleSelectChange("group", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("manager.exchangeBuilder.selectGroup", "Select a group")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups.length > 0 ? (
+                          groups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-groups" disabled>
+                            {t("manager.exchangeBuilder.noGroupsAvailable", "No groups available")}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="group">{t("manager.exchangeBuilder.group", "Group")}</Label>
-                {isLoadingGroups ? (
-                  <Skeleton className="h-10 w-full" />
-                ) : (
-                  <Select value={formData.group} onValueChange={(value) => handleSelectChange("group", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("manager.exchangeBuilder.selectGroup", "Select a group")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {groups.length > 0 ? (
-                        groups.map((group) => (
-                          <SelectItem key={group.id} value={group.id}>
-                            {group.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-groups" disabled>
-                          {t("manager.exchangeBuilder.noGroupsAvailable", "No groups available")}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
 
 
               <div className="space-y-2">
