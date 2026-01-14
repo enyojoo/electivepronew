@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
+import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 // Cache constants
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
@@ -78,6 +79,7 @@ export default function CourseBuilderPage() {
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const { invalidateCache } = useDataCache()
+  const { profile: managerProfile } = useCachedManagerProfile()
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
@@ -96,7 +98,6 @@ export default function CourseBuilderPage() {
   // Form state
   const [formData, setFormData] = useState({
     semester: "",
-    year: "",
     groupId: "",
     maxSelections: 2,
     endDate: "",
@@ -162,11 +163,11 @@ export default function CourseBuilderPage() {
           }))
         }
 
-        // Set default year if available
-        if (yearsData.length > 0) {
+        // Set year from manager's profile
+        if (managerProfile?.academic_year_id) {
           setFormData((prev) => ({
             ...prev,
-            year: yearsData[0].id,
+            year: managerProfile.academic_year_id,
           }))
         }
       } catch (error) {
@@ -314,7 +315,7 @@ export default function CourseBuilderPage() {
   const handleNextStep = () => {
     if (currentStep === 1) {
       // Validate step 1
-      if (!formData.semester || !formData.year || !formData.endDate || !formData.groupId) {
+      if (!formData.semester || !formData.endDate || !formData.groupId) {
         toast({
           title: t("manager.courseBuilder.missingInfo", "Missing Information"),
           description: t("manager.courseBuilder.requiredFields", "Please fill in all required fields"),
@@ -558,29 +559,6 @@ export default function CourseBuilderPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="year">{t("manager.courseBuilder.year", "Year")}</Label>
-                  {isLoading ? (
-                    <Skeleton className="h-10 w-full" />
-                  ) : (
-                    <Select value={formData.year} onValueChange={(value) => handleSelectChange("year", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("manager.courseBuilder.selectYear", "Select a year")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.length > 0 ? (
-                          years.map((year) => (
-                            <SelectItem key={year.id} value={year.id}>
-                              {year.year}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="default">{new Date().getFullYear()}</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
               </div>
 
               <div className="space-y-2">

@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
 import { useCachedGroups } from "@/hooks/use-cached-groups"
+import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 // Cache constants
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
@@ -74,6 +75,7 @@ export default function ExchangeBuilderPage() {
   const supabase = getSupabaseBrowserClient()
   const { groups, isLoading: isLoadingGroups } = useCachedGroups()
   const { invalidateCache } = useDataCache()
+  const { profile: managerProfile } = useCachedManagerProfile()
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1)
@@ -91,7 +93,6 @@ export default function ExchangeBuilderPage() {
   // Form state
   const [formData, setFormData] = useState({
     semester: "",
-    year: "",
     group: "",
     maxSelections: 2,
     endDate: "",
@@ -148,11 +149,11 @@ export default function ExchangeBuilderPage() {
           }))
         }
 
-        // Set default year if available
-        if (yearsData.length > 0) {
+        // Set year from manager's profile
+        if (managerProfile?.academic_year_id) {
           setFormData((prev) => ({
             ...prev,
-            year: yearsData[0].id,
+            year: managerProfile.academic_year_id,
           }))
         }
       } catch (error) {
@@ -293,7 +294,7 @@ export default function ExchangeBuilderPage() {
   const handleNextStep = () => {
     if (currentStep === 1) {
       // Validate step 1
-      if (!formData.semester || !formData.year || !formData.endDate || !formData.group) {
+      if (!formData.semester || !formData.endDate || !formData.group) {
         toast({
           title: t("manager.exchangeBuilder.missingInfo"),
           description: t("manager.exchangeBuilder.requiredFields"),
@@ -547,29 +548,6 @@ export default function ExchangeBuilderPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="year">{t("manager.exchangeBuilder.year")}</Label>
-                  {isLoading ? (
-                    <Skeleton className="h-10 w-full" />
-                  ) : (
-                    <Select value={formData.year} onValueChange={(value) => handleSelectChange("year", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("manager.exchangeBuilder.selectYear")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.length > 0 ? (
-                          years.map((year) => (
-                            <SelectItem key={year.id} value={year.id}>
-                              {year.year}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="default">{new Date().getFullYear()}</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
               </div>
 
               <div className="space-y-2">
