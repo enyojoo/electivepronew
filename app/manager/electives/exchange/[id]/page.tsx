@@ -130,6 +130,7 @@ export default function ExchangeDetailPage() {
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [universities, setUniversities] = useState<University[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -139,11 +140,30 @@ export default function ExchangeDetailPage() {
   const [editStatus, setEditStatus] = useState("")
   const [editSelectedUniversities, setEditSelectedUniversities] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
+  // Initialize activeTab based on URL hash or default to universities
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "")
+      if (hash === "students") return "students"
+      if (hash === "universities") return "universities"
+    }
+    return "universities"
+  })
 
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
+
+  // Note: Hash handling is done in useState initializer above
+  // This ensures the initial tab matches the URL hash from manager dashboard links
+
+  // Update URL hash when tab changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${activeTab}`)
+    }
+  }, [activeTab])
 
   // Load cached data immediately on mount
   useEffect(() => {
@@ -164,7 +184,13 @@ export default function ExchangeDetailPage() {
       setStudentSelections(cachedSelections)
     }
 
-    // Fetch fresh data in background
+    // Check if we need to fetch from API
+    const needsApiFetch = !cachedData || !cachedSelections
+    if (needsApiFetch) {
+      setLoading(true)
+    }
+
+    // Fetch fresh data in background or initially
     loadData()
   }, [params.id])
 
@@ -283,13 +309,29 @@ export default function ExchangeDetailPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "draft":
-        return <Badge variant="outline">Draft</Badge>
+        return (
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200" suppressHydrationWarning>
+            {t("manager.exchangeDetails.draft", "Draft")}
+          </Badge>
+        )
       case "published":
-        return <Badge variant="secondary">Published</Badge>
+        return (
+          <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200" suppressHydrationWarning>
+            {t("manager.exchangeDetails.published", "Published")}
+          </Badge>
+        )
       case "closed":
-        return <Badge variant="destructive">Closed</Badge>
+        return (
+          <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200" suppressHydrationWarning>
+            {t("manager.exchangeDetails.closed", "Closed")}
+          </Badge>
+        )
       case "archived":
-        return <Badge variant="default">Archived</Badge>
+        return (
+          <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200" suppressHydrationWarning>
+            {t("manager.exchangeDetails.archived", "Archived")}
+          </Badge>
+        )
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -572,7 +614,7 @@ export default function ExchangeDetailPage() {
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600">Error Loading Data</h1>
+            <h1 className="text-2xl font-bold text-red-600">{t("manager.exchangeDetails.errorLoadingData", "Error Loading Data")}</h1>
             <p className="text-muted-foreground mt-2">{error}</p>
             <Button onClick={loadData} className="mt-4">
               Try Again
@@ -583,12 +625,14 @@ export default function ExchangeDetailPage() {
     )
   }
 
-  if (!exchangeProgram) {
+
+  if (loading) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">Exchange program not found</h1>
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
           </div>
         </div>
       </DashboardLayout>
@@ -607,16 +651,16 @@ export default function ExchangeDetailPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                {language === "ru" && exchangeProgram.name_ru ? exchangeProgram.name_ru : exchangeProgram.name}
+                {exchangeProgram ? (language === "ru" && exchangeProgram.name_ru ? exchangeProgram.name_ru : exchangeProgram.name) : "Loading..."}
               </h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {getStatusBadge(exchangeProgram.status)}
+            {exchangeProgram && getStatusBadge(exchangeProgram.status)}
             <Button variant="outline" size="sm" asChild>
               <Link href={`/manager/electives/exchange/${params.id as string}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                {t("manager.exchangeDetails.edit", "Edit")}
               </Link>
             </Button>
           </div>
@@ -624,33 +668,33 @@ export default function ExchangeDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Program Details</CardTitle>
+            <CardTitle>{t("manager.exchangeDetails.programDetails", "Program Details")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2">
               <div className="flex justify-between">
-                <dt className="font-medium">Deadline:</dt>
-                <dd>{formatDate(exchangeProgram.deadline)}</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.deadline", "Deadline")}:</dt>
+                <dd>{exchangeProgram?.deadline ? formatDate(exchangeProgram.deadline, language === "ru" ? "ru-RU" : "en-US") : t("manager.exchangeDetails.loading", "Loading...")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Max Selections:</dt>
-                <dd>{exchangeProgram.max_selections} universities</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.maxSelections", "Max Selections")}:</dt>
+                <dd>{exchangeProgram?.max_selections || 0} {t("manager.exchangeDetails.universities", "universities")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Universities:</dt>
+                <dt className="font-medium">{t("manager.exchangeDetails.universitiesTab", "Universities")}:</dt>
                 <dd>{universities.length}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Students Enrolled:</dt>
+                <dt className="font-medium">{t("manager.exchangeDetails.studentsEnrolled", "Students Enrolled")}:</dt>
                 <dd>{getTotalStudentsEnrolled()}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Created:</dt>
-                <dd>{formatDate(exchangeProgram.created_at)}</dd>
+                <dt className="font-medium">{t("manager.exchangeDetails.created", "Created")}:</dt>
+                <dd>{exchangeProgram?.created_at ? formatDate(exchangeProgram.created_at) : t("manager.exchangeDetails.loading", "Loading...")}</dd>
               </div>
-              {exchangeProgram.description && (
+              {exchangeProgram?.description && (
                 <div className="flex flex-col gap-1">
-                  <dt className="font-medium">Description:</dt>
+                  <dt className="font-medium">{t("manager.exchangeDetails.description", "Description")}:</dt>
                   <dd className="text-sm text-muted-foreground">
                     {language === "ru" && exchangeProgram.description_ru
                       ? exchangeProgram.description_ru
@@ -662,38 +706,40 @@ export default function ExchangeDetailPage() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="universities">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="universities">Universities</TabsTrigger>
-            <TabsTrigger value="students">Student Selections</TabsTrigger>
+            <TabsTrigger value="universities">{t("manager.exchangeDetails.universitiesTab", "Universities")}</TabsTrigger>
+            <TabsTrigger value="students">{t("manager.exchangeDetails.studentsTab", "Student Selections")}</TabsTrigger>
           </TabsList>
           <TabsContent value="universities" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Universities</CardTitle>
+                <CardTitle>{t("manager.exchangeDetails.universitiesTab", "Universities")}</CardTitle>
               </CardHeader>
               <CardContent>
-                {universities.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No universities configured for this exchange program
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    <table className="w-full">
+                <div className="rounded-md border">
+                  <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="py-3 px-4 text-left text-sm font-medium">Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Location</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Enrollment</th>
-                          <th className="py-3 px-4 text-center text-sm font-medium">Export</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name", "Name")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.country", "Country")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.enrollment", "Enrollment")}</th>
+                          <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.export", "Export")}</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {universities.map((university) => {
+                    <tbody>
+                      {universities.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                            {t("manager.exchangeDetails.noUniversities", "No universities configured for this exchange program")}
+                          </td>
+                        </tr>
+                      ) : (
+                        universities.map((university, index) => {
                           const currentEnrollment = getUniversityEnrollment(university.id)
 
                           return (
-                            <tr key={university.id} className="border-b">
+                            <tr key={university.id || `university-${index}`} className="border-b">
                               <td className="py-3 px-4 text-sm">
                                 {language === "ru" && university.name_ru ? university.name_ru : university.name}
                               </td>
@@ -715,16 +761,16 @@ export default function ExchangeDetailPage() {
                                   className="flex mx-auto"
                                 >
                                   <Download className="h-4 w-4 mr-1" />
-                                  Download
+                                  {t("manager.exchangeDetails.download", "Download")}
                                 </Button>
                               </td>
                             </tr>
                           )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -732,14 +778,14 @@ export default function ExchangeDetailPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Student Selections</CardTitle>
+                  <CardTitle>{t("manager.exchangeDetails.studentSelections", "Student Selections")}</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input
                       type="search"
-                      placeholder="Search students..."
+                      placeholder={t("manager.exchangeDetails.searchStudents", "Search students...")}
                       className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:w-[200px]"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -747,7 +793,7 @@ export default function ExchangeDetailPage() {
                   </div>
                   <Button variant="outline" size="sm" onClick={exportStudentSelectionsToCSV}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export All
+                    {t("manager.exchangeDetails.exportAll", "Export All")}
                   </Button>
                 </div>
               </CardHeader>
@@ -756,26 +802,26 @@ export default function ExchangeDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="py-3 px-4 text-left text-sm font-medium">Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Email</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Selection Date</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Status</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">Statement</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">View</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">Actions</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.name", "Name")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.email", "Email")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.selectionDate", "Selection Date")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.exchangeDetails.status", "Status")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.statement", "Statement")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.view", "View")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.exchangeDetails.actions", "Actions")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredStudentSelections.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                            {searchTerm ? "No students found matching your search" : "No student selections yet"}
+                            {searchTerm ? t("manager.exchangeDetails.noStudentsFound", "No students found matching your search") : t("manager.exchangeDetails.noStudentSelections", "No student selections yet")}
                           </td>
                         </tr>
                       ) : (
-                        filteredStudentSelections.map((selection) => {
+                        filteredStudentSelections.map((selection, index) => {
                           return (
-                            <tr key={selection.id} className="border-b">
+                            <tr key={selection.id || `selection-${index}`} className="border-b">
                               <td className="py-3 px-4 text-sm">{selection.profiles?.full_name || "N/A"}</td>
                               <td className="py-3 px-4 text-sm">{selection.profiles?.email || "N/A"}</td>
                               <td className="py-3 px-4 text-sm">{formatDate(selection.created_at)}</td>
@@ -807,38 +853,38 @@ export default function ExchangeDetailPage() {
                                   </DialogTrigger>
                                   <DialogContent className="max-w-2xl">
                                     <DialogHeader>
-                                      <DialogTitle>Student Selection Details</DialogTitle>
+                                      <DialogTitle>{t("manager.exchangeDetails.studentSelectionDetails", "Student Selection Details")}</DialogTitle>
                                     </DialogHeader>
                                     {selectedStudent && (
                                       <div className="space-y-4">
                                         <div className="grid grid-cols-2 gap-4">
                                           <div>
-                                            <Label className="text-sm font-medium">Student Name</Label>
+                                            <Label className="text-sm font-medium">{t("manager.exchangeDetails.studentDetails", "Student Name")}</Label>
                                             <p className="text-sm">{selectedStudent.profiles?.full_name || "N/A"}</p>
                                           </div>
                                           <div>
-                                            <Label className="text-sm font-medium">Email</Label>
+                                            <Label className="text-sm font-medium">{t("manager.exchangeDetails.email", "Email")}</Label>
                                             <p className="text-sm">{selectedStudent.profiles?.email || "N/A"}</p>
                                           </div>
                                           <div>
-                                            <Label className="text-sm font-medium">Selection Date</Label>
+                                            <Label className="text-sm font-medium">{t("manager.exchangeDetails.selectionDate", "Selection Date")}</Label>
                                             <p className="text-sm">{formatDate(selectedStudent.created_at)}</p>
                                           </div>
                                           <div>
-                                            <Label className="text-sm font-medium">Status</Label>
+                                            <Label className="text-sm font-medium">{t("manager.exchangeDetails.status", "Status")}</Label>
                                             <div className="mt-1">
                                               {getSelectionStatusBadge(selectedStudent.status)}
                                             </div>
                                           </div>
                                         </div>
                                         <div>
-                                          <Label className="text-sm font-medium">Selected Universities</Label>
+                                          <Label className="text-sm font-medium">{t("manager.exchangeDetails.selectedUniversities", "Selected Universities")}</Label>
                                           <div className="mt-2 space-y-2">
-                                            {selectedStudent.selected_university_ids?.map((univId) => {
+                                            {selectedStudent.selected_university_ids?.map((univId, index) => {
                                               const university = universities.find((u) => u.id === univId)
                                               return (
                                                 <div
-                                                  key={univId}
+                                                  key={univId || `selected-univ-${index}`}
                                                   className="flex items-center justify-between p-2 border rounded"
                                                 >
                                                   <span className="text-sm">
@@ -860,7 +906,7 @@ export default function ExchangeDetailPage() {
                                         </div>
                                         {selectedStudent.statement_url && (
                                           <div>
-                                            <Label className="text-sm font-medium">Statement</Label>
+                                            <Label className="text-sm font-medium">{t("manager.exchangeDetails.statement", "Statement")}</Label>
                                             <div className="mt-2 flex items-center gap-2">
                                               <Button
                                                 variant="outline"
@@ -908,7 +954,7 @@ export default function ExchangeDetailPage() {
                                       }}
                                     >
                                       <Edit className="mr-2 h-4 w-4" />
-                                      Edit
+                                      {t("manager.exchangeDetails.edit", "Edit")}
                                     </DropdownMenuItem>
                                     {selection.status === "pending" && (
                                       <>
@@ -923,7 +969,7 @@ export default function ExchangeDetailPage() {
                                           }
                                         >
                                           <CheckCircle className="mr-2 h-4 w-4" />
-                                          Approve
+                                          {t("manager.exchangeDetails.approve", "Approve")}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                           className="text-red-600"
@@ -936,7 +982,7 @@ export default function ExchangeDetailPage() {
                                           }
                                         >
                                           <XCircle className="mr-2 h-4 w-4" />
-                                          Reject
+                                          {t("manager.exchangeDetails.reject", "Reject")}
                                         </DropdownMenuItem>
                                       </>
                                     )}
@@ -974,7 +1020,7 @@ export default function ExchangeDetailPage() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Edit Student Selection</DialogTitle>
+              <DialogTitle>{t("manager.exchangeDetails.editStudentSelection", "Edit Student Selection")}</DialogTitle>
             </DialogHeader>
             {editingStudent && (
               <div className="space-y-4">
@@ -985,8 +1031,8 @@ export default function ExchangeDetailPage() {
                 <div>
                   <Label className="text-sm font-medium">Selected Universities</Label>
                   <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-                    {universities.map((university) => (
-                      <div key={university.id} className="flex items-center space-x-2">
+                    {universities.map((university, index) => (
+                      <div key={university.id || `edit-univ-${index}`} className="flex items-center space-x-2">
                         <Checkbox
                           id={university.id}
                           checked={editSelectedUniversities.includes(university.id)}
@@ -1004,27 +1050,27 @@ export default function ExchangeDetailPage() {
                   <Label htmlFor="status">Status</Label>
                   <Select value={editStatus} onValueChange={setEditStatus}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
+                      <SelectValue placeholder={t("manager.exchangeDetails.selectStatus", "Select status")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="pending">{t("manager.exchangeDetails.pending", "Pending")}</SelectItem>
+                      <SelectItem value="approved">{t("manager.exchangeDetails.approved", "Approved")}</SelectItem>
+                      <SelectItem value="rejected">{t("manager.exchangeDetails.rejected", "Rejected")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                    Cancel
+                    {t("manager.exchangeDetails.cancel", "Cancel")}
                   </Button>
                   <Button onClick={handleEditSave} disabled={isSaving}>
                     {isSaving ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
+                        {t("manager.exchangeDetails.saving", "Saving...")}
                       </>
                     ) : (
-                      "Save Changes"
+                      t("manager.exchangeDetails.saveChanges", "Save Changes")
                     )}
                   </Button>
                 </div>

@@ -180,72 +180,72 @@ export default function StudentDashboard() {
   const { profile, isLoading: isLoadingProfile, error: profileError } = useCachedStudentProfile(userId)
 
   // Fetch elective counts and selections with caching
-  useEffect(() => {
-    const fetchElectiveCounts = async () => {
-      if (!userId) return
+  const fetchElectiveCounts = useCallback(async () => {
+    if (!userId) return
 
-      try {
-        console.log("Fetching fresh elective counts data")
+    try {
+      console.log("Fetching fresh elective counts data")
 
-        // Fetch available electives (required)
-        const { count: availableCoursesCount, error: availableCoursesError } = await supabase
-          .from("elective_courses")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "published")
+      // Fetch available electives (required)
+      const { count: availableCoursesCount, error: availableCoursesError } = await supabase
+        .from("elective_courses")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "published")
 
-        const { count: availableExchangeCount, error: availableExchangeError } = await supabase
-          .from("elective_exchange")
-          .select("*", { count: "exact", head: true })
-          .eq("status", "published")
+      const { count: availableExchangeCount, error: availableExchangeError } = await supabase
+        .from("elective_exchange")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "published")
 
-        // Fetch student's course selections
-        const { data: courseSelections, error: courseSelectionsError } = await supabase
-          .from("course_selections")
-          .select("*")
-          .eq("student_id", userId)
+      // Fetch student's course selections
+      const { data: courseSelections, error: courseSelectionsError } = await supabase
+        .from("course_selections")
+        .select("*")
+        .eq("student_id", userId)
 
-        // Fetch student's exchange selections
-        const { data: exchangeSelections, error: exchangeSelectionsError } = await supabase
-          .from("exchange_selections")
-          .select("*")
-          .eq("student_id", userId)
+      // Fetch student's exchange selections
+      const { data: exchangeSelections, error: exchangeSelectionsError } = await supabase
+        .from("exchange_selections")
+        .select("*")
+        .eq("student_id", userId)
 
-        if (!availableCoursesError && !availableExchangeError && !courseSelectionsError && !exchangeSelectionsError) {
-          const selectedCourses = courseSelections?.length || 0
-          const selectedExchange = exchangeSelections?.length || 0
-          const pendingCourses = courseSelections?.filter((s) => s.status === "pending")?.length || 0
-          const pendingExchange = exchangeSelections?.filter((s) => s.status === "pending")?.length || 0
+      if (!availableCoursesError && !availableExchangeError && !courseSelectionsError && !exchangeSelectionsError) {
+        const selectedCourses = courseSelections?.length || 0
+        const selectedExchange = exchangeSelections?.length || 0
+        const pendingCourses = courseSelections?.filter((s) => s.status === "pending")?.length || 0
+        const pendingExchange = exchangeSelections?.filter((s) => s.status === "pending")?.length || 0
 
-          const counts: ElectiveCounts = {
-            required: {
-              courses: availableCoursesCount || 0,
-              exchange: availableExchangeCount || 0,
-              total: (availableCoursesCount || 0) + (availableExchangeCount || 0),
-            },
-            selected: {
-              courses: selectedCourses,
-              exchange: selectedExchange,
-              total: selectedCourses + selectedExchange,
-            },
-            pending: {
-              courses: pendingCourses,
-              exchange: pendingExchange,
-              total: pendingCourses + pendingExchange,
-            },
-          }
-
-          setElectiveCounts(counts)
-
-          // Cache the data
-          setCachedData(getElectiveCountsCacheKey(userId), counts)
+        const counts: ElectiveCounts = {
+          required: {
+            courses: availableCoursesCount || 0,
+            exchange: availableExchangeCount || 0,
+            total: (availableCoursesCount || 0) + (availableExchangeCount || 0),
+          },
+          selected: {
+            courses: selectedCourses,
+            exchange: selectedExchange,
+            total: selectedCourses + selectedExchange,
+          },
+          pending: {
+            courses: pendingCourses,
+            exchange: pendingExchange,
+            total: pendingCourses + pendingExchange,
+          },
         }
-      } catch (error) {
-        console.error("Error fetching elective counts:", error)
-      }
-    }
 
-    fetchElectiveCounts()
+        setElectiveCounts(counts)
+
+        // Cache the data
+        setCachedData(getElectiveCountsCacheKey(userId), counts)
+      }
+    } catch (error) {
+      console.error("Error fetching elective counts:", error)
+    }
   }, [supabase, userId])
+
+  useEffect(() => {
+    fetchElectiveCounts()
+  }, [fetchElectiveCounts])
 
   // Fetch upcoming deadlines
   const fetchUpcomingDeadlines = useCallback(async () => {
@@ -260,7 +260,7 @@ export default function StudentDashboard() {
       const { data: courseElectives, error: courseError } = await supabase
         .from("elective_courses")
         .select("id, name, name_ru, deadline, status")
-        .eq("status", "active")
+        .eq("status", "published")
         .not("deadline", "is", null)
         .gte("deadline", now.toISOString())
         .order("deadline", { ascending: true })
@@ -491,7 +491,7 @@ export default function StudentDashboard() {
                     <div key={deadline.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{deadline.title}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(deadline.date)}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(deadline.date, language === "ru" ? "ru-RU" : "en-US")}</p>
                       </div>
                       <Link
                         href={

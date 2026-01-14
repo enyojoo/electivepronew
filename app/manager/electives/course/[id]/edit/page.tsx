@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/use-toast"
 
 // Cache constants
 const COURSE_EDIT_CACHE_KEY = "courseEditData"
+const COURSES_LIST_CACHE_KEY = "coursesListCache"
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
 // Cache helper functions
@@ -98,11 +99,22 @@ export default function ElectiveCourseEditPage() {
   const totalSteps = 3
 
 
-  // Data states
-  const [courses, setCourses] = useState<any[]>([])
+  // Data states - initialize courses from cache
+  const [courses, setCourses] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedCourses = getCachedData(COURSES_LIST_CACHE_KEY)
+        return cachedCourses || []
+      } catch (e) {
+        return []
+      }
+    }
+    return []
+  })
   const [groups, setGroups] = useState<any[]>([])
   const [semesters, setSemesters] = useState<any[]>([])
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
 
   // Form state - matching course builder exactly
   const [formData, setFormData] = useState({
@@ -186,8 +198,8 @@ export default function ElectiveCourseEditPage() {
       } catch (error) {
         console.error("Error loading data:", error)
         toast({
-          title: "Error",
-          description: "Failed to load course program data",
+          title: t("manager.courseBuilder.error", "Error"),
+          description: t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"),
           variant: "destructive",
         })
       }
@@ -219,7 +231,10 @@ export default function ElectiveCourseEditPage() {
       if (coursesError) {
         console.error("Error loading courses:", coursesError)
       } else {
-        setCourses(coursesData || [])
+        const courses = coursesData || []
+        setCourses(courses)
+        // Cache the courses list
+        setCachedData(COURSES_LIST_CACHE_KEY, courses)
       }
     } catch (error) {
       console.error("Error loading courses:", error)
@@ -366,36 +381,21 @@ export default function ElectiveCourseEditPage() {
       if (error) throw error
 
       toast({
-        title: "Success",
-        description: "Course program updated successfully",
+        title: t("manager.courseBuilder.success", "Success"),
+        description: t("manager.courseBuilder.programUpdated", "Course program updated successfully"),
       })
 
       router.push(`/manager/electives/course/${courseId}`)
     } catch (error: any) {
       console.error("Error updating course:", error)
       toast({
-        title: "Error",
-        description: error.message || "Failed to update course program",
+        title: t("manager.courseBuilder.error", "Error"),
+        description: error.message || t("manager.courseBuilder.errorUpdating", "Failed to update course program"),
         variant: "destructive",
       })
     }
   }
 
-  // Show not found if no data
-  if (!electiveCourse) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">{t("manager.courseBuilder.notFound", "Course program not found")}</h1>
-            <Button onClick={() => router.push("/manager/electives/course")} className="mt-4">
-              {t("manager.courseBuilder.backToList", "Back to Course Programs")}
-            </Button>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
 
   // Filter courses based on search term
   const filteredCourses = courses.filter((course) => {
@@ -408,6 +408,19 @@ export default function ElectiveCourseEditPage() {
       instructor.toLowerCase().includes(term)
     )
   })
+
+  if (loading) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
@@ -564,20 +577,18 @@ export default function ElectiveCourseEditPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="maxSelections">{t("manager.courseBuilder.maxSelections", "Max Selections")}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="maxSelections"
-                        name="maxSelections"
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={formData.maxSelections}
-                        onChange={handleChange}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("manager.courseBuilder.coursesPerStudent", "Maximum number of courses a student can select")}
-                      </p>
-                    </div>
+                    <Input
+                      id="maxSelections"
+                      name="maxSelections"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={formData.maxSelections}
+                      onChange={handleChange}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("manager.courseBuilder.coursesPerStudent", "Maximum number of courses a student can select")}
+                    </p>
                   </div>
 
                   <div className="space-y-2">

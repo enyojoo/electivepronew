@@ -5,6 +5,7 @@ import { Upload, X, File, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/lib/language-context"
 
 interface ModernFileUploaderProps {
   onFileSelect: (file: File | null) => void
@@ -38,13 +39,14 @@ export function ModernFileUploader({
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { t } = useLanguage()
 
   const validateFile = (file: File): boolean => {
     setError(null)
 
     // Check file size
     if (file.size > maxSize * 1024 * 1024) {
-      setError(`File size must be less than ${maxSize}MB`)
+      setError(`${t("fileUploader.fileSizeError", "File size must be less than")} ${maxSize}MB`)
       return false
     }
 
@@ -61,7 +63,7 @@ export function ModernFileUploader({
     })
 
     if (!isValidType) {
-      setError(`File type not allowed. Allowed types: ${accept}`)
+      setError(`${t("fileUploader.fileTypeError", "File type not allowed. Allowed types:")} ${accept}`)
       return false
     }
 
@@ -185,10 +187,10 @@ export function ModernFileUploader({
             <Upload className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">
-                Drop your file here or click to browse
+                {t("fileUploader.dropOrClick", "Drop your file here or click to browse")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Supports: {accept} (Max: {maxSize}MB)
+                {t("fileUploader.supports", "Supports:")} {accept} ({t("fileUploader.max", "Max:")} {maxSize}MB)
               </p>
             </div>
           </div>

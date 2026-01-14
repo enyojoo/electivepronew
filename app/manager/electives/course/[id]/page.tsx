@@ -118,6 +118,7 @@ export default function ElectiveCourseDetailPage() {
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<StudentSelection | null>(null)
@@ -126,8 +127,32 @@ export default function ElectiveCourseDetailPage() {
   const [editingStudent, setEditingStudent] = useState<StudentSelection | null>(null)
   const [editStatus, setEditStatus] = useState("")
   const [editSelectedCourses, setEditSelectedCourses] = useState<string[]>([])
+  const [mounted, setMounted] = useState(false)
+  const [activeTab, setActiveTab] = useState("courses")
 
-  const { language } = useLanguage()
+  const { language, t } = useLanguage()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Handle URL hash for tab navigation
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "")
+      if (hash === "students" || hash === "courses") {
+        setActiveTab(hash)
+      }
+    }
+  }, [])
+
+  // Update URL hash when tab changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && mounted) {
+      window.history.replaceState(null, "", `#${activeTab}`)
+    }
+  }, [activeTab, mounted])
+
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const router = useRouter()
@@ -151,7 +176,13 @@ export default function ElectiveCourseDetailPage() {
       setStudentSelections(cachedSelections)
     }
 
-    // Fetch fresh data in background
+    // Check if we need to fetch from API
+    const needsApiFetch = !cachedData || !cachedSelections
+    if (needsApiFetch) {
+      setLoading(true)
+    }
+
+    // Fetch fresh data in background or initially
     loadData()
   }, [params.id])
 
@@ -228,10 +259,10 @@ export default function ElectiveCourseDetailPage() {
       setStudentSelections(data.studentSelections || [])
     } catch (error) {
       console.error("Error loading data:", error)
-      setError("Failed to load course program data")
+      setError(t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"))
       toast({
-        title: "Error",
-        description: "Failed to load course program data",
+        title: t("manager.courseBuilder.error", "Error"),
+        description: t("manager.courseBuilder.errorFetchingData", "Failed to load course program data"),
         variant: "destructive",
       })
     }
@@ -250,30 +281,30 @@ export default function ElectiveCourseDetailPage() {
     switch (status) {
       case "draft":
         return (
-          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200">
-            Draft
+          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200" suppressHydrationWarning>
+            {mounted ? t("manager.status.draft", "Draft") : "Draft"}
           </Badge>
         )
       case "published":
         return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
-            Published
+          <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200" suppressHydrationWarning>
+            {mounted ? t("manager.status.published", "Published") : "Published"}
           </Badge>
         )
       case "closed":
         return (
-          <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200">
-            Closed
+          <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100 border-gray-200" suppressHydrationWarning>
+            {mounted ? t("manager.status.closed", "Closed") : "Closed"}
           </Badge>
         )
       case "archived":
         return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">
-            Archived
+          <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200" suppressHydrationWarning>
+            {mounted ? t("manager.status.archived", "Archived") : "Archived"}
           </Badge>
         )
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline" suppressHydrationWarning>{status}</Badge>
     }
   }
 
@@ -281,27 +312,27 @@ export default function ElectiveCourseDetailPage() {
     switch (status) {
       case "approved":
         return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200">
+          <Badge className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200" suppressHydrationWarning>
             <CheckCircle className="mr-1 h-3 w-3" />
-            Approved
+            {mounted ? t("manager.status.approved", "Approved") : "Approved"}
           </Badge>
         )
       case "pending":
         return (
-          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200">
+          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200" suppressHydrationWarning>
             <Clock className="mr-1 h-3 w-3" />
-            Pending
+            {mounted ? t("manager.status.pending", "Pending") : "Pending"}
           </Badge>
         )
       case "rejected":
         return (
-          <Badge className="bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-200">
+          <Badge className="bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900 dark:text-red-200" suppressHydrationWarning>
             <XCircle className="mr-1 h-3 w-3" />
-            Rejected
+            {mounted ? t("manager.status.rejected", "Rejected") : "Rejected"}
           </Badge>
         )
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline" suppressHydrationWarning>{status}</Badge>
     }
   }
 
@@ -335,8 +366,8 @@ export default function ElectiveCourseDetailPage() {
       })
     } catch (error) {
       toast({
-        title: "Error",
-        description: `Failed to ${newStatus} selection`,
+        title: t("manager.courseBuilder.error", "Error"),
+        description: t("manager.courseDetails.errorUpdatingSelection", `Failed to ${newStatus} selection`),
         variant: "destructive",
       })
     }
@@ -353,8 +384,8 @@ export default function ElectiveCourseDetailPage() {
 
       if (enrolledStudents.length === 0) {
         toast({
-          title: "No Data",
-          description: "No students are enrolled in this course.",
+          title: t("manager.courseDetails.noData", "No Data"),
+          description: t("manager.courseDetails.noStudentsEnrolled", "No students are enrolled in this course."),
         })
         return
       }
@@ -403,14 +434,14 @@ export default function ElectiveCourseDetailPage() {
       document.body.removeChild(link)
 
       toast({
-        title: "Success",
-        description: `Course enrollment data exported successfully`,
+        title: t("manager.courseBuilder.success", "Success"),
+        description: t("manager.courseDetails.exportSuccess", "Course enrollment data exported successfully"),
       })
     } catch (error) {
       console.error("Error exporting course data:", error)
       toast({
-        title: "Error",
-        description: "Failed to export course data",
+        title: t("manager.courseBuilder.error", "Error"),
+        description: t("manager.courseDetails.exportError", "Failed to export course data"),
         variant: "destructive",
       })
     }
@@ -419,8 +450,8 @@ export default function ElectiveCourseDetailPage() {
   const exportStudentSelectionsToCSV = () => {
     if (studentSelections.length === 0) {
       toast({
-        title: "No Data",
-        description: "No student selections to export.",
+        title: t("manager.courseDetails.noData", "No Data"),
+        description: t("manager.courseDetails.noSelectionsToExport", "No student selections to export."),
       })
       return
     }
@@ -478,8 +509,8 @@ export default function ElectiveCourseDetailPage() {
   const downloadStudentStatement = async (studentName: string, statementUrl: string | null) => {
     if (!statementUrl) {
       toast({
-        title: "Statement not available",
-        description: `No statement file available for ${studentName}`,
+        title: t("manager.courseDetails.statementNotAvailable", "Statement not available"),
+        description: t("manager.courseDetails.noStatementFile", `No statement file available for ${studentName}`),
       })
       return
     }
@@ -504,14 +535,14 @@ export default function ElectiveCourseDetailPage() {
       URL.revokeObjectURL(url)
 
       toast({
-        title: "Statement downloaded",
-        description: `Statement file downloaded for ${studentName}`,
+        title: t("manager.courseDetails.statementDownloaded", "Statement downloaded"),
+        description: t("manager.courseDetails.statementDownloadedFor", `Statement file downloaded for ${studentName}`),
       })
     } catch (error) {
       console.error("Error downloading statement:", error)
       toast({
-        title: "Download failed",
-        description: "Failed to download statement file",
+        title: t("manager.courseDetails.downloadFailed", "Download failed"),
+        description: t("manager.courseDetails.downloadFailedDesc", "Failed to download statement file"),
         variant: "destructive",
       })
     }
@@ -552,14 +583,14 @@ export default function ElectiveCourseDetailPage() {
       setEditSelectedCourses([])
 
       toast({
-        title: "Selection updated",
-        description: `Student selection updated successfully`,
+        title: t("manager.courseDetails.selectionUpdated", "Selection updated"),
+        description: t("manager.courseDetails.selectionUpdatedDesc", "Student selection updated successfully"),
       })
     } catch (error) {
       console.error("Error updating selection:", error)
       toast({
-        title: "Error",
-        description: "Failed to update selection",
+        title: t("manager.courseBuilder.error", "Error"),
+        description: t("manager.courseDetails.errorUpdatingSelection", "Failed to update selection"),
         variant: "destructive",
       })
     } finally {
@@ -590,10 +621,10 @@ export default function ElectiveCourseDetailPage() {
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-red-600">Error Loading Data</h1>
+            <h1 className="text-2xl font-bold text-red-600">{t("manager.courseDetails.errorLoading", "Error Loading Data")}</h1>
             <p className="text-muted-foreground mt-2">{error}</p>
             <Button onClick={loadData} className="mt-4">
-              Try Again
+              {t("manager.courseDetails.tryAgain", "Try Again")}
             </Button>
           </div>
         </div>
@@ -601,12 +632,14 @@ export default function ElectiveCourseDetailPage() {
     )
   }
 
-  if (!electiveCourse) {
+
+  if (loading) {
     return (
       <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
         <div className="space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">Course program not found</h1>
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
           </div>
         </div>
       </DashboardLayout>
@@ -625,16 +658,18 @@ export default function ElectiveCourseDetailPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
-                {language === "ru" && electiveCourse.name_ru ? electiveCourse.name_ru : electiveCourse.name}
+                {electiveCourse ? (language === "ru" && electiveCourse.name_ru ? electiveCourse.name_ru : electiveCourse.name) : "Loading..."}
               </h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {getStatusBadge(electiveCourse.status)}
+            {electiveCourse && getStatusBadge(electiveCourse.status)}
             <Button variant="outline" size="sm" asChild>
               <Link href={`/manager/electives/course/${params.id as string}/edit`}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                <span suppressHydrationWarning>
+                  {mounted ? t("manager.courseDetails.edit", "Edit") : "Edit"}
+                </span>
               </Link>
             </Button>
           </div>
@@ -642,33 +677,33 @@ export default function ElectiveCourseDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Program Details</CardTitle>
+            <CardTitle>{t("manager.courseDetails.programDetails", "Program Details")}</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="space-y-2">
               <div className="flex justify-between">
-                <dt className="font-medium">Deadline:</dt>
-                <dd>{electiveCourse.deadline ? formatDate(electiveCourse.deadline) : "No deadline set"}</dd>
+                <dt className="font-medium">{t("manager.courseDetails.deadline", "Deadline")}:</dt>
+                <dd>{electiveCourse?.deadline ? formatDate(electiveCourse.deadline) : t("manager.courseDetails.noDeadline", "No deadline set")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Max Selections:</dt>
-                <dd>{electiveCourse.max_selections} courses</dd>
+                <dt className="font-medium">{t("manager.courseDetails.maxSelections", "Max Selections")}:</dt>
+                <dd>{electiveCourse?.max_selections || 0} {t("manager.courseDetails.courses", "courses")}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Courses:</dt>
+                <dt className="font-medium">{t("manager.courseDetails.courses", "Courses")}:</dt>
                 <dd>{courses.length}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Students Enrolled:</dt>
+                <dt className="font-medium">{t("manager.courseDetails.studentsEnrolled", "Students Enrolled")}:</dt>
                 <dd>{getTotalStudentsEnrolled()}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="font-medium">Created:</dt>
-                <dd>{formatDate(electiveCourse.created_at)}</dd>
+                <dt className="font-medium">{t("manager.courseDetails.created", "Created")}:</dt>
+                <dd>{electiveCourse?.created_at ? formatDate(electiveCourse.created_at) : t("common.loading", "Loading...")}</dd>
               </div>
-              {electiveCourse.description && (
+              {electiveCourse?.description && (
                 <div className="flex flex-col gap-1">
-                  <dt className="font-medium">Description:</dt>
+                  <dt className="font-medium">{t("manager.courseDetails.description", "Description")}:</dt>
                   <dd className="text-sm text-muted-foreground">
                     {language === "ru" && electiveCourse.description_ru
                       ? electiveCourse.description_ru
@@ -680,32 +715,32 @@ export default function ElectiveCourseDetailPage() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="courses">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="courses">Courses</TabsTrigger>
-            <TabsTrigger value="students">Student Selections</TabsTrigger>
+            <TabsTrigger value="courses">{t("manager.courseDetails.coursesTab", "Courses")}</TabsTrigger>
+            <TabsTrigger value="students">{t("manager.courseDetails.studentsTab", "Student Selections")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="courses" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Courses</CardTitle>
+                <CardTitle>{t("manager.courseDetails.coursesInProgram", "Courses")}</CardTitle>
               </CardHeader>
               <CardContent>
                 {courses.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No courses configured for this course program
+                    {t("manager.courseDetails.noCourses", "No courses in this program")}
                   </div>
                 ) : (
                   <div className="rounded-md border">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="py-3 px-4 text-left text-sm font-medium">Name</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Instructor</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Degree</th>
-                          <th className="py-3 px-4 text-left text-sm font-medium">Enrollment</th>
-                          <th className="py-3 px-4 text-center text-sm font-medium">Export</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.name", "Name")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.professor", "Professor")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.degree", "Degree")}</th>
+                          <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.enrollment", "Enrollment")}</th>
+                          <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.courseDetails.export", "Export")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -720,14 +755,14 @@ export default function ElectiveCourseDetailPage() {
                               <td className="py-3 px-4 text-sm">
                                 {language === "ru" && course.instructor_ru
                                   ? course.instructor_ru
-                                  : course.instructor_en || "Not assigned"}
+                                  : course.instructor_en || t("manager.courseDetails.notAssigned", "Not assigned")}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 {course.degrees
                                   ? language === "ru" && course.degrees.name_ru
                                     ? course.degrees.name_ru
                                     : course.degrees.name
-                                  : "Not specified"}
+                                  : t("manager.courseDetails.notSpecified", "Not specified")}
                               </td>
                               <td className="py-3 px-4 text-sm">
                                 <Badge variant={currentEnrollment >= course.max_students ? "destructive" : "secondary"}>
@@ -742,7 +777,7 @@ export default function ElectiveCourseDetailPage() {
                                   className="flex mx-auto"
                                 >
                                   <Download className="h-4 w-4 mr-1" />
-                                  Download
+                                  {t("manager.courseDetails.download", "Download")}
                                 </Button>
                               </td>
                             </tr>
@@ -760,14 +795,14 @@ export default function ElectiveCourseDetailPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Student Selections</CardTitle>
+                  <CardTitle>{t("manager.courseDetails.studentSelections", "Student Selections")}</CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <input
                       type="search"
-                      placeholder="Search students..."
+                      placeholder={t("manager.courseDetails.searchStudents", "Search students...")}
                       className="h-10 w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:w-[200px]"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -775,7 +810,7 @@ export default function ElectiveCourseDetailPage() {
                   </div>
                   <Button variant="outline" size="sm" onClick={exportStudentSelectionsToCSV}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export All
+                    {t("manager.courseDetails.exportAll", "Export All")}
                   </Button>
                 </div>
               </CardHeader>
@@ -784,20 +819,20 @@ export default function ElectiveCourseDetailPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="py-3 px-4 text-left text-sm font-medium">Name</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Email</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Selection Date</th>
-                        <th className="py-3 px-4 text-left text-sm font-medium">Status</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">Statement</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">View</th>
-                        <th className="py-3 px-4 text-center text-sm font-medium">Actions</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.name", "Name")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.email", "Email")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.selectionDate", "Selection Date")}</th>
+                        <th className="py-3 px-4 text-left text-sm font-medium">{t("manager.courseDetails.status", "Status")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.courseDetails.statement", "Statement")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.courseDetails.view", "View")}</th>
+                        <th className="py-3 px-4 text-center text-sm font-medium">{t("manager.courseDetails.actions", "Actions")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredStudentSelections.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                            {searchTerm ? "No students found matching your search" : "No student selections yet"}
+                            {searchTerm ? t("manager.courseDetails.noStudentsFound", "No students found matching your search") : t("manager.courseDetails.noSelections", "No student selections yet")}
                           </td>
                         </tr>
                       ) : (
@@ -857,7 +892,7 @@ export default function ElectiveCourseDetailPage() {
                                       }}
                                     >
                                       <Edit className="mr-2 h-4 w-4" />
-                                      Edit
+                                      {t("manager.courseDetails.edit", "Edit")}
                                     </DropdownMenuItem>
                                     {selection.status === "pending" && (
                                       <>
@@ -923,30 +958,30 @@ export default function ElectiveCourseDetailPage() {
         <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Student Selection Details</DialogTitle>
+              <DialogTitle>{t("manager.courseDetails.studentDetails", "Student Selection Details")}</DialogTitle>
             </DialogHeader>
             {selectedStudent && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm font-medium">Student Name</Label>
+                    <Label className="text-sm font-medium">{t("manager.courseDetails.studentName", "Student Name")}</Label>
                     <p className="text-sm">{selectedStudent.profiles?.full_name || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Email</Label>
+                    <Label className="text-sm font-medium">{t("manager.courseDetails.email", "Email")}</Label>
                     <p className="text-sm">{selectedStudent.profiles?.email || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Selection Date</Label>
+                    <Label className="text-sm font-medium">{t("manager.courseDetails.selectionDate", "Selection Date")}</Label>
                     <p className="text-sm">{formatDate(selectedStudent.created_at)}</p>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Status</Label>
+                    <Label className="text-sm font-medium">{t("manager.courseDetails.status", "Status")}</Label>
                     <div className="mt-1">{getSelectionStatusBadge(selectedStudent.status)}</div>
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Selected Courses</Label>
+                  <Label className="text-sm font-medium">{t("manager.courseDetails.selectedCourses", "Selected Courses")}</Label>
                   <div className="mt-2 space-y-2">
                     {(selectedStudent.selected_course_ids || []).map((courseId) => {
                       const course = courses.find((c) => c.id === courseId)
@@ -971,7 +1006,7 @@ export default function ElectiveCourseDetailPage() {
                 </div>
                 {selectedStudent.statement_url && (
                   <div>
-                    <Label className="text-sm font-medium">Statement</Label>
+                    <Label className="text-sm font-medium">{t("manager.courseDetails.statement", "Statement")}</Label>
                     <div className="mt-2 flex items-center gap-2">
                       <Button
                         variant="outline"
@@ -984,7 +1019,7 @@ export default function ElectiveCourseDetailPage() {
                         }
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Download Statement
+                        {t("manager.courseDetails.download", "Download")}
                       </Button>
                       <Button
                         variant="outline"
@@ -992,7 +1027,7 @@ export default function ElectiveCourseDetailPage() {
                         onClick={() => window.open(selectedStudent.statement_url!, "_blank")}
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
-                        View Online
+                        {t("manager.courseDetails.viewOnline", "View Online")}
                       </Button>
                     </div>
                   </div>
@@ -1006,16 +1041,16 @@ export default function ElectiveCourseDetailPage() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Edit Student Selection</DialogTitle>
+              <DialogTitle>{t("manager.courseDetails.editStudentSelection", "Edit Student Selection")}</DialogTitle>
             </DialogHeader>
             {editingStudent && (
               <div className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">Student</Label>
+                  <Label className="text-sm font-medium">{t("manager.courseDetails.student", "Student")}</Label>
                   <p className="text-sm">{editingStudent.profiles?.full_name || "N/A"}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Selected Courses</Label>
+                  <Label className="text-sm font-medium">{t("manager.courseDetails.editCourses", "Selected Courses")}</Label>
                   <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
                     {courses.map((course) => (
                       <div key={course.id} className="flex items-center space-x-2">
@@ -1033,30 +1068,30 @@ export default function ElectiveCourseDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="status">{t("manager.courseDetails.status", "Status")}</Label>
                   <Select value={editStatus} onValueChange={setEditStatus}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
+                      <SelectValue placeholder={t("manager.courseDetails.selectStatus", "Select status")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="pending">{t("manager.courseDetails.pending", "Pending")}</SelectItem>
+                      <SelectItem value="approved">{t("manager.courseDetails.approved", "Approved")}</SelectItem>
+                      <SelectItem value="rejected">{t("manager.courseDetails.rejected", "Rejected")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                    Cancel
+                    {t("manager.courseDetails.cancel", "Cancel")}
                   </Button>
                   <Button onClick={handleEditSave} disabled={isSaving}>
                     {isSaving ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
+                        {t("manager.courseDetails.saving", "Saving...")}
                       </>
                     ) : (
-                      "Save Changes"
+                      t("manager.courseDetails.saveChanges", "Save Changes")
                     )}
                   </Button>
                 </div>

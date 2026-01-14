@@ -3,9 +3,15 @@
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/lib/language-context"
 import { CountryFlag } from "@/lib/countries"
+import { useState, useEffect } from "react"
 
 export function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const toggleLanguage = () => {
     setLanguage(language === "en" ? "ru" : "en")
@@ -22,10 +28,13 @@ export function LanguageSwitcher() {
       size="sm"
       onClick={toggleLanguage}
       className="flex items-center gap-2 px-3 py-2 h-9"
-      title={title}
+      title={mounted ? title : "Switch to Russian"}
+      suppressHydrationWarning
     >
-      <CountryFlag code={currentFlag} size={16} />
-      <span className="text-sm">{currentLabel}</span>
+      <CountryFlag code={mounted ? currentFlag : "gb"} size={16} />
+      <span className="text-sm" suppressHydrationWarning>
+        {mounted ? currentLabel : "EN"}
+      </span>
     </Button>
   )
 }

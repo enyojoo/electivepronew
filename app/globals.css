@@ -76,3 +76,16 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide calendar picker indicator for date inputs */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+input[type="date"]::-webkit-inner-spin-button {
+  display: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  cursor: default;
+}

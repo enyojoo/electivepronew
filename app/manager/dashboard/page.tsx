@@ -68,6 +68,11 @@ interface ElectiveCounts {
   exchange: number
 }
 
+interface FirstElectiveIds {
+  courseId: string | null
+  exchangeId: string | null
+}
+
 export default function ManagerDashboard() {
   const { t, language } = useLanguage()
   const router = useRouter()
@@ -151,6 +156,18 @@ export default function ManagerDashboard() {
     return { courses: 0, exchange: 0 }
   })
 
+  const [firstElectiveIds, setFirstElectiveIds] = useState<FirstElectiveIds>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cachedIds = getCachedData("firstElectiveIds")
+        return cachedIds || { courseId: null, exchangeId: null }
+      } catch (e) {
+        return { courseId: null, exchangeId: null }
+      }
+    }
+    return { courseId: null, exchangeId: null }
+  })
+
   // Fetch elective counts - load cached data first, then fetch fresh data
   useEffect(() => {
     const fetchElectiveCounts = async () => {
@@ -196,7 +213,7 @@ export default function ManagerDashboard() {
         const { data: courseElectives, error: courseError } = await supabase
           .from("elective_courses")
           .select("id, name, name_ru, deadline, status")
-          .eq("status", "active")
+          .eq("status", "published")
           .not("deadline", "is", null)
           .gte("deadline", now.toISOString())
           .order("deadline", { ascending: true })
@@ -237,6 +254,13 @@ export default function ManagerDashboard() {
             .slice(0, 5) // Take top 5 closest deadlines
 
           setUpcomingDeadlines(allDeadlines)
+
+          // Store first elective IDs for navigation
+          const firstCourseId = courseElectives && courseElectives.length > 0 ? courseElectives[0].id : null
+          const firstExchangeId = exchangePrograms && exchangePrograms.length > 0 ? exchangePrograms[0].id : null
+          const newFirstIds = { courseId: firstCourseId, exchangeId: firstExchangeId }
+          setFirstElectiveIds(newFirstIds)
+          setCachedData("firstElectiveIds", newFirstIds)
 
           // Cache the data
           setCachedData(DEADLINES_CACHE_KEY, allDeadlines)
@@ -288,7 +312,7 @@ export default function ManagerDashboard() {
         const { data: courseElectives, error: courseError } = await supabase
           .from("elective_courses")
           .select("id, name, name_ru, deadline, status")
-          .eq("status", "active")
+          .eq("status", "published")
           .not("deadline", "is", null)
           .gte("deadline", now.toISOString())
           .order("deadline", { ascending: true })
@@ -329,6 +353,12 @@ export default function ManagerDashboard() {
             .slice(0, 5) // Take top 5 closest deadlines
 
           setUpcomingDeadlines(allDeadlines)
+
+          // Store first elective IDs for navigation
+          const firstCourseId = courseElectives && courseElectives.length > 0 ? courseElectives[0].id : null
+          const firstExchangeId = exchangePrograms && exchangePrograms.length > 0 ? exchangePrograms[0].id : null
+          const newFirstIds = { courseId: firstCourseId, exchangeId: firstExchangeId }
+          setFirstElectiveIds(newFirstIds)
 
           // Clear deadlines cache
           localStorage.removeItem(DEADLINES_CACHE_KEY)
@@ -415,8 +445,10 @@ export default function ManagerDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{electiveCounts.courses}</div>
               <p className="text-xs text-muted-foreground">{t("manager.dashboard.totalCourseElectives")}</p>
-              <Button asChild className="w-full mt-4" size="sm">
-                <Link href="/manager/electives/course">{t("manager.dashboard.manageCourseElectives")}</Link>
+              <Button asChild className="w-full mt-4" size="sm" disabled={!firstElectiveIds.courseId}>
+                <Link href={firstElectiveIds.courseId ? `/manager/electives/course/${firstElectiveIds.courseId}#students` : "#"}>
+                  {t("manager.dashboard.manageCourseElectives")}
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -429,8 +461,10 @@ export default function ManagerDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{electiveCounts.exchange}</div>
               <p className="text-xs text-muted-foreground">{t("manager.dashboard.totalExchangePrograms")}</p>
-              <Button asChild className="w-full mt-4" size="sm">
-                <Link href="/manager/electives/exchange">{t("manager.dashboard.manageExchangePrograms")}</Link>
+              <Button asChild className="w-full mt-4" size="sm" disabled={!firstElectiveIds.exchangeId}>
+                <Link href={firstElectiveIds.exchangeId ? `/manager/electives/exchange/${firstElectiveIds.exchangeId}#students` : "#"}>
+                  {t("manager.dashboard.manageExchangePrograms")}
+                </Link>
               </Button>
             </CardContent>
           </Card>
@@ -443,30 +477,48 @@ export default function ManagerDashboard() {
               <CardDescription>{t("manager.dashboard.managerDetails")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {profile ? (
-                <dl className="space-y-2">
+              <dl className="space-y-2">
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.name")}:</dt>
-                    <dd>{profile?.full_name || "-"}</dd>
+                    <dd>
+                      {isLoadingProfile ? (
+                        <Skeleton className="h-4 w-24" />
+                      ) : (
+                        profile?.full_name || "-"
+                      )}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.degree")}:</dt>
-                    <dd>{profile?.degrees ? (language === "ru" && profile.degrees.name_ru ? profile.degrees.name_ru : profile.degrees.name) : "-"}</dd>
+                    <dd>
+                      {isLoadingProfile ? (
+                        <Skeleton className="h-4 w-32" />
+                      ) : (
+                        profile?.degrees ? (language === "ru" && profile.degrees.name_ru ? profile.degrees.name_ru : profile.degrees.name) : "-"
+                      )}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.year")}:</dt>
-                    <dd>{profile?.academic_year || "-"}</dd>
+                    <dd>
+                      {isLoadingProfile ? (
+                        <Skeleton className="h-4 w-16" />
+                      ) : (
+                        profile?.academic_year || "-"
+                      )}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="font-medium">{t("manager.dashboard.email")}:</dt>
-                    <dd>{profile?.email || "-"}</dd>
+                    <dd>
+                      {isLoadingProfile ? (
+                        <Skeleton className="h-4 w-40" />
+                      ) : (
+                        profile?.email || "-"
+                      )}
+                    </dd>
                   </div>
                 </dl>
-              ) : (
-                <div className="text-center text-muted-foreground">
-                  {t("manager.dashboard.loadingProfile", "Loading profile...")}
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -482,7 +534,7 @@ export default function ManagerDashboard() {
                     <div key={deadline.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{deadline.title}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(deadline.date)}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(deadline.date, language === "ru" ? "ru-RU" : "en-US")}</p>
                       </div>
                       <Link
                         href={

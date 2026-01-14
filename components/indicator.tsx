@@ -3,6 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
+import { useState, useEffect } from "react"
 
 const POWERED_BY_LOGO_URL_EN = "https://cldup.com/igpmfiGzaU.svg"
 const POWERED_BY_LOGO_URL_RU = "https://cldup.com/8RX9GenGPk.png"
@@ -10,7 +11,15 @@ const PLATFORM_WEBSITE = "https://www.electivepro.net/"
 
 export default function Indicator() {
   const { language } = useLanguage()
-  const logoUrl = language === "ru" ? POWERED_BY_LOGO_URL_RU : POWERED_BY_LOGO_URL_EN
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const logoUrl = mounted
+    ? (language === "ru" ? POWERED_BY_LOGO_URL_RU : POWERED_BY_LOGO_URL_EN)
+    : POWERED_BY_LOGO_URL_EN
 
   return (
     <div className="flex items-center justify-center pt-4 pb-4 mt-2 opacity-60 hover:opacity-80 transition-opacity">
@@ -27,6 +36,7 @@ export default function Indicator() {
           height={16}
           className="h-4 w-auto object-contain"
           priority
+          suppressHydrationWarning
         />
       </Link>
     </div>

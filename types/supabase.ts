@@ -613,63 +613,59 @@ export interface Database {
       elective_exchange: {
         Row: {
           id: string
-          institution_id: string
           name: string
           name_ru: string | null
-          description: string | null
-          description_ru: string | null
-          deadline: string
-          max_selections: number
+          semester: string
+          academic_year: string
           status: string
-          universities: string[] // Array of university IDs
+          created_by: string | null
           created_at: string
           updated_at: string
+          deadline: string
+          max_selections: number
+          statement_template_url: string | null
+          universities: string[] // Array of university IDs
+          group_id: string | null
         }
         Insert: {
           id?: string
-          institution_id: string
           name: string
           name_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          deadline: string
-          max_selections: number
+          semester: string
+          academic_year: string
           status?: string
-          universities: string[]
+          created_by?: string | null
           created_at?: string
           updated_at?: string
+          deadline: string
+          max_selections?: number
+          statement_template_url?: string | null
+          universities?: string[]
+          group_id?: string | null
         }
         Update: {
           id?: string
-          institution_id?: string
           name?: string
           name_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          deadline?: string
-          max_selections?: number
+          semester?: string
+          academic_year?: string
           status?: string
-          universities?: string[]
+          created_by?: string | null
           created_at?: string
           updated_at?: string
+          deadline?: string
+          max_selections?: number
+          statement_template_url?: string | null
+          universities?: string[]
+          group_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "elective_exchange_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "institutions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
-      exchange_universities: {
+      universities: {
         Row: {
           id: string
-          elective_pack_id: string | null
           name: string
           name_ru: string | null
           country: string
-          language: string | null
           max_students: number
           website: string | null
           description: string | null
@@ -680,12 +676,10 @@ export interface Database {
         }
         Insert: {
           id?: string
-          elective_pack_id?: string | null
           name: string
           name_ru?: string | null
           country: string
-          language?: string | null
-          max_students: number
+          max_students?: number
           website?: string | null
           description?: string | null
           description_ru?: string | null
@@ -695,11 +689,9 @@ export interface Database {
         }
         Update: {
           id?: string
-          elective_pack_id?: string | null
           name?: string
           name_ru?: string | null
           country?: string
-          language?: string | null
           max_students?: number
           website?: string | null
           description?: string | null
@@ -708,14 +700,6 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "exchange_universities_elective_pack_id_fkey"
-            columns: ["elective_pack_id"]
-            referencedRelation: "elective_packs"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       exchange_selections: {
         Row: {

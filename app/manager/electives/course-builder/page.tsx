@@ -80,6 +80,11 @@ export default function CourseBuilderPage() {
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const [userId, setUserId] = useState<string | undefined>()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Get user ID for manager profile
   useEffect(() => {
@@ -517,14 +522,14 @@ export default function CourseBuilderPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {t("manager.courseBuilder.title", "Create Elective Course Selection")}
+              <h1 className="text-3xl font-bold tracking-tight" suppressHydrationWarning>
+                {mounted ? t("manager.courseBuilder.title", "Create Elective Course Selection") : "Create Elective Course Selection"}
               </h1>
-              <p className="text-muted-foreground">
-                <Badge variant="outline" className="mt-1">
-                  {t("manager.courseBuilder.draft", "Draft")}
+              <div className="text-muted-foreground">
+                <Badge variant="outline" className="mt-1" suppressHydrationWarning>
+                  {mounted ? t("manager.courseBuilder.draft", "Draft") : "Draft"}
                 </Badge>
-              </p>
+              </div>
             </div>
           </div>
         </div>

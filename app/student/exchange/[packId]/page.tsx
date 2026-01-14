@@ -176,7 +176,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "exchange_universities" },
+        { event: "*", schema: "public", table: "universities" },
         async () => {
           console.log("Universities changed, reloading university data")
           await loadData()

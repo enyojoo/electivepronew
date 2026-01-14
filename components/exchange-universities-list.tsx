@@ -61,7 +61,7 @@ export function ExchangeUniversitiesList({ universities }: ExchangeUniversitiesL
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{t("exchange_universities")}</CardTitle>
+        <CardTitle>{t("universities")}</CardTitle>
         <div className="flex items-center gap-4">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

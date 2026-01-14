@@ -76,6 +76,11 @@ export default function ExchangeBuilderPage() {
   const supabase = getSupabaseBrowserClient()
   const { groups, isLoading: isLoadingGroups } = useCachedGroups()
   const [userId, setUserId] = useState<string | undefined>()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Get user ID for manager profile
   useEffect(() => {
@@ -510,12 +515,14 @@ export default function ExchangeBuilderPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{t("manager.exchangeBuilder.title")}</h1>
-              <p className="text-muted-foreground">
-                <Badge variant="outline" className="mt-1">
-                  {t("manager.exchangeBuilder.draft")}
+              <h1 className="text-3xl font-bold tracking-tight" suppressHydrationWarning>
+                {mounted ? t("manager.exchangeBuilder.title") : "Create Exchange Program"}
+              </h1>
+              <div className="text-muted-foreground">
+                <Badge variant="outline" className="mt-1" suppressHydrationWarning>
+                  {mounted ? t("manager.exchangeBuilder.draft") : "Draft"}
                 </Badge>
-              </p>
+              </div>
             </div>
           </div>
         </div>

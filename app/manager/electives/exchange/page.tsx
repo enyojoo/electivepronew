@@ -447,7 +447,7 @@ export default function ManagerExchangeElectivesPage() {
                           </TableCell>
                           <TableCell>
                             {pack.deadline ? (
-                              formatDate(pack.deadline)
+                              formatDate(pack.deadline, language === "ru" ? "ru-RU" : "en-US")
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
@@ -466,7 +466,7 @@ export default function ManagerExchangeElectivesPage() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem>
                                   <Link href={`/manager/electives/exchange/${pack.id}`} className="w-full">
-                                    {t("manager.electives.view", "View Details")}
+                                    {t("common.view", "View")}
                                   </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem>
@@ -476,15 +476,15 @@ export default function ManagerExchangeElectivesPage() {
                                 </DropdownMenuItem>
                                 {pack.status === "published" ? (
                                   <DropdownMenuItem onClick={() => handleStatusChange(pack.id, "closed")}>
-                                    {t("manager.electives.deactivate", "Deactivate")}
+                                    {t("common.deactivate", "Deactivate")}
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem onClick={() => handleStatusChange(pack.id, "published")}>
-                                    {t("manager.electives.activate", "Activate")}
+                                    {t("common.activate", "Activate")}
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(pack.id)}>
-                                  {t("manager.electives.delete", "Delete")}
+                                  {t("common.delete", "Delete")}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

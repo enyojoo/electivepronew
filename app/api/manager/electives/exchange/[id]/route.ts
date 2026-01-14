@@ -77,7 +77,65 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Exchange program not found" }, { status: 404 })
     }
 
-    return NextResponse.json(exchangeProgram)
+    // Fetch universities using the UUIDs from the universities column
+    let universitiesData: any[] = []
+    if (exchangeProgram.universities && Array.isArray(exchangeProgram.universities) && exchangeProgram.universities.length > 0) {
+      try {
+        // Use a more direct approach - fetch all universities and filter in JavaScript
+        // This avoids potential issues with the .in() query and UUID arrays
+        const { data: allUniversities, error: fetchError } = await supabaseAdmin
+          .from("universities")
+          .select(`
+            id,
+            name,
+            name_ru,
+            country,
+            max_students,
+            website,
+            description,
+            description_ru,
+            status
+          `)
+
+        if (fetchError) {
+          console.error("Error fetching all universities:", fetchError)
+        } else if (allUniversities) {
+          // Filter universities that are in the exchange program's universities array
+          universitiesData = allUniversities.filter((uni: any) =>
+            exchangeProgram.universities!.includes(uni.id)
+          )
+          console.log(`Filtered ${universitiesData.length} universities from ${allUniversities.length} total`)
+        }
+      } catch (error) {
+        console.error("Unexpected error loading universities:", error)
+      }
+    }
+
+    // Fetch student selections for this exchange
+    const { data: selections, error: selectionsError } = await supabaseAdmin
+      .from("exchange_selections")
+      .select(`
+        *,
+        profiles!student_id(
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq("elective_exchange_id", exchangeId)
+
+    if (selectionsError) {
+      console.error("Error loading student selections:", selectionsError)
+    }
+
+    // Combine the data
+    const responseData = {
+      ...exchangeProgram,
+      universities: universitiesData,
+      studentSelections: selections || [],
+    }
+
+    return NextResponse.json(responseData)
   } catch (error: any) {
     console.error("Unexpected error in manager exchange program API:", error)
     return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })

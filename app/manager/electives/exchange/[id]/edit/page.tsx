@@ -101,6 +101,7 @@ export default function ExchangeEditPage() {
   const [groups, setGroups] = useState<any[]>([])
   const [semesters, setSemesters] = useState<any[]>([])
   const [exchangeProgram, setExchangeProgram] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
 
   // Form state - matching exchange builder exactly
   const [formData, setFormData] = useState({
@@ -198,7 +199,7 @@ export default function ExchangeEditPage() {
   const loadAvailableUniversities = async () => {
     try {
       const { data: universitiesData, error: universitiesError } = await supabase
-        .from("exchange_universities")
+        .from("universities")
         .select(`
           id,
           name,
@@ -375,21 +376,6 @@ export default function ExchangeEditPage() {
     }
   }
 
-  // Show not found if no data
-  if (!exchangeProgram) {
-    return (
-      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
-        <div className="space-y-6">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold">{t("manager.exchangeBuilder.notFound", "Exchange program not found")}</h1>
-            <Button onClick={() => router.push("/manager/electives/exchange")} className="mt-4">
-              {t("manager.exchangeBuilder.backToList", "Back to Exchange Programs")}
-            </Button>
-          </div>
-        </div>
-      </DashboardLayout>
-    )
-  }
 
   // Filter universities based on search term
   const filteredUniversities = universities.filter((university) => {
@@ -402,6 +388,19 @@ export default function ExchangeEditPage() {
       country.toLowerCase().includes(term)
     )
   })
+
+  if (loading) {
+    return (
+      <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout userRole={UserRole.PROGRAM_MANAGER}>
@@ -558,20 +557,18 @@ export default function ExchangeEditPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="maxSelections">{t("manager.exchangeBuilder.maxSelections", "Max Selections")}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="maxSelections"
-                        name="maxSelections"
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={formData.maxSelections}
-                        onChange={handleChange}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t("manager.exchangeBuilder.studentsPerProgram", "Maximum number of students per exchange program")}
-                      </p>
-                    </div>
+                    <Input
+                      id="maxSelections"
+                      name="maxSelections"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={formData.maxSelections}
+                      onChange={handleChange}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("manager.exchangeBuilder.universitiesPerStudent", "universities per student")}
+                    </p>
                   </div>
 
                   <div className="space-y-2">

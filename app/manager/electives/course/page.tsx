@@ -438,7 +438,7 @@ export default function ManagerCourseElectivesPage() {
                           </TableCell>
                           <TableCell>
                             {pack.deadline ? (
-                              formatDate(pack.deadline)
+                              formatDate(pack.deadline, language === "ru" ? "ru-RU" : "en-US")
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
