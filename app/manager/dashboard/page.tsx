@@ -154,14 +154,14 @@ export default function ManagerDashboard() {
 
         console.log("Fetching fresh elective counts data")
 
-        // Fetch course electives count
+        // Fetch total course selections count
         const { count: courseCount, error: courseError } = await supabase
-          .from("elective_courses")
+          .from("course_selections")
           .select("*", { count: "exact", head: true })
 
-        // Fetch exchange electives count
+        // Fetch total exchange selections count
         const { count: exchangeCount, error: exchangeError } = await supabase
-          .from("elective_exchange")
+          .from("exchange_selections")
           .select("*", { count: "exact", head: true })
 
         if (!courseError && !exchangeError) {

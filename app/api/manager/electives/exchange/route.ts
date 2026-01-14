@@ -61,10 +61,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Process the data with university counts
+    // Process the data with university counts and total selections
+    const packIds = (packs || []).map((pack: any) => pack.id)
+
+    // Fetch selection counts for all packs
+    const { data: selectionCounts, error: selectionsError } = await supabaseAdmin
+      .from("exchange_selections")
+      .select("elective_exchange_id")
+      .in("elective_exchange_id", packIds)
+
+    if (selectionsError) {
+      console.error("Error fetching exchange selection counts:", selectionsError)
+    }
+
+    // Count selections per pack
+    const selectionsCountMap: { [key: string]: number } = {}
+    if (selectionCounts) {
+      selectionCounts.forEach((selection: any) => {
+        selectionsCountMap[selection.elective_exchange_id] = (selectionsCountMap[selection.elective_exchange_id] || 0) + 1
+      })
+    }
+
     const processedPacks = (packs || []).map((pack: any) => ({
       ...pack,
       university_count: Array.isArray(pack.universities) ? pack.universities.length : 0,
+      total_selections: selectionsCountMap[pack.id] || 0,
     }))
 
     return NextResponse.json(processedPacks)

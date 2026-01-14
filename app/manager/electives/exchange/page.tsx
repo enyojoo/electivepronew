@@ -420,13 +420,14 @@ export default function ManagerExchangeElectivesPage() {
                       <TableHead>{t("manager.electives.group", "Group")}</TableHead>
                       <TableHead>{t("manager.electives.deadline", "Deadline")}</TableHead>
                       <TableHead>{t("manager.electives.universities", "Universities")}</TableHead>
+                      <TableHead>{t("manager.electives.totalSelections", "Total Selections")}</TableHead>
                       <TableHead>{t("manager.electives.status", "Status")}</TableHead>
                       <TableHead className="w-[80px]">{t("manager.electives.action", "Action")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoading ? (
-                      <TableSkeleton columns={6} rows={5} />
+                      <TableSkeleton columns={7} rows={5} />
                     ) : filteredPacks.length > 0 ? (
                       filteredPacks.map((pack) => (
                         <TableRow key={pack.id}>
@@ -446,6 +447,7 @@ export default function ManagerExchangeElectivesPage() {
                             )}
                           </TableCell>
                           <TableCell>{pack.university_count || 0}</TableCell>
+                          <TableCell>{pack.total_selections || 0}</TableCell>
                           <TableCell>{getStatusBadge(pack.status)}</TableCell>
                           <TableCell>
                             <DropdownMenu>

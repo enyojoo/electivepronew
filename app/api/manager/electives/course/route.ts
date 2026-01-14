@@ -61,10 +61,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Add course count for each pack
+    // Add course count and total selections for each pack
+    const packIds = (packs || []).map((pack: any) => pack.id)
+
+    // Fetch selection counts for all packs
+    const { data: selectionCounts, error: selectionsError } = await supabaseAdmin
+      .from("course_selections")
+      .select("elective_courses_id")
+      .in("elective_courses_id", packIds)
+
+    if (selectionsError) {
+      console.error("Error fetching selection counts:", selectionsError)
+    }
+
+    // Count selections per pack
+    const selectionsCountMap: { [key: string]: number } = {}
+    if (selectionCounts) {
+      selectionCounts.forEach((selection: any) => {
+        selectionsCountMap[selection.elective_courses_id] = (selectionsCountMap[selection.elective_courses_id] || 0) + 1
+      })
+    }
+
     const packsWithCounts = (packs || []).map((pack: any) => ({
       ...pack,
       course_count: Array.isArray(pack.courses) ? pack.courses.length : 0,
+      total_selections: selectionsCountMap[pack.id] || 0,
     }))
 
     return NextResponse.json(packsWithCounts)
