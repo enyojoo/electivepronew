@@ -112,6 +112,8 @@ export default function ElectiveCourseEditPage() {
         }
 
         const electiveData = await response.json()
+        console.log("Loaded elective data:", electiveData)
+        console.log("Syllabus URL:", electiveData.syllabus_template_url)
         setElectiveCourse(electiveData)
 
         // Populate form with existing data
@@ -571,9 +573,14 @@ export default function ElectiveCourseEditPage() {
                 accept=".pdf,.doc,.docx"
                 maxSize={10}
                 existingFileUrl={electiveCourse?.syllabus_template_url}
-                existingFileName={electiveCourse?.syllabus_template_url
-                  ? electiveCourse.syllabus_template_url.split('/').pop()?.split('_').slice(1).join('_')
-                  : undefined}
+                existingFileName={(() => {
+                  const url = electiveCourse?.syllabus_template_url
+                  if (!url) return undefined
+
+                  const extracted = url.split('/').pop()?.split('_').slice(1).join('_')
+                  console.log("Extracted filename:", extracted, "from URL:", url)
+                  return extracted
+                })()}
                 onDeleteExisting={() => {
                   setElectiveCourse((prev: any) => ({
                     ...prev,
