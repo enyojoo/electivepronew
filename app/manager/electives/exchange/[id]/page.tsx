@@ -130,7 +130,7 @@ export default function ExchangeDetailPage() {
   const [exchangeProgram, setExchangeProgram] = useState<ExchangeProgram | null>(null)
   const [universities, setUniversities] = useState<University[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start loading to prevent flash
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
@@ -186,7 +186,11 @@ export default function ExchangeDetailPage() {
 
     // Check if we need to fetch from API
     const needsApiFetch = !cachedData || !cachedSelections
-    if (needsApiFetch) {
+
+    // If we have cached data, don't show loading
+    if (cachedData && cachedSelections) {
+      setLoading(false)
+    } else if (needsApiFetch) {
       setLoading(true)
     }
 
@@ -271,6 +275,8 @@ export default function ExchangeDetailPage() {
         description: "Failed to load exchange program data",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 

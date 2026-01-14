@@ -118,7 +118,7 @@ export default function ElectiveCourseDetailPage() {
   const [electiveCourse, setElectiveCourse] = useState<any>(null)
   const [courses, setCourses] = useState<Course[]>([])
   const [studentSelections, setStudentSelections] = useState<StudentSelection[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start loading to prevent flash
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<StudentSelection | null>(null)
@@ -178,7 +178,11 @@ export default function ElectiveCourseDetailPage() {
 
     // Check if we need to fetch from API
     const needsApiFetch = !cachedData || !cachedSelections
-    if (needsApiFetch) {
+
+    // If we have cached data, don't show loading
+    if (cachedData && cachedSelections) {
+      setLoading(false)
+    } else if (needsApiFetch) {
       setLoading(true)
     }
 
@@ -265,6 +269,8 @@ export default function ElectiveCourseDetailPage() {
         description: t("manager.courseBuilder.errorFetchingData"),
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 

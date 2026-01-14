@@ -118,7 +118,7 @@ export async function DELETE(request: NextRequest) {
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", userId)
       .eq("role", "program_manager")
       .single()
 

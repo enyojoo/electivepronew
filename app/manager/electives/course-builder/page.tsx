@@ -23,6 +23,7 @@ import { getSemesters, type Semester } from "@/actions/semesters"
 import { getYears, type Year } from "@/actions/years"
 import { useCachedManagerProfile } from "@/hooks/use-cached-manager-profile"
 import { ModernFileUploader } from "@/components/modern-file-uploader"
+import { setForceRefreshFlag } from "@/lib/cache-utils"
 // Cache constants
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
@@ -487,7 +488,7 @@ export default function CourseBuilderPage() {
       localStorage.removeItem("coursePrograms") // Invalidate course list cache for instant updates
 
       // Set flag to force refresh on the course list page
-      sessionStorage.setItem('forceRefreshCourseList', 'true')
+      setForceRefreshFlag('forceRefreshCourseList')
 
       toast({
         title:

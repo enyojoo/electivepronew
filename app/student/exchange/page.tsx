@@ -13,82 +13,173 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { CardGridSkeleton } from "@/components/ui/page-skeleton"
+import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
 
 export default function ExchangePage() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
-  const [exchangePrograms, setExchangePrograms] = useState<any[]>([])
-  const [exchangeSelections, setExchangeSelections] = useState<any[]>([])
+  // Initialize with cached data synchronously (like dashboard)
+  const [exchangePrograms, setExchangePrograms] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible exchange program cache keys (group-specific and generic)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangePrograms")) {
+            const cached = getCachedData(key)
+            if (cached && Array.isArray(cached) && cached.length > 0) {
+              console.log("ExchangePage: Found cached programs for key:", key)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  })
+
+  const [exchangeSelections, setExchangeSelections] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible exchange selection cache keys (group-specific and generic)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangeSelections")) {
+            const cached = getCachedData(key)
+            if (cached && Array.isArray(cached) && cached.length > 0) {
+              console.log("ExchangePage: Found cached selections for key:", key)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  })
+
+  const [isLoading, setIsLoading] = useState(false)
   const supabaseClient = getSupabaseBrowserClient()
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  // Update with group-specific cached data when profile becomes available
   useEffect(() => {
-    console.log("ExchangePage: useEffect triggered.")
-    if (profileLoading) {
-      console.log("ExchangePage: Profile is loading.")
-      setIsLoading(true)
-      return
+    if (profile?.group?.id) {
+      const cacheKey = `studentExchangePrograms_${profile.group.id}`
+      const cacheKeySelections = `studentExchangeSelections_${profile.group.id}`
+
+      const cachedPrograms = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(cacheKeySelections)
+
+      // Only update if we have group-specific cached data
+      if (cachedPrograms && cachedSelections) {
+        console.log("ExchangePage: Updating with group-specific cached data:", profile.group.id)
+        setExchangePrograms(cachedPrograms)
+        setExchangeSelections(cachedSelections)
+        setIsLoading(false)
+      }
     }
 
-    if (profileError) {
-      console.error("ExchangePage: Profile loading error:", profileError)
-      setFetchError(`Failed to load profile: ${profileError}`)
+    // Clear old generic cache after profile loads to prevent conflicts
+    if (profile && !profileLoading) {
+      invalidateCache("studentExchangePrograms")
+      invalidateCache("studentExchangeSelections")
       setIsLoading(false)
-      return
     }
+  }, [profile, profileLoading])
 
-    if (!profile?.id || !profile.group?.id) {
-      console.log("ExchangePage: Profile ID or Group ID missing.", profile)
-      setFetchError(
-        "Student profile information (including group assignment) is incomplete. Cannot fetch group-specific exchange programs.",
-      )
-      setIsLoading(false)
-      setExchangePrograms([])
-      setExchangeSelections([])
-      return
-    }
+  useEffect(() => {
+    const fetchExchangeData = async (forceRefresh = false) => {
+      // Don't fetch if profile is still loading
+      if (profileLoading) {
+        console.log("ExchangePage: Profile is loading, skipping data fetch.")
+        return
+      }
 
-    console.log("ExchangePage: Profile loaded:", profile)
+      // Handle profile errors
+      if (profileError) {
+        console.error("ExchangePage: Profile loading error:", profileError)
+        setFetchError(`Failed to load profile: ${profileError}`)
+        setIsLoading(false)
+        return
+      }
 
-    const fetchData = async () => {
-      setIsLoading(true)
-      setFetchError(null)
-      console.log(
-        "ExchangePage: Starting data fetch for group:",
-        profile.group.id,
-      )
+      // Handle missing profile
+      if (!profile?.id) {
+        console.log("ExchangePage: Profile ID missing.", profile)
+        setFetchError("Student profile information is incomplete. Cannot fetch exchange programs.")
+        setIsLoading(false)
+        setExchangePrograms([])
+        setExchangeSelections([])
+        return
+      }
+
+      // Handle missing group
+      if (!profile.group?.id) {
+        setFetchError("Student group information is missing. Cannot fetch group-specific exchange programs.")
+        setIsLoading(false)
+        setExchangePrograms([])
+        setExchangeSelections([])
+        return
+      }
+
+      const cacheKey = `studentExchangePrograms_${profile.group.id}`
+      const cacheKeySelections = `studentExchangeSelections_${profile.group.id}`
+
+      // Check if we need to force refresh
+      const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshStudentExchange')
+      if (shouldForceRefresh) {
+        clearForceRefreshFlag('forceRefreshStudentExchange')
+        invalidateCache(cacheKey)
+        invalidateCache(cacheKeySelections)
+      }
+
+      // Check if we already have cached data and don't need to show loading
+      const cachedPrograms = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(cacheKeySelections)
+      const hasCachedData = cachedPrograms && cachedSelections
+
+      // Only show loading if we don't have cached data or need to force refresh
+      if (!hasCachedData || shouldForceRefresh) {
+        setIsLoading(true)
+      }
+
       try {
-        // Fetch exchange programs
-        // RLS policies will filter by group automatically
-        console.log("ExchangePage: Fetching elective_exchange...")
-        const { data: exchangeData, error: exchangeError } = await supabaseClient
-          .from("elective_exchange")
-          .select("*")
-          .eq("group_id", profile.group.id)
-          .eq("status", "published")
-          .order("deadline", { ascending: false })
+        setFetchError(null)
 
-        if (exchangeError) {
-          console.error("ExchangePage: Error fetching elective_exchange:", exchangeError)
-          throw exchangeError
+        // Use API route instead of direct database query
+        console.log("ExchangePage: Fetching fresh data from API in background...")
+        const response = await fetch('/api/student/electives/exchange', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed" || errorData.error === "Unauthorized") {
+            window.location.href = "/student/login"
+            return
+          }
+          throw new Error(errorData.error || `API error: ${response.status}`)
         }
-        console.log("ExchangePage: elective_exchange fetched:", exchangeData)
-        setExchangePrograms(exchangeData || [])
 
-        // Fetch student's exchange selections
-        console.log("ExchangePage: Fetching exchange_selections for student:", profile.id)
-        const { data: selectionsData, error: selectionsError } = await supabaseClient
-          .from("exchange_selections")
-          .select("*")
-          .eq("student_id", profile.id)
+        const data = await response.json()
+        console.log("ExchangePage: Fresh data fetched from API:", data)
 
-        if (selectionsError) {
-          console.error("ExchangePage: Error fetching exchange_selections:", selectionsError)
-          throw selectionsError
-        }
-        console.log("ExchangePage: exchange_selections fetched:", selectionsData)
-        setExchangeSelections(selectionsData || [])
+        // Update state with fresh data
+        setExchangePrograms(data.exchangePrograms || [])
+        setExchangeSelections(data.selections || [])
+
+        // Cache the fresh data
+        setCachedData(cacheKey, data.exchangePrograms || [])
+        setCachedData(cacheKeySelections, data.selections || [])
       } catch (error: any) {
         console.error("ExchangePage: Data fetching error:", error)
         setFetchError(error.message || "Failed to load exchange programs data.")
@@ -97,20 +188,23 @@ export default function ExchangePage() {
           description: error.message || "Failed to load exchange programs",
           variant: "destructive",
         })
-        setExchangePrograms([])
-        setExchangeSelections([])
+
+        // On error, keep cached data if it exists, otherwise clear
+        if (!hasCachedData) {
+          setExchangePrograms([])
+          setExchangeSelections([])
+        }
       } finally {
-        console.log("ExchangePage: Data fetch finished.")
         setIsLoading(false)
       }
     }
 
-    fetchData()
+    fetchExchangeData()
   }, [profile, profileLoading, profileError, toast])
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
-    if (!profile?.id || !profile?.group?.id) return
+    if (!profile?.id) return
 
     const channel = supabaseClient
       .channel("student-exchange-realtime")
@@ -123,6 +217,7 @@ export default function ExchangePage() {
           if (!profile?.id || !profile?.group?.id) return
 
           const fetchData = async () => {
+            if (!profile?.id) return
             try {
               // Fetch exchange programs for the group
               const { data: programsData, error: programsError } = await supabaseClient
@@ -171,7 +266,7 @@ export default function ExchangePage() {
     return () => {
       supabaseClient.removeChannel(channel)
     }
-  }, [supabaseClient, profile?.id, profile?.group?.id])
+  }, [supabaseClient, profile?.id])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -220,7 +315,8 @@ export default function ExchangePage() {
 
   const isDeadlinePassed = (deadline: string) => new Date(deadline) < new Date()
 
-  if (profileLoading || isLoading) {
+  // Only show loading when actively fetching from API and no cached data
+  if (isLoading && exchangePrograms.length === 0) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -250,7 +346,7 @@ export default function ExchangePage() {
           </Alert>
         )}
 
-        {!fetchError && exchangePrograms.length === 0 && (
+        {!fetchError && exchangePrograms.length === 0 && !isLoading && !profileLoading && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
@@ -261,7 +357,7 @@ export default function ExchangePage() {
         )}
 
         {!fetchError && exchangePrograms.length > 0 && (
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
             {exchangePrograms.map((exchange) => {
               const selectionStatus = getSelectionStatus(exchange.id)
               const selectedCount = getSelectedUniversitiesCount(exchange.id)

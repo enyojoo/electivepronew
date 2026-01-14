@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+import { use, useEffect, useState, useCallback } from "react"
 import {
   Download,
   CheckCircle,
@@ -40,6 +40,52 @@ import { createClient } from "@supabase/supabase-js"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelCourseSelection } from "@/app/actions/student-selections"
+
+// Cache constants
+const COURSE_DETAIL_CACHE_KEY = "studentCourseDetail"
+const COURSE_SELECTIONS_CACHE_KEY = "studentCourseSelections"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions (same as admin/student dashboards)
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
+
+const invalidateCache = (key: string) => {
+  try {
+    localStorage.removeItem(key)
+  } catch (error) {
+    console.error(`Error invalidating cache (${key}):`, error)
+  }
+}
 
 // Assuming these types/enums are defined elsewhere and passed as props or imported
 // For example:
@@ -123,6 +169,9 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   const { toast } = useToast()
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
 
+  const resolvedParams = use(params)
+  const packId = resolvedParams.packId
+
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [studentName, setStudentName] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -139,8 +188,6 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   const [existingSelectionRecord, setExistingSelectionRecord] = useState<any>(null)
   const [selectedIndividualCourseIds, setSelectedIndividualCourseIds] = useState<string[]>([])
 
-  const packId = params.packId
-
   const loadData = useCallback(async () => {
     if (profileLoading) return
     if (profileError) {
@@ -154,6 +201,38 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       return
     }
 
+    if (!profile.group?.id) {
+      setFetchError("Student group information is missing. Cannot access elective courses.")
+      setIsLoadingPage(false)
+      return
+    }
+
+    // Load cached data immediately on mount
+    const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${packId}`
+    const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${packId}`
+
+    // Load cached data first
+    const cachedData = getCachedData(cacheKey)
+    const cachedSelections = getCachedData(selectionsCacheKey)
+
+    if (cachedData) {
+      setElectiveCourseData(cachedData)
+      setIndividualCourses(cachedData.courses || [])
+    }
+
+    if (cachedSelections) {
+      setExistingSelectionRecord(cachedSelections)
+      setSelectedIndividualCourseIds(cachedSelections.selected_course_ids || [])
+    }
+
+    // Check if we need to fetch from API (no cached data or data is empty)
+    const needsApiFetch = !cachedData || !cachedSelections
+
+    if (!needsApiFetch) {
+      setIsLoadingPage(false)
+      return
+    }
+
     setIsLoadingPage(true)
     setFetchError(null)
 
@@ -163,24 +242,28 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         .from("elective_courses")
         .select("*")
         .eq("id", packId)
-        .single()
+        .eq("group_id", profile.group.id)
+        .eq("status", "published")
 
       if (ecError) throw ecError
-      if (!ecData) throw new Error("Elective course pack not found.")
-      setElectiveCourseData(ecData)
+      if (!ecData || ecData.length === 0) throw new Error("Elective course pack not found.")
+      if (ecData.length > 1) throw new Error("Multiple elective course packs found with the same ID.")
+
+      const packData = ecData[0]
+      setElectiveCourseData(packData)
 
       let courseUuids: string[] = []
-      if (ecData.courses && typeof ecData.courses === "string") {
+      if (packData.courses && typeof packData.courses === "string") {
         try {
-          const parsed = JSON.parse(ecData.courses)
+          const parsed = JSON.parse(packData.courses)
           if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
             courseUuids = parsed
           }
         } catch (e) {
           console.error("Error parsing 'courses' JSON from elective_courses:", e)
         }
-      } else if (Array.isArray(ecData.courses) && ecData.courses.every((item: any) => typeof item === "string")) {
-        courseUuids = ecData.courses
+      } else if (Array.isArray(packData.courses) && packData.courses.every((item: any) => typeof item === "string")) {
+        courseUuids = packData.courses
       }
 
       if (courseUuids.length > 0) {
@@ -230,6 +313,10 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       // setSelectedIndividualCourseIds(selectionData?.selected_course_ids || []);
       // For now, keeping it simple as the schema detail for this is pending
       setSelectedIndividualCourseIds(selectionData?.selected_course_ids || [])
+
+      // Cache the data
+      setCachedData(cacheKey, packData)
+      setCachedData(selectionsCacheKey, selectionData)
     } catch (error: any) {
       setFetchError(error.message || "Failed to load elective course details.")
       toast({ title: "Error", description: error.message, variant: "destructive" })
@@ -255,6 +342,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "elective_courses", filter: `id=eq.${packId}` },
         async () => {
           console.log("Elective course pack changed, reloading data")
+          // Invalidate cache
+          invalidateCache(`${COURSE_DETAIL_CACHE_KEY}_${packId}`)
           await loadData()
         }
       )
@@ -263,6 +352,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "courses" },
         async () => {
           console.log("Courses changed, reloading course data")
+          // Invalidate cache
+          invalidateCache(`${COURSE_DETAIL_CACHE_KEY}_${packId}`)
           await loadData()
         }
       )
@@ -271,6 +362,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` },
         async () => {
           console.log("Student selections changed, reloading selections")
+          // Invalidate selections cache
+          invalidateCache(`${COURSE_SELECTIONS_CACHE_KEY}_${packId}`)
           // Reload selections only
           const { data: selectionsData, error: selectionsError } = await supabase
             .from("course_selections")
@@ -279,9 +372,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
             .eq("elective_courses_id", packId)
 
           if (!selectionsError && selectionsData) {
-            setExistingSelection(selectionsData[0] || null)
+            setExistingSelectionRecord(selectionsData[0] || null)
             setSelectedIndividualCourseIds(selectionsData[0]?.selected_course_ids || [])
-            setSelectionStatus(selectionsData[0]?.status || null)
           }
         }
       )

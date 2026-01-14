@@ -24,49 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-// Cache constants
-const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
-
-// Cache helper functions (same as admin/student dashboards)
-const getCachedData = (key: string): any | null => {
-  try {
-    const cachedData = localStorage.getItem(key)
-    if (!cachedData) return null
-
-    const parsed = JSON.parse(cachedData)
-
-    // Check if cache is expired
-    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(key)
-      return null
-    }
-
-    return parsed.data
-  } catch (error) {
-    console.error(`Error reading from cache (${key}):`, error)
-    return null
-  }
-}
-
-const setCachedData = (key: string, data: any) => {
-  try {
-    const cacheData = {
-      data,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem(key, JSON.stringify(cacheData))
-  } catch (error) {
-    console.error(`Error writing to cache (${key}):`, error)
-  }
-}
-
-const invalidateCache = (key: string) => {
-  try {
-    localStorage.removeItem(key)
-  } catch (error) {
-    console.error(`Error invalidating cache (${key}):`, error)
-  }
-}
+import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
 
 interface ElectivePack {
   id: string
@@ -118,9 +76,9 @@ export default function ManagerCourseElectivesPage() {
         const cacheKey = "coursePrograms"
 
         // Check if we need to force refresh (e.g., coming from course builder)
-        const shouldForceRefresh = forceRefresh || sessionStorage.getItem('forceRefreshCourseList') === 'true'
+        const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshCourseList')
         if (shouldForceRefresh) {
-          sessionStorage.removeItem('forceRefreshCourseList')
+          clearForceRefreshFlag('forceRefreshCourseList')
         }
 
         const cachedData = getCachedData(cacheKey)

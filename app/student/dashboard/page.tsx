@@ -181,21 +181,23 @@ export default function StudentDashboard() {
 
   // Fetch elective counts and selections with caching
   const fetchElectiveCounts = useCallback(async () => {
-    if (!userId) return
+    if (!userId || !profile?.group?.id) return
 
     try {
       console.log("Fetching fresh elective counts data")
 
-      // Fetch available electives (required)
+      // Fetch available electives for student's group (required)
       const { count: availableCoursesCount, error: availableCoursesError } = await supabase
         .from("elective_courses")
         .select("*", { count: "exact", head: true })
         .eq("status", "published")
+        .eq("group_id", profile.group.id)
 
       const { count: availableExchangeCount, error: availableExchangeError } = await supabase
         .from("elective_exchange")
         .select("*", { count: "exact", head: true })
         .eq("status", "published")
+        .eq("group_id", profile.group.id)
 
       // Fetch student's course selections
       const { data: courseSelections, error: courseSelectionsError } = await supabase
@@ -241,7 +243,7 @@ export default function StudentDashboard() {
     } catch (error) {
       console.error("Error fetching elective counts:", error)
     }
-  }, [supabase, userId])
+  }, [supabase, userId, profile?.group?.id])
 
   useEffect(() => {
     fetchElectiveCounts()
@@ -249,28 +251,32 @@ export default function StudentDashboard() {
 
   // Fetch upcoming deadlines
   const fetchUpcomingDeadlines = useCallback(async () => {
+    if (!profile?.group?.id) return
+
     try {
       console.log("Fetching fresh deadlines data")
 
       // Get current date
       const now = new Date()
 
-      // Fetch course electives with deadlines
+      // Fetch course electives with deadlines for student's group
       // elective_courses has name, deadline, status directly
       const { data: courseElectives, error: courseError } = await supabase
         .from("elective_courses")
         .select("id, name, name_ru, deadline, status")
         .eq("status", "published")
+        .eq("group_id", profile.group.id)
         .not("deadline", "is", null)
         .gte("deadline", now.toISOString())
         .order("deadline", { ascending: true })
         .limit(5)
 
-      // Fetch exchange programs with deadlines
+      // Fetch exchange programs with deadlines for student's group
       const { data: exchangePrograms, error: exchangeError } = await supabase
         .from("elective_exchange")
         .select("id, name, name_ru, deadline, status")
         .eq("status", "published")
+        .eq("group_id", profile.group.id)
         .not("deadline", "is", null)
         .gte("deadline", now.toISOString())
         .order("deadline", { ascending: true })
@@ -308,7 +314,7 @@ export default function StudentDashboard() {
     } catch (error) {
       console.error("Error fetching upcoming deadlines:", error)
     }
-  }, [supabase, language])
+  }, [supabase, language, profile?.group?.id])
 
   // Fetch upcoming deadlines on mount
   useEffect(() => {

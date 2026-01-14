@@ -91,6 +91,14 @@ ALTER TABLE public.exchange_selections ENABLE ROW LEVEL SECURITY;
 
 -- Elective Courses RLS Policies
 
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Students can view published courses" ON public.elective_courses;
+DROP POLICY IF EXISTS "Managers can view courses they created" ON public.elective_courses;
+DROP POLICY IF EXISTS "Managers can insert courses" ON public.elective_courses;
+DROP POLICY IF EXISTS "Managers can update courses they created" ON public.elective_courses;
+DROP POLICY IF EXISTS "Managers can delete courses they created" ON public.elective_courses;
+DROP POLICY IF EXISTS "Admins have full access to elective courses" ON public.elective_courses;
+
 -- Students can view published courses
 CREATE POLICY "Students can view published courses" ON public.elective_courses
     FOR SELECT USING (
@@ -158,6 +166,14 @@ CREATE POLICY "Admins have full access to elective courses" ON public.elective_c
     );
 
 -- Elective Exchange RLS Policies
+
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Students can view published exchange programs" ON public.elective_exchange;
+DROP POLICY IF EXISTS "Managers can view exchange programs they created" ON public.elective_exchange;
+DROP POLICY IF EXISTS "Managers can insert exchange programs" ON public.elective_exchange;
+DROP POLICY IF EXISTS "Managers can update exchange programs they created" ON public.elective_exchange;
+DROP POLICY IF EXISTS "Managers can delete exchange programs they created" ON public.elective_exchange;
+DROP POLICY IF EXISTS "Admins have full access to elective exchange" ON public.elective_exchange;
 
 -- Students can view published exchange programs
 CREATE POLICY "Students can view published exchange programs" ON public.elective_exchange
@@ -227,6 +243,14 @@ CREATE POLICY "Admins have full access to elective exchange" ON public.elective_
 
 -- Course Selections RLS Policies
 
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Students can view own course selections" ON public.course_selections;
+DROP POLICY IF EXISTS "Students can insert own course selections" ON public.course_selections;
+DROP POLICY IF EXISTS "Students can update own course selections" ON public.course_selections;
+DROP POLICY IF EXISTS "Managers can view course selections for their electives" ON public.course_selections;
+DROP POLICY IF EXISTS "Managers can update course selection status" ON public.course_selections;
+DROP POLICY IF EXISTS "Admins have full access to course selections" ON public.course_selections;
+
 -- Students can view their own selections
 CREATE POLICY "Students can view own course selections" ON public.course_selections
     FOR SELECT USING (auth.uid() = student_id);
@@ -289,6 +313,14 @@ CREATE POLICY "Admins have full access to course selections" ON public.course_se
     );
 
 -- Exchange Selections RLS Policies
+
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Students can view own exchange selections" ON public.exchange_selections;
+DROP POLICY IF EXISTS "Students can insert own exchange selections" ON public.exchange_selections;
+DROP POLICY IF EXISTS "Students can update own exchange selections" ON public.exchange_selections;
+DROP POLICY IF EXISTS "Managers can view exchange selections for their programs" ON public.exchange_selections;
+DROP POLICY IF EXISTS "Managers can update exchange selection status" ON public.exchange_selections;
+DROP POLICY IF EXISTS "Admins have full access to exchange selections" ON public.exchange_selections;
 
 -- Students can view their own selections
 CREATE POLICY "Students can view own exchange selections" ON public.exchange_selections

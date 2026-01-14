@@ -13,13 +13,55 @@ import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { CardGridSkeleton } from "@/components/ui/page-skeleton"
+import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
 
 export default function ElectivesPage() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
-  const [electiveCourses, setElectiveCourses] = useState<any[]>([])
-  const [courseSelections, setCourseSelections] = useState<any[]>([])
+  // Initialize with cached data synchronously (like dashboard)
+  const [electiveCourses, setElectiveCourses] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible course cache keys (group-specific and generic)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentElectiveCourses")) {
+            const cached = getCachedData(key)
+            if (cached && Array.isArray(cached) && cached.length > 0) {
+              console.log("CoursesPage: Found cached data for key:", key)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  })
+
+  const [courseSelections, setCourseSelections] = useState<any[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible selection cache keys (group-specific and generic)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentCourseSelections")) {
+            const cached = getCachedData(key)
+            if (cached && Array.isArray(cached) && cached.length > 0) {
+              console.log("CoursesPage: Found cached selections for key:", key)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  })
+
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [mounted, setMounted] = useState<boolean>(false)
   const supabaseClient = getSupabaseBrowserClient()
@@ -28,74 +70,125 @@ export default function ElectivesPage() {
   // Set mounted to true after component mounts to avoid hydration mismatches
   useEffect(() => {
     setMounted(true)
+    // Clear old non-group-specific cache on mount to prevent showing wrong data
+    invalidateCache("studentElectiveCourses")
+    invalidateCache("studentCourseSelections")
   }, [])
 
+  // Update with group-specific cached data when profile becomes available
   useEffect(() => {
-    console.log("ElectivesPage: useEffect triggered.")
-    if (profileLoading) {
-      console.log("ElectivesPage: Profile is loading.")
-      setIsLoading(true)
-      return
+    if (profile?.group?.id) {
+      const cacheKey = `studentElectiveCourses_${profile.group.id}`
+      const cacheKeySelections = `studentCourseSelections_${profile.group.id}`
+
+      const cachedCourses = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(cacheKeySelections)
+
+      // Only update if we have group-specific cached data
+      if (cachedCourses && cachedSelections) {
+        console.log("ElectivesPage: Updating with group-specific cached data:", profile.group.id)
+        setElectiveCourses(cachedCourses)
+        setCourseSelections(cachedSelections)
+        setIsLoading(false)
+      }
     }
 
-    if (profileError) {
-      console.error("ElectivesPage: Profile loading error:", profileError)
-      setFetchError(`Failed to load profile: ${profileError}`)
+    // Clear old generic cache after profile loads to prevent conflicts
+    if (profile && !profileLoading) {
+      invalidateCache("studentElectiveCourses")
+      invalidateCache("studentCourseSelections")
       setIsLoading(false)
-      return
     }
+  }, [profile, profileLoading])
 
-    if (!profile?.id || !profile.group?.id) {
-      console.log("ElectivesPage: Profile ID or Group ID missing.", profile)
-      setFetchError(
-        "Student profile information (including group assignment) is incomplete. Cannot fetch group-specific electives.",
-      )
-      setIsLoading(false)
-      setElectiveCourses([])
-      setCourseSelections([])
-      return
-    }
+  useEffect(() => {
+    const fetchElectiveData = async (forceRefresh = false) => {
+      // Don't fetch if profile is still loading
+      if (profileLoading) {
+        console.log("ElectivesPage: Profile is loading, skipping data fetch.")
+        return
+      }
 
-    console.log("ElectivesPage: Profile loaded:", profile)
+      // Handle profile errors
+      if (profileError) {
+        console.error("ElectivesPage: Profile loading error:", profileError)
+        setFetchError(`Failed to load profile: ${profileError}`)
+        setIsLoading(false)
+        return
+      }
 
-    const fetchData = async () => {
-      setIsLoading(true)
-      setFetchError(null)
-      console.log(
-        "ElectivesPage: Starting data fetch for group:",
-        profile.group.id,
-      )
+      // Handle missing profile
+      if (!profile?.id) {
+        console.log("ElectivesPage: Profile ID missing.", profile)
+        setFetchError("Student profile information is incomplete. Cannot fetch electives.")
+        setIsLoading(false)
+        setElectiveCourses([])
+        setCourseSelections([])
+        return
+      }
+
+      // Handle missing group
+      if (!profile.group?.id) {
+        setFetchError("Student group information is missing. Cannot fetch group-specific electives.")
+        setIsLoading(false)
+        setElectiveCourses([])
+        setCourseSelections([])
+        return
+      }
+
+      const cacheKey = `studentElectiveCourses_${profile.group.id}`
+      const cacheKeySelections = `studentCourseSelections_${profile.group.id}`
+
+      // Check if we need to force refresh
+      const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshStudentCourses')
+      if (shouldForceRefresh) {
+        clearForceRefreshFlag('forceRefreshStudentCourses')
+        invalidateCache(cacheKey)
+        invalidateCache(cacheKeySelections)
+      }
+
+      // Check if we already have cached data and don't need to show loading
+      const cachedCourses = getCachedData(cacheKey)
+      const cachedSelections = getCachedData(cacheKeySelections)
+      const hasCachedData = cachedCourses && cachedSelections
+
+      // Only show loading if we don't have cached data or need to force refresh
+      if (!hasCachedData || shouldForceRefresh) {
+        setIsLoading(true)
+      }
+
       try {
-        // Fetch elective courses for the group
-        // elective_courses is the main table with name, deadline, max_selections, etc.
-        console.log("ElectivesPage: Fetching elective_courses...")
-        const { data: coursesData, error: coursesError } = await supabaseClient
-          .from("elective_courses")
-          .select("*")
-          .eq("group_id", profile.group.id)
-          .eq("status", "published")
-          .order("deadline", { ascending: false })
+        setFetchError(null)
 
-        if (coursesError) {
-          console.error("ElectivesPage: Error fetching elective_courses:", coursesError)
-          throw coursesError
+        // Use API route instead of direct database query
+        console.log("ElectivesPage: Fetching fresh data from API in background...")
+        const response = await fetch('/api/student/electives/course', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          // Redirect to login on authentication errors
+          if (errorData.error === "Authentication failed" || errorData.error === "Unauthorized") {
+            window.location.href = "/student/login"
+            return
+          }
+          throw new Error(errorData.error || `API error: ${response.status}`)
         }
-        console.log("ElectivesPage: elective_courses fetched:", coursesData)
-        setElectiveCourses(coursesData || [])
 
-        // Fetch student's course selections
-        console.log("ElectivesPage: Fetching course_selections for student:", profile.id)
-        const { data: selectionsData, error: selectionsError } = await supabaseClient
-          .from("course_selections")
-          .select("*")
-          .eq("student_id", profile.id)
+        const data = await response.json()
+        console.log("ElectivesPage: Fresh data fetched from API:", data)
 
-        if (selectionsError) {
-          console.error("ElectivesPage: Error fetching course_selections:", selectionsError)
-          throw selectionsError
-        }
-        console.log("ElectivesPage: course_selections fetched:", selectionsData)
-        setCourseSelections(selectionsData || [])
+        // Update state with fresh data
+        setElectiveCourses(data.courses || [])
+        setCourseSelections(data.selections || [])
+
+        // Cache the fresh data
+        setCachedData(cacheKey, data.courses || [])
+        setCachedData(cacheKeySelections, data.selections || [])
       } catch (error: any) {
         console.error("ElectivesPage: Data fetching error:", error)
         setFetchError(error.message || "Failed to load elective courses data.")
@@ -104,82 +197,95 @@ export default function ElectivesPage() {
           description: error.message || "Failed to load elective courses",
           variant: "destructive",
         })
-        setElectiveCourses([]) // Clear data on error
-        setCourseSelections([])
+
+        // On error, keep cached data if it exists, otherwise clear
+        if (!hasCachedData) {
+          setElectiveCourses([])
+          setCourseSelections([])
+        }
       } finally {
-        console.log("ElectivesPage: Data fetch finished.")
         setIsLoading(false)
       }
     }
 
-    fetchData()
+    fetchElectiveData()
   }, [profile, profileLoading, profileError, toast])
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
-    if (!profile?.id || !profile?.group?.id) return
+    if (!profile?.id) return
+
+    // Helper function to refetch data from API (used by real-time subscriptions)
+    const refetchElectiveData = async () => {
+      try {
+        console.log("ElectivesPage: Refetching data from API...")
+
+        // Check if we have cached data - if so, don't show loading
+        const cacheKey = profile?.group?.id ? `studentElectiveCourses_${profile.group.id}` : "studentElectiveCourses"
+        const cacheKeySelections = profile?.group?.id ? `studentCourseSelections_${profile.group.id}` : "studentCourseSelections"
+        const cachedCourses = getCachedData(cacheKey)
+        const cachedSelections = getCachedData(cacheKeySelections)
+        const hasCachedData = cachedCourses && cachedSelections
+
+        // Only show loading if we don't have cached data
+        if (!hasCachedData) {
+          setIsLoading(true)
+        }
+
+        const response = await fetch('/api/student/electives/course', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          if (errorData.error === "Authentication failed" || errorData.error === "Unauthorized") {
+            window.location.href = "/student/login"
+            return
+          }
+          console.error("Error refetching elective data:", errorData)
+          return
+        }
+
+        const data = await response.json()
+
+        setElectiveCourses(data.courses || [])
+        setCourseSelections(data.selections || [])
+
+        // Update cache with group-specific keys
+        setCachedData(cacheKey, data.courses || [])
+        setCachedData(cacheKeySelections, data.selections || [])
+      } catch (error) {
+        console.error("Error in refetchElectiveData:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
     const channel = supabaseClient
       .channel("student-courses-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "elective_courses" },
-        async () => {
-          console.log("Elective courses changed, refetching student courses")
-          // Refetch data
-          if (!profile?.id || !profile?.group?.id) return
-
-          const fetchData = async () => {
-            try {
-              // Fetch elective courses for the group
-              const { data: coursesData, error: coursesError } = await supabaseClient
-                .from("elective_courses")
-                .select("*")
-                .eq("group_id", profile.group.id)
-                .eq("status", "published")
-                .order("deadline", { ascending: false })
-
-              if (coursesError) throw coursesError
-              setElectiveCourses(coursesData || [])
-
-              // Fetch student's course selections
-              const { data: selectionsData, error: selectionsError } = await supabaseClient
-                .from("course_selections")
-                .select("*")
-                .eq("student_id", profile.id)
-
-              if (selectionsError) throw selectionsError
-              setCourseSelections(selectionsData || [])
-            } catch (error: any) {
-              console.error("Error refetching data:", error)
-            }
-          }
-
-          await fetchData()
+      .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, (payload) => {
+        console.log("Elective courses changed, refetching student courses:", payload)
+        refetchElectiveData()
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` }, (payload) => {
+        console.log("Student course selections changed, refetching selections:", payload)
+        refetchElectiveData()
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✓ Student courses page subscribed to real-time changes")
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("✗ Error subscribing to real-time changes on student courses page")
         }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` },
-        async () => {
-          console.log("Student selections changed, refetching selections")
-          // Refetch selections only
-          const { data: selectionsData, error: selectionsError } = await supabaseClient
-            .from("course_selections")
-            .select("*")
-            .eq("student_id", profile.id)
-
-          if (!selectionsError) {
-            setCourseSelections(selectionsData || [])
-          }
-        }
-      )
-      .subscribe()
+      })
 
     return () => {
       supabaseClient.removeChannel(channel)
     }
-  }, [supabaseClient, profile?.id, profile?.group?.id])
+  }, [supabaseClient, profile?.id])
 
   const formatDate = (dateString: string) => {
     // Only format dates on client side to avoid hydration mismatches
@@ -230,7 +336,8 @@ export default function ElectivesPage() {
 
   const isDeadlinePassed = (deadline: string) => new Date(deadline) < new Date()
 
-  if (profileLoading || isLoading) {
+  // Only show loading when actively fetching from API and no cached data
+  if (isLoading && electiveCourses.length === 0) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -260,7 +367,7 @@ export default function ElectivesPage() {
           </Alert>
         )}
 
-        {!fetchError && electiveCourses.length === 0 && (
+        {!fetchError && electiveCourses.length === 0 && !isLoading && !profileLoading && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Inbox className="h-12 w-12 text-muted-foreground mb-4" />
@@ -270,8 +377,8 @@ export default function ElectivesPage() {
           </Card>
         )}
 
-        {!fetchError && electiveCourses.length > 0 && (
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        {!fetchError && electiveCourses.length > 0 && mounted && (
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
             {electiveCourses.map((elective) => {
               const selectionStatus = getSelectionStatus(elective.id)
               const selectedCount = getSelectedCoursesCount(elective.id)

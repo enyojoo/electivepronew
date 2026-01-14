@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+import { use, useEffect, useState, useCallback } from "react"
 import {
   Download,
   CheckCircle,
@@ -43,6 +43,52 @@ import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelExchangeSelection } from "@/app/actions/student-exchange-selections"
 
+// Cache constants
+const EXCHANGE_DETAIL_CACHE_KEY = "studentExchangeDetail"
+const EXCHANGE_SELECTIONS_CACHE_KEY = "studentExchangeSelections"
+const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
+
+// Cache helper functions (same as admin/student dashboards)
+const getCachedData = (key: string): any | null => {
+  try {
+    const cachedData = localStorage.getItem(key)
+    if (!cachedData) return null
+
+    const parsed = JSON.parse(cachedData)
+
+    // Check if cache is expired
+    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
+      localStorage.removeItem(key)
+      return null
+    }
+
+    return parsed.data
+  } catch (error) {
+    console.error(`Error reading from cache (${key}):`, error)
+    return null
+  }
+}
+
+const setCachedData = (key: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+    }
+    localStorage.setItem(key, JSON.stringify(cacheData))
+  } catch (error) {
+    console.error(`Error writing to cache (${key}):`, error)
+  }
+}
+
+const invalidateCache = (key: string) => {
+  try {
+    localStorage.removeItem(key)
+  } catch (error) {
+    console.error(`Error invalidating cache (${key}):`, error)
+  }
+}
+
 interface ExchangePageProps {
   params: {
     packId: string
@@ -53,6 +99,9 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const { profile, isLoading: profileLoading, error: profileError } = useCachedStudentProfile()
+
+  const resolvedParams = use(params)
+  const packId = resolvedParams.packId
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [studentName, setStudentName] = useState("")
@@ -70,8 +119,6 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const [existingSelection, setExistingSelection] = useState<any>(null)
   const [selectedUniversityIds, setSelectedUniversityIds] = useState<string[]>([])
 
-  const packId = params.packId
-
   const loadData = useCallback(async () => {
     if (profileLoading) return
     if (profileError) {
@@ -81,6 +128,38 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     }
     if (!profile?.id) {
       setFetchError("Student profile not loaded or incomplete.")
+      setIsLoadingPage(false)
+      return
+    }
+
+    if (!profile.group?.id) {
+      setFetchError("Student group information is missing. Cannot access exchange programs.")
+      setIsLoadingPage(false)
+      return
+    }
+
+    // Load cached data immediately on mount
+    const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${packId}`
+    const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${packId}`
+
+    // Load cached data first
+    const cachedData = getCachedData(cacheKey)
+    const cachedSelections = getCachedData(selectionsCacheKey)
+
+    if (cachedData) {
+      setExchangePackData(cachedData)
+      setUniversities(cachedData.universities || [])
+    }
+
+    if (cachedSelections) {
+      setExistingSelection(cachedSelections)
+      setSelectedUniversityIds(cachedSelections.selected_university_ids || [])
+    }
+
+    // Check if we need to fetch from API (no cached data or data is empty)
+    const needsApiFetch = !cachedData || !cachedSelections
+
+    if (!needsApiFetch) {
       setIsLoadingPage(false)
       return
     }
@@ -96,14 +175,18 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         .from("elective_exchange")
         .select("*")
         .eq("id", packId)
-        .single()
+        .eq("group_id", profile.group.id)
+        .eq("status", "published")
 
       if (packError) throw packError
-      if (!packData) throw new Error("Exchange program not found.")
-      setExchangePackData(packData)
+      if (!packData || packData.length === 0) throw new Error("Exchange program not found.")
+      if (packData.length > 1) throw new Error("Multiple exchange programs found with the same ID.")
+
+      const exchangePackData = packData[0]
+      setExchangePackData(exchangePackData)
 
       // Fetch universities using the UUIDs from the universities column
-      const universityUuids = packData.universities || []
+      const universityUuids = exchangePackData.universities || []
       if (universityUuids.length > 0) {
         const { data: fetchedUnis, error: unisError } = await supabase
           .from("universities")
