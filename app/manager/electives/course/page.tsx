@@ -112,13 +112,19 @@ export default function ManagerCourseElectivesPage() {
   const supabase = getSupabaseBrowserClient()
 
   useEffect(() => {
-    const fetchElectivePacks = async () => {
+    const fetchElectivePacks = async (forceRefresh = false) => {
       try {
         setIsLoading(true)
         const cacheKey = "coursePrograms"
 
+        // Check if we need to force refresh (e.g., coming from course builder)
+        const shouldForceRefresh = forceRefresh || sessionStorage.getItem('forceRefreshCourseList') === 'true'
+        if (shouldForceRefresh) {
+          sessionStorage.removeItem('forceRefreshCourseList')
+        }
+
         const cachedData = getCachedData(cacheKey)
-        if (cachedData) {
+        if (cachedData && !shouldForceRefresh) {
           setElectivePacks(cachedData)
           setFilteredPacks(cachedData)
           setIsLoading(false)

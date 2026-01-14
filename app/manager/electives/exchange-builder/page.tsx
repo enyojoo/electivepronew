@@ -474,6 +474,10 @@ export default function ExchangeBuilderPage() {
 
       // Invalidate the cache for the exchange programs list and dashboard
       localStorage.removeItem("admin_dashboard_stats_cache")
+      localStorage.removeItem("exchangePrograms") // Invalidate exchange list cache for instant updates
+
+      // Set flag to force refresh on the exchange list page
+      sessionStorage.setItem('forceRefreshExchangeList', 'true')
 
       toast({
         title:

@@ -479,6 +479,10 @@ export default function CourseBuilderPage() {
 
       // Invalidate the cache for the course electives list and dashboard
       localStorage.removeItem("admin_dashboard_stats_cache")
+      localStorage.removeItem("coursePrograms") // Invalidate course list cache for instant updates
+
+      // Set flag to force refresh on the course list page
+      sessionStorage.setItem('forceRefreshCourseList', 'true')
 
       toast({
         title:

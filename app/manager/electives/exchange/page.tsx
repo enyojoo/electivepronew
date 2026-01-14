@@ -123,9 +123,15 @@ export default function ManagerExchangeElectivesPage() {
         setIsLoading(true)
         const cacheKey = "exchangePrograms"
 
+        // Check if we need to force refresh (e.g., coming from exchange builder)
+        const shouldForceRefresh = sessionStorage.getItem('forceRefreshExchangeList') === 'true'
+        if (shouldForceRefresh) {
+          sessionStorage.removeItem('forceRefreshExchangeList')
+        }
+
         const cachedData = getCachedData(cacheKey)
 
-        if (cachedData) {
+        if (cachedData && !shouldForceRefresh) {
           setElectivePacks(cachedData)
           setFilteredPacks(cachedData)
           setIsLoading(false)
