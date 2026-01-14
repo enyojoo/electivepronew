@@ -78,7 +78,6 @@ export default function CourseBuilderPage() {
   const { t, language } = useLanguage()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  const { invalidateCache } = useDataCache()
   const { profile: managerProfile } = useCachedManagerProfile()
 
   // Step state
@@ -425,7 +424,6 @@ export default function CourseBuilderPage() {
       console.log("Created elective courses:", electiveCoursesData)
 
       // Invalidate the cache for the course electives list and dashboard
-      invalidateCache("coursePrograms")
       localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({

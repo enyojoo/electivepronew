@@ -74,7 +74,6 @@ export default function ExchangeBuilderPage() {
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
   const { groups, isLoading: isLoadingGroups } = useCachedGroups()
-  const { invalidateCache } = useDataCache()
   const { profile: managerProfile } = useCachedManagerProfile()
 
   // Step state
@@ -417,7 +416,6 @@ export default function ExchangeBuilderPage() {
       console.log("Created exchange program:", exchangeData)
 
       // Invalidate the cache for the exchange programs list and dashboard
-      invalidateCache("exchangePrograms", "all")
       localStorage.removeItem("admin_dashboard_stats_cache")
 
       toast({
