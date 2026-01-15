@@ -1,151 +1,68 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useDataCache } from "@/lib/data-cache-context"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
-// Cache constants for localStorage
-const STUDENT_PROFILE_CACHE_KEY = "studentProfileCache"
-const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
-
-// Helper functions for localStorage cache
-const getCachedProfileFromStorage = (userId: string): any | null => {
-  if (typeof window === "undefined") return null
-  try {
-    const cachedData = localStorage.getItem(`${STUDENT_PROFILE_CACHE_KEY}_${userId}`)
-    if (!cachedData) return null
-
-    const parsed = JSON.parse(cachedData)
-    // Check if cache is expired
-    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(`${STUDENT_PROFILE_CACHE_KEY}_${userId}`)
-      return null
-    }
-
-    return parsed.data
-  } catch (error) {
-    console.error(`Error reading profile cache from storage:`, error)
-    return null
-  }
-}
-
-const setCachedProfileToStorage = (userId: string, data: any) => {
-  if (typeof window === "undefined") return
-  try {
-    const cacheData = {
-      data,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem(`${STUDENT_PROFILE_CACHE_KEY}_${userId}`, JSON.stringify(cacheData))
-  } catch (error) {
-    console.error(`Error writing profile cache to storage:`, error)
-  }
-}
-
 export function useCachedStudentProfile(userId?: string) {
-  // Initialize profile from localStorage cache if available
-  const [profile, setProfile] = useState<any>(() => {
-    if (typeof window !== "undefined" && userId) {
-      const cached = getCachedProfileFromStorage(userId)
-      if (cached) {
-        return cached
-      }
-    }
-    return null
-  })
-  
-  const [isLoading, setIsLoading] = useState(() => {
-    // Only show loading if we don't have cached data
-    if (typeof window !== "undefined" && userId) {
-      const cached = getCachedProfileFromStorage(userId)
-      return !cached
-    }
-    return true
-  })
-  
+  const [profile, setProfile] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { getCachedData, setCachedData } = useDataCache()
   const { toast } = useToast()
   const supabase = getSupabaseBrowserClient()
-  const hasFetchedRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    // Reset fetch flag if userId changed
-    if (hasFetchedRef.current !== userId) {
-      hasFetchedRef.current = undefined
-    }
-
     const fetchProfile = async () => {
-      // Prevent multiple fetches for the same userId
-      if (hasFetchedRef.current === userId) return
-      
-      // If userId is not provided yet, wait
-      if (!userId) {
-        // Try to get userId from session
-        try {
+      setIsLoading(true)
+      setError(null)
+      console.log("useCachedStudentProfile: Starting profile fetch")
+
+      try {
+        // If userId is not provided, get the current user session
+        let currentUserId = userId
+
+        if (!currentUserId) {
+          console.log("useCachedStudentProfile: No userId provided, checking session")
           const {
             data: { session },
             error: sessionError,
           } = await supabase.auth.getSession()
 
-          if (sessionError || !session?.user) {
+          if (sessionError) {
+            console.error("useCachedStudentProfile: Session error:", sessionError)
+            throw new Error(`Authentication error: ${sessionError.message}`)
+          }
+
+          if (!session || !session.user) {
+            console.log("useCachedStudentProfile: No active session found")
             setIsLoading(false)
             return
           }
 
-          const currentUserId = session.user.id
-          // Check localStorage cache first
-          const cachedProfile = getCachedProfileFromStorage(currentUserId)
-          if (cachedProfile) {
-            console.log("useCachedStudentProfile: Using cached student profile from storage")
-            setProfile(cachedProfile)
-            setIsLoading(false)
-            return
-          }
-        } catch (e) {
+          currentUserId = session.user.id
+          console.log("useCachedStudentProfile: Got userId from session:", currentUserId)
+        }
+
+        // Try to get data from cache first
+        const cachedProfile = getCachedData<any>("studentProfile", currentUserId)
+
+        if (cachedProfile) {
+          console.log("useCachedStudentProfile: Using cached student profile")
+          setProfile(cachedProfile)
           setIsLoading(false)
           return
         }
-        return
-      }
 
-      // Check localStorage cache first
-      const cachedProfileStorage = getCachedProfileFromStorage(userId)
-      if (cachedProfileStorage) {
-        console.log("useCachedStudentProfile: Using cached student profile from storage")
-        setProfile(cachedProfileStorage)
-        setIsLoading(false)
-        // Also update in-memory cache
-        setCachedData("studentProfile", userId, cachedProfileStorage)
-        hasFetchedRef.current = userId
-        return
-      }
+        // If not in cache, fetch from API
+        console.log("useCachedStudentProfile: Fetching student profile from API for user:", currentUserId)
 
-      // Check in-memory cache
-      const cachedProfile = getCachedData<any>("studentProfile", userId)
-      if (cachedProfile) {
-        console.log("useCachedStudentProfile: Using cached student profile from memory")
-        setProfile(cachedProfile)
-        setIsLoading(false)
-        // Also save to localStorage
-        setCachedProfileToStorage(userId, cachedProfile)
-        hasFetchedRef.current = userId
-        return
-      }
-
-      // Mark that we're fetching
-      hasFetchedRef.current = userId
-      setIsLoading(true)
-      setError(null)
-      console.log("useCachedStudentProfile: Fetching student profile from API for user:", userId)
-
-      try {
         // Fetch profile data
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", userId)
+          .eq("id", currentUserId)
           .eq("role", "student")
           .single()
 
@@ -177,7 +94,7 @@ export function useCachedStudentProfile(userId?: string) {
               degrees(id, name, name_ru)
             )
           `)
-          .eq("profile_id", userId)
+          .eq("profile_id", currentUserId)
           .maybeSingle()
 
         if (studentProfileError) {
@@ -204,9 +121,8 @@ export function useCachedStudentProfile(userId?: string) {
 
         console.log("useCachedStudentProfile: Processed student profile data:", processedProfile)
 
-        // Save to both caches
-        setCachedData("studentProfile", userId, processedProfile)
-        setCachedProfileToStorage(userId, processedProfile)
+        // Save to cache
+        setCachedData("studentProfile", currentUserId, processedProfile)
 
         // Update state
         setProfile(processedProfile)
@@ -224,7 +140,7 @@ export function useCachedStudentProfile(userId?: string) {
     }
 
     fetchProfile()
-  }, [userId, supabase, getCachedData, setCachedData, toast])
+  }, [userId]) // Only depend on userId to prevent unnecessary refetches
 
   return { profile, isLoading, error }
 }
