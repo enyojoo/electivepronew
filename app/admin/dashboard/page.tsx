@@ -205,8 +205,8 @@ export default function AdminDashboard() {
           hint: error.hint,
         })
         toast({
-          title: "Error",
-          description: error.message || "Failed to load dashboard statistics. Please check your connection and try again.",
+          title: t("admin.dashboard.error"),
+          description: error.message || t("admin.dashboard.errorLoadingStats"),
           variant: "destructive",
         })
 

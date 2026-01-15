@@ -95,7 +95,7 @@ export default function NewCoursePage() {
 
       if (error) {
         toast({
-          title: "Error creating course",
+          title: t("admin.courses.errorCreating"),
           description: error.message,
           variant: "destructive",
         })
@@ -108,7 +108,7 @@ export default function NewCoursePage() {
 
       toast({
         title: "Success",
-        description: "Course created successfully",
+        description: t("admin.courses.createdSuccessfully"),
       })
 
       // Redirect to courses page after successful submission
@@ -117,7 +117,7 @@ export default function NewCoursePage() {
       console.error("Error creating course:", error)
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: t("admin.courses.unexpectedError"),
         variant: "destructive",
       })
     } finally {

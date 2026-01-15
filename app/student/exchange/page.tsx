@@ -120,7 +120,7 @@ export default function ExchangePage() {
 
       // Handle missing group
       if (!profile.group?.id) {
-        setFetchError("Student group information is missing. Cannot fetch group-specific exchange programs.")
+        setFetchError(t("student.exchange.groupInfoMissing"))
         setIsLoading(false)
         setExchangePrograms([])
         setExchangeSelections([])

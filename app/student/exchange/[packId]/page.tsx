@@ -127,13 +127,13 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       return
     }
     if (!profile?.id) {
-      setFetchError("Student profile not loaded or incomplete.")
+      setFetchError(t("student.exchange.profileNotLoaded"))
       setIsLoadingPage(false)
       return
     }
 
     if (!profile.group?.id) {
-      setFetchError("Student group information is missing. Cannot access exchange programs.")
+      setFetchError(t("student.exchange.groupInfoMissing"))
       setIsLoadingPage(false)
       return
     }
@@ -179,8 +179,8 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         .eq("status", "published")
 
       if (packError) throw packError
-      if (!packData || packData.length === 0) throw new Error("Exchange program not found.")
-      if (packData.length > 1) throw new Error("Multiple exchange programs found with the same ID.")
+      if (!packData || packData.length === 0) throw new Error(t("student.exchange.programNotFound"))
+      if (packData.length > 1) throw new Error(t("student.exchange.multipleProgramsFound"))
 
       const exchangePackData = packData[0]
       setExchangePackData(exchangePackData)
@@ -324,25 +324,25 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     const statementRequired = !!exchangePackData?.statement_template_url
 
     if (!profile?.id) {
-      toast({ title: "Missing Information", description: "Profile not loaded.", variant: "destructive" })
+      toast({ title: t("student.courses.missingInformation"), description: t("student.courses.profileNotLoadedShort"), variant: "destructive" })
       return
     }
     if (statementRequired && !uploadedStatement && !existingSelection?.statement_url) {
-      toast({ title: "Missing Information", description: "Statement is required.", variant: "destructive" })
+      toast({ title: t("student.courses.missingInformation"), description: t("student.courses.statementRequired"), variant: "destructive" })
       return
     }
     if (selectedUniversityIds.length === 0) {
       toast({
-        title: "No Universities Selected",
-        description: "Please select at least one university.",
+        title: t("student.exchange.noUniversitiesSelected"),
+        description: t("student.exchange.selectAtLeastOneUniversity"),
         variant: "destructive",
       })
       return
     }
     if (!studentName.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Please enter your full name to authorize the selection.",
+        title: t("student.courses.missingInformation"),
+        description: t("student.exchange.enterFullName"),
         variant: "destructive",
       })
       return
@@ -360,7 +360,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       }
 
       if (statementRequired && !statementUrlToSave) {
-        throw new Error("Statement is required and was not uploaded.")
+        throw new Error(t("student.exchange.statementRequiredNotUploaded"))
       }
 
       const selectionPayload: any = {

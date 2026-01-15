@@ -61,14 +61,14 @@ export default function AdminLoginPage() {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to verify user role")
+          throw new Error(errorData.error || t("auth.login.failedToVerifyRole"))
         }
 
         const { role } = await response.json()
 
         if (role !== "admin") {
           await supabase.auth.signOut()
-          setError("You do not have admin access")
+          setError(t("auth.login.noAdminAccess"))
           return
         }
 
@@ -80,7 +80,7 @@ export default function AdminLoginPage() {
       }
     } catch (err) {
       console.error("Login error:", err)
-      setError("Login failed. Please try again.")
+      setError(t("auth.login.failed"))
     } finally {
       setIsLoading(false)
     }

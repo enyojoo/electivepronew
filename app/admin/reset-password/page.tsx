@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { useLanguage } from "@/lib/language-context"
 import Logo from "@/components/logo"
+import { LanguageSwitcher } from "@/components/language-switcher"
+import Indicator from "@/components/indicator"
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -17,6 +20,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
+  const { t } = useLanguage()
 
   const supabase = getSupabaseBrowserClient()
 
@@ -40,7 +44,7 @@ export default function ResetPasswordPage() {
     setError("")
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setError(t("auth.resetPassword.passwordsDoNotMatch"))
       setIsLoading(false)
       return
     }
@@ -56,7 +60,7 @@ export default function ResetPasswordPage() {
       // Redirect to login page
       router.push("/admin/login?reset=success")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset password")
+      setError(err instanceof Error ? err.message : t("auth.resetPassword.failedToReset"))
     } finally {
       setIsLoading(false)
     }
@@ -70,13 +74,13 @@ export default function ResetPasswordPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Reset Password</CardTitle>
-            <CardDescription>Enter your new password</CardDescription>
+            <CardTitle>{t("auth.resetPassword.title")}</CardTitle>
+            <CardDescription>{t("auth.resetPassword.description")}</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
+                <Label htmlFor="password">{t("auth.resetPassword.newPassword")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -87,7 +91,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">{t("auth.resetPassword.confirmPassword")}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -101,11 +105,15 @@ export default function ResetPasswordPage() {
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Resetting..." : "Reset Password"}
+                {isLoading ? t("auth.resetPassword.resetting") : t("auth.resetPassword.button")}
               </Button>
             </CardFooter>
           </form>
         </Card>
+        <div className="flex justify-center mt-6">
+          <LanguageSwitcher />
+        </div>
+        <Indicator />
       </div>
     </div>
   )

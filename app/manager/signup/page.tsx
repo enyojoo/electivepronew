@@ -218,7 +218,7 @@ export default function ManagerSignupPage() {
 
       // Ensure manager has a degree assigned (required)
       if (!formData.degreeId) {
-        throw new Error("Degree selection is required for program managers")
+        throw new Error(t("auth.signup.degreeRequired"))
       }
 
       // Get academic_year_id - try to find the specific year, otherwise get current active year for the degree
@@ -270,7 +270,7 @@ export default function ManagerSignupPage() {
 
       // Ensure we have an academic year assigned
       if (!academicYearId) {
-        throw new Error("No academic year found for the selected degree. Please contact an administrator.")
+        throw new Error(t("auth.signup.noAcademicYear"))
       }
 
       // Create manager profile with role-specific data
@@ -309,7 +309,7 @@ export default function ManagerSignupPage() {
         // Email verification required - show confirmation message
         toast({
           title: t("auth.signup.success"),
-          description: t("auth.signup.emailVerificationRequired") || "Please check your email to verify your account before logging in.",
+          description: t("auth.signup.emailVerificationRequired"),
           duration: 10000, // Show for 10 seconds
         })
         // Redirect to login page with a query parameter to show email verification message

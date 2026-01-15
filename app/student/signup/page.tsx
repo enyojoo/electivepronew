@@ -304,7 +304,7 @@ export default function StudentSignupPage() {
         // Email verification required - show confirmation message
         toast({
           title: t("auth.signup.success"),
-          description: t("auth.signup.emailVerificationRequired") || "Please check your email to verify your account before logging in.",
+          description: t("auth.signup.emailVerificationRequired"),
           duration: 10000, // Show for 10 seconds
         })
         // Redirect to login page with a query parameter to show email verification message

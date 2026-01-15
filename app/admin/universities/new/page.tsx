@@ -20,11 +20,11 @@ import { useToast } from "@/hooks/use-toast"
 import { getSortedCountries, type Country } from "@/lib/countries"
 import { CountrySelect } from "@/components/ui/country-select"
 
-// University status options
+// University status options - will be translated in component
 const statusOptions = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "draft", label: "Draft" },
+  { value: "active", labelKey: "admin.universities.status.active" },
+  { value: "inactive", labelKey: "admin.universities.status.inactive" },
+  { value: "draft", labelKey: "admin.universities.status.draft" },
 ]
 
 export default function NewUniversityPage() {
@@ -137,7 +137,7 @@ export default function NewUniversityPage() {
                   <Input
                     id="name_ru"
                     name="name_ru"
-                    placeholder={language === "en" ? "Enter university name (Russian)" : "Введите название университета"}
+                    placeholder={t("admin.newUniversity.namePlaceholderRu")}
                     value={university.name_ru}
                     onChange={handleChange}
                     required
@@ -220,7 +220,7 @@ export default function NewUniversityPage() {
                     <SelectContent>
                       {statusOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          {t(`admin.universities.status.${option.value}`, option.label)}
+                          {t(`admin.universities.status.${option.value}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>

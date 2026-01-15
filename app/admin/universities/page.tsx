@@ -597,10 +597,7 @@ export default function UniversitiesPage() {
               {t("admin.universities.deleteConfirmTitle", "Delete University")}
             </DialogTitle>
             <DialogDescription className="pt-2">
-              {t(
-                "admin.universities.deleteConfirmMessage",
-                "You are sure you want to delete this university? This action cannot be undone.",
-              )}
+              {t("admin.universities.deleteConfirm")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

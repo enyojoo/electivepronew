@@ -20,11 +20,11 @@ import { useToast } from "@/hooks/use-toast"
 import { getSortedCountries, type Country } from "@/lib/countries"
 import { CountrySelect } from "@/components/ui/country-select"
 
-// University status options
+// University status options - will be translated in component
 const statusOptions = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "draft", label: "Draft" },
+  { value: "active", labelKey: "admin.universities.status.active" },
+  { value: "inactive", labelKey: "admin.universities.status.inactive" },
+  { value: "draft", labelKey: "admin.universities.status.draft" },
 ]
 
 interface University {
@@ -201,7 +201,7 @@ export default function EditUniversityPage() {
 
     try {
       if (!university?.id) {
-        throw new Error("University not found")
+        throw new Error(t("admin.universities.notFound"))
       }
 
       const { error } = await supabase
@@ -366,7 +366,7 @@ export default function EditUniversityPage() {
                     <SelectContent>
                       {statusOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          {t(`admin.universities.status.${option.value}`, option.label)}
+                          {t(`admin.universities.status.${option.value}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>

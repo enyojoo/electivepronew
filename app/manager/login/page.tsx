@@ -79,26 +79,26 @@ function ManagerLoginForm() {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to verify user role")
+          throw new Error(errorData.error || t("auth.login.failedToVerifyRole"))
         }
 
         const { role } = await response.json()
 
         if (role === "program_manager") {
           toast({
-            title: "Login successful",
-            description: "Welcome to the manager dashboard",
+            title: t("auth.login.success"),
+            description: t("auth.login.welcomeManager"),
           })
           router.push("/manager/dashboard")
         } else {
           // User is authenticated but not a manager
           await supabase.auth.signOut()
-          setError("You do not have manager access")
+          setError(t("auth.login.noManagerAccess"))
         }
       }
     } catch (err) {
       console.error("Login error:", err)
-      setError("Login failed. Please try again.")
+      setError(t("auth.login.failed"))
     } finally {
       setIsLoading(false)
     }

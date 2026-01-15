@@ -696,10 +696,7 @@ export default function CoursesPage() {
               {t("admin.courses.confirmDeleteTitle", "Delete Course")}
             </DialogTitle>
             <DialogDescription className="pt-2">
-              {t(
-                "admin.courses.confirmDeleteMessage",
-                "You are sure you want to delete this course? This action cannot be undone.",
-              )}
+              {t("admin.courses.deleteConfirm")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

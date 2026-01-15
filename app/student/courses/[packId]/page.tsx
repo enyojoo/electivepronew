@@ -196,13 +196,13 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       return
     }
     if (!profile?.id) {
-      setFetchError("Student profile not loaded or incomplete.")
+      setFetchError(t("student.courses.profileNotLoaded"))
       setIsLoadingPage(false)
       return
     }
 
     if (!profile.group?.id) {
-      setFetchError("Student group information is missing. Cannot access elective courses.")
+      setFetchError(t("student.courses.groupInfoMissing"))
       setIsLoadingPage(false)
       return
     }
@@ -246,8 +246,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         .eq("status", "published")
 
       if (ecError) throw ecError
-      if (!ecData || ecData.length === 0) throw new Error("Elective course pack not found.")
-      if (ecData.length > 1) throw new Error("Multiple elective course packs found with the same ID.")
+      if (!ecData || ecData.length === 0) throw new Error(t("student.courses.packNotFound"))
+      if (ecData.length > 1) throw new Error(t("student.courses.multiplePacksFound"))
 
       const packData = ecData[0]
       setElectiveCourseData(packData)
@@ -318,7 +318,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       setCachedData(cacheKey, packData)
       setCachedData(selectionsCacheKey, selectionData)
     } catch (error: any) {
-      setFetchError(error.message || "Failed to load elective course details.")
+      setFetchError(error.message || t("student.courses.failedToLoad"))
       toast({ title: "Error", description: error.message, variant: "destructive" })
     } finally {
       setIsLoadingPage(false)
@@ -417,15 +417,15 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     const statementRequired = !!electiveCourseData?.syllabus_template_url
 
     if (!profile?.id) {
-      toast({ title: "Missing Information", description: "Profile not loaded.", variant: "destructive" })
+      toast({ title: t("student.courses.missingInformation"), description: t("student.courses.profileNotLoadedShort"), variant: "destructive" })
       return
     }
     if (statementRequired && !uploadedStatement && !existingSelectionRecord?.statement_url) {
-      toast({ title: "Missing Information", description: "Statement is required.", variant: "destructive" })
+      toast({ title: t("student.courses.missingInformation"), description: t("student.courses.statementRequired"), variant: "destructive" })
       return
     }
     if (selectedIndividualCourseIds.length === 0 && (electiveCourseData?.max_selections || 0) > 0) {
-      toast({ title: "No Courses Selected", description: "Please select at least one course.", variant: "destructive" })
+      toast({ title: t("student.courses.noCoursesSelected"), description: t("student.courses.selectAtLeastOne"), variant: "destructive" })
       return
     }
     if (selectedIndividualCourseIds.length > (electiveCourseData?.max_selections || Number.POSITIVE_INFINITY)) {
@@ -449,7 +449,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       }
 
       if (statementRequired && !statementUrlToSave) {
-        throw new Error("Statement is required and was not uploaded.")
+        throw new Error(t("student.courses.statementRequiredNotUploaded"))
       }
 
       const selectionPayload: any = {

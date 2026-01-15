@@ -129,7 +129,7 @@ export default function ElectivesPage() {
 
       // Handle missing group
       if (!profile.group?.id) {
-        setFetchError("Student group information is missing. Cannot fetch group-specific electives.")
+        setFetchError(t("student.courses.groupInfoMissingFetch"))
         setIsLoading(false)
         setElectiveCourses([])
         setCourseSelections([])
@@ -191,10 +191,10 @@ export default function ElectivesPage() {
         setCachedData(cacheKeySelections, data.selections || [])
       } catch (error: any) {
         console.error("ElectivesPage: Data fetching error:", error)
-        setFetchError(error.message || "Failed to load elective courses data.")
+        setFetchError(error.message || t("student.courses.failedToLoadCourses"))
         toast({
           title: "Error",
-          description: error.message || "Failed to load elective courses",
+          description: error.message || t("student.courses.failedToLoadCourses"),
           variant: "destructive",
         })
 
