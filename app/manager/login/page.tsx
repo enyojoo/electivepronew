@@ -192,7 +192,7 @@ function ManagerLoginForm() {
 
 export default function ManagerLoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div />}>
       <ManagerLoginForm />
     </Suspense>
   )

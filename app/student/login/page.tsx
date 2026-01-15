@@ -190,7 +190,7 @@ function StudentLoginForm() {
 
 export default function StudentLoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div />}>
       <StudentLoginForm />
     </Suspense>
   )
