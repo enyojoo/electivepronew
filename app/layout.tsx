@@ -52,7 +52,9 @@ export default async function RootLayout({
     : null
   const nameEn = hasCustomBranding ? (platformSettings?.name || "") : ""
   const nameRu = hasCustomBranding ? (platformSettings?.name_ru || "") : ""
-  const titleName = initialLanguage === "ru" && nameRu ? nameRu : (nameEn || "")
+  
+  // Note: titleName will be set in the inline script after checking both cookie and localStorage
+  // This ensures we use the correct language even if cookie isn't set yet
 
   return (
     <html lang={initialLanguage} suppressHydrationWarning style={{ "--primary": primaryColor || DEFAULT_PRIMARY_COLOR } as React.CSSProperties}>
@@ -71,9 +73,23 @@ export default async function RootLayout({
                   const serverData = ${JSON.stringify(initialSettingsData)};
                   const initialLang = ${JSON.stringify(initialLanguage)};
                   
+                  // Check localStorage for language preference (may be more up-to-date than cookie)
+                  let currentLang = initialLang;
+                  try {
+                    const storedLang = localStorage.getItem('epro-language');
+                    if (storedLang === 'ru' || storedLang === 'en') {
+                      currentLang = storedLang;
+                    }
+                  } catch (e) {
+                    // Ignore localStorage errors
+                  }
+                  
                   // Store server data in data attributes for client access
                   document.documentElement.setAttribute('data-initial-settings', JSON.stringify(serverData));
-                  document.documentElement.setAttribute('data-initial-language', initialLang);
+                  document.documentElement.setAttribute('data-initial-language', currentLang);
+                  
+                  // Set HTML lang attribute immediately to prevent flicker
+                  document.documentElement.lang = currentLang;
                   
                   // Apply server-side settings immediately (only if we have custom branding)
                   if (serverData.hasCustomBranding && serverData.platformSettings) {
@@ -115,10 +131,10 @@ export default async function RootLayout({
                       document.documentElement.setAttribute('data-platform-name-en', finalNameEn || '');
                       document.documentElement.setAttribute('data-platform-name-ru', finalNameRu || '');
                       
-                      // Set title based on current language
+                      // Set title based on CURRENT language (from localStorage if available, otherwise cookie)
                       // Use Russian name when language is Russian, English name when English
                       // If language-specific name is not set, fallback to the other language's name
-                      const titleName = initialLang === 'ru' 
+                      const titleName = currentLang === 'ru' 
                         ? (finalNameRu || finalNameEn || 'ElectivePRO')
                         : (finalNameEn || finalNameRu || 'ElectivePRO');
                       
@@ -174,19 +190,10 @@ export default async function RootLayout({
                             document.documentElement.setAttribute('data-platform-name-en', cachedFinalNameEn);
                             document.documentElement.setAttribute('data-platform-name-ru', cachedFinalNameRu);
                             
-                            let currentLanguage = initialLang;
-                            try {
-                              const storedLang = localStorage.getItem('epro-language');
-                              if (storedLang === 'ru' || storedLang === 'en') {
-                                currentLanguage = storedLang;
-                              }
-                            } catch (e) {
-                              // Ignore localStorage errors
-                            }
-                            
+                            // Use currentLang which already checked localStorage
                             // Use Russian name when language is Russian, English name when English
                             // If language-specific name is not set, fallback to the other language's name
-                            const cachedTitleName = currentLanguage === 'ru' 
+                            const cachedTitleName = currentLang === 'ru' 
                               ? (cachedFinalNameRu || cachedFinalNameEn || 'ElectivePRO')
                               : (cachedFinalNameEn || cachedFinalNameRu || 'ElectivePRO');
                             

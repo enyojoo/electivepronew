@@ -110,12 +110,19 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           document.documentElement.setAttribute("data-platform-name-en", finalNameEn || "")
           document.documentElement.setAttribute("data-platform-name-ru", finalNameRu || "")
           
-          // Get current language from localStorage to set appropriate title
+          // Get current language - check data attribute first (from server-side script), then localStorage
           let currentLanguage: "en" | "ru" = "en"
           try {
-            const storedLang = localStorage.getItem("epro-language")
-            if (storedLang === "ru" || storedLang === "en") {
-              currentLanguage = storedLang
+            // First check server-side data attribute (which already checked localStorage)
+            const serverLang = document.documentElement.getAttribute("data-initial-language")
+            if (serverLang === "ru" || serverLang === "en") {
+              currentLanguage = serverLang
+            } else {
+              // Fallback to localStorage if data attribute not set
+              const storedLang = localStorage.getItem("epro-language")
+              if (storedLang === "ru" || storedLang === "en") {
+                currentLanguage = storedLang
+              }
             }
           } catch {
             // Ignore localStorage errors
