@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -191,5 +191,9 @@ function ManagerLoginForm() {
 }
 
 export default function ManagerLoginPage() {
-  return <ManagerLoginForm />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ManagerLoginForm />
+    </Suspense>
+  )
 }

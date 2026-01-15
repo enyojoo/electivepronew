@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
@@ -189,5 +189,9 @@ function StudentLoginForm() {
 }
 
 export default function StudentLoginPage() {
-  return <StudentLoginForm />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StudentLoginForm />
+    </Suspense>
+  )
 }
