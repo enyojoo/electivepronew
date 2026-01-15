@@ -40,7 +40,7 @@ export default async function proxy(req: NextRequest) {
 
   // Check if the current path is a protected route
   const protectedRoute = Object.keys(protectedRoutes).find(route =>
-    path.startsWith(route) && path !== `${route}/login` && path !== `${route}/signup`
+    path.startsWith(route) && path !== `${route}/login` && path !== `${route}/signup` && path !== `${route}/forgot-password`
   )
 
   // Allow auth API routes to pass through
