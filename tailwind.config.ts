@@ -26,7 +26,7 @@ const config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "var(--color-primary, #027659)", // Use CSS variable with fallback
+          DEFAULT: "var(--color-primary, #000000)", // Use CSS variable with fallback
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {

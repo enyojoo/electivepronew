@@ -66,8 +66,8 @@ export default async function RootLayout({
                       
                       // Only apply if we have custom branding OR we've confirmed no custom branding exists
                       if (hasCustom || confirmedNoCustom) {
-                        const primaryColor = s.primary_color || (confirmedNoCustom ? '#027659' : null);
-                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/aRNSwxLaVk.png' : null);
+                        const primaryColor = s.primary_color || (confirmedNoCustom ? '#000000' : null);
+                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
                         
                         // Get current language from localStorage
                         let currentLanguage = 'en';
