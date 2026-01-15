@@ -92,9 +92,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       
       if (hasCustom) {
         // Only set if we have custom branding in cache
-        const nameEn = cached?.name || ""
-        const nameRu = cached?.name_ru || ""
-        
+        let nameEn = cached?.name || ""
+        let nameRu = cached?.name_ru || ""
+
+        // Apply fallback: use English for Russian if Russian name not set
+        if (nameEn && !nameRu) {
+          nameRu = nameEn
+        }
+
         if (nameEn || nameRu) {
           document.documentElement.setAttribute("data-platform-name-en", nameEn || "")
           document.documentElement.setAttribute("data-platform-name-ru", nameRu || "")
@@ -275,7 +280,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       // Only use defaults if we've confirmed from database that no custom branding exists
       let nameEn = brandSettings.name || ""
       let nameRu = brandSettings.name_ru || ""
-      
+
+      // If we have custom branding, apply fallback: use English for Russian if Russian not set
+      if (hasCustom && nameEn && !nameRu) {
+        nameRu = nameEn // Use English name for Russian if Russian name not set
+      }
+
       // Only use defaults if we've confirmed from Supabase that no custom branding exists
       if (confirmedNoCustom && !nameEn && !nameRu) {
         nameEn = DEFAULT_PLATFORM_NAME
@@ -502,11 +512,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!settings) return
     
     const handleLanguageChange = () => {
-      const hasCustom = !!(settings.name || settings.name_ru || settings.primary_color || 
-                          settings.logo_url || settings.logo_url_en || settings.logo_url_ru || 
+      const hasCustom = !!(settings.name || settings.name_ru || settings.primary_color ||
+                          settings.logo_url || settings.logo_url_en || settings.logo_url_ru ||
                           settings.favicon_url)
       const nameEn = hasCustom && settings.name ? settings.name : DEFAULT_PLATFORM_NAME
-      const nameRu = hasCustom && settings.name_ru ? settings.name_ru : DEFAULT_PLATFORM_NAME
+      let nameRu = hasCustom && settings.name_ru ? settings.name_ru : DEFAULT_PLATFORM_NAME
+
+      // Apply fallback: use English name for Russian if Russian name not set and we have custom branding
+      if (hasCustom && nameEn !== DEFAULT_PLATFORM_NAME && nameRu === DEFAULT_PLATFORM_NAME) {
+        nameRu = nameEn
+      }
       
       let currentLanguage: "en" | "ru" = "en"
       try {
