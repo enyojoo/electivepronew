@@ -65,12 +65,12 @@ export default async function RootLayout({
                       const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.favicon_url);
 
                       // Apply branding in this order of priority:
-                      // 1. Custom branding from cache (if exists)
-                      // 2. Default branding (if confirmed no custom exists OR no cached settings at all)
-                      const shouldApplyBranding = hasCustom || confirmedNoCustom || !cached;
+                      // 1. Custom branding from cache (if exists) - apply instantly
+                      // 2. Default branding ONLY when confirmed no custom exists in database
+                      const shouldApplyBranding = hasCustom || confirmedNoCustom;
                       if (shouldApplyBranding) {
-                        const primaryColor = s.primary_color || (confirmedNoCustom || !cached ? '#000000' : null);
-                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom || !cached ? 'https://cldup.com/Jnah6-hWcg.png' : null);
+                        const primaryColor = s.primary_color || (confirmedNoCustom ? '#000000' : null);
+                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
                         
                         // Get current language from localStorage
                         let currentLanguage = 'en';
@@ -83,10 +83,10 @@ export default async function RootLayout({
                           // Ignore localStorage errors
                         }
                         
-                        // Use language-specific name - apply defaults if no custom branding exists
+                        // Use language-specific name - apply defaults ONLY when confirmed no custom branding exists
                         let nameEn = s.name || '';
                         let nameRu = s.name_ru || '';
-                        if ((confirmedNoCustom || !cached) && !nameEn && !nameRu) {
+                        if (confirmedNoCustom && !nameEn && !nameRu) {
                           nameEn = 'ElectivePRO';
                           nameRu = 'ElectivePRO';
                         }
@@ -96,7 +96,7 @@ export default async function RootLayout({
                           name = nameRu;
                         } else if (nameEn) {
                           name = nameEn;
-                        } else if (confirmedNoCustom || !cached) {
+                        } else if (confirmedNoCustom) {
                           name = 'ElectivePRO';
                         }
                         
