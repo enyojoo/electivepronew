@@ -1,18 +1,18 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { cookies } from "next/headers"
 import "./globals.css"
 import { Providers } from "./providers"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { getBrandSettings } from "@/lib/supabase/brand-settings"
+import { getRawBrandSettings } from "@/lib/supabase/brand-settings"
+import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
 
 const inter = Inter({ subsets: ["latin"] })
 
-import { DEFAULT_FAVICON_URL, DEFAULT_PRIMARY_COLOR, DEFAULT_PLATFORM_NAME } from "@/lib/constants"
-
 export const metadata: Metadata = {
-  title: DEFAULT_PLATFORM_NAME,
+  title: "", // Empty title - will be set synchronously via script
   description:
     "The complete platform for managing the selection of elective courses, exchange programs, and academic pathways.",
   icons: {
@@ -28,138 +28,177 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Fetch brand settings server-side to prevent flash
-  let brandSettings
-  try {
-    brandSettings = await getBrandSettings()
-  } catch (error) {
-    console.error("Error fetching brand settings:", error)
-    brandSettings = null
+  // Fetch raw brand settings server-side
+  const { platformSettings, hasCustomBranding } = await getRawBrandSettings()
+
+  // Read language from cookie (server-side)
+  const cookieStore = await cookies()
+  const languageCookie = cookieStore.get("epro-language")
+  const initialLanguage = languageCookie?.value === "ru" ? "ru" : "en"
+
+  // Prepare initial settings data for client
+  const initialSettingsData = {
+    platformSettings,
+    hasCustomBranding,
+    confirmed: true,
   }
 
-  // Determine initial values based on server-side data
-  // Only use custom values if they exist, otherwise use null to prevent flash
-  const primaryColor = brandSettings?.primaryColor || null
-  const faviconUrl = brandSettings?.favicon || null
-  const pageTitle = brandSettings?.platformName || null
+  // Determine values for synchronous script (only if we have custom branding)
+  const primaryColor = hasCustomBranding && platformSettings?.primary_color 
+    ? platformSettings.primary_color 
+    : null
+  const faviconUrl = hasCustomBranding && platformSettings?.favicon_url 
+    ? platformSettings.favicon_url 
+    : null
+  const nameEn = hasCustomBranding ? (platformSettings?.name || "") : ""
+  const nameRu = hasCustomBranding ? (platformSettings?.name_ru || "") : ""
+  const titleName = initialLanguage === "ru" && nameRu ? nameRu : (nameEn || "")
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLanguage} suppressHydrationWarning style={{ "--primary": primaryColor || DEFAULT_PRIMARY_COLOR } as React.CSSProperties}>
       <head>
-        {/* Set theme color and favicon only if we have custom values */}
-        {primaryColor && <meta name="theme-color" content={primaryColor} />}
-        {faviconUrl && <link rel="icon" href={faviconUrl} />}
-        {faviconUrl && <link rel="shortcut icon" href={faviconUrl} />}
-        {faviconUrl && <link rel="apple-touch-icon" href={faviconUrl} />}
-
-        {/* CRITICAL: Set title immediately before React hydrates */}
-        {pageTitle && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `document.title = ${JSON.stringify(pageTitle)};`
-            }}
-          />
-        )}
-
-        {/* Inline script to apply cached brand settings immediately, before React loads */}
+        <meta name="theme-color" content={primaryColor || DEFAULT_PRIMARY_COLOR} />
+        <link rel="icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
+        <link rel="shortcut icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
+        <link rel="apple-touch-icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
+        {/* Inline script to apply server-side brand settings immediately, before React loads */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
+                  // Server-side initial data
+                  const serverData = ${JSON.stringify(initialSettingsData)};
+                  const initialLang = ${JSON.stringify(initialLanguage)};
+                  
+                  // Store server data in data attributes for client access
+                  document.documentElement.setAttribute('data-initial-settings', JSON.stringify(serverData));
+                  document.documentElement.setAttribute('data-initial-language', initialLang);
+                  
+                  // Apply server-side settings immediately (only if we have custom branding)
+                  if (serverData.hasCustomBranding && serverData.platformSettings) {
+                    const s = serverData.platformSettings;
+                    
+                    // Apply primary color
+                    if (s.primary_color) {
+                      document.documentElement.style.setProperty('--primary', s.primary_color);
+                      document.documentElement.style.setProperty('--color-primary', s.primary_color);
+                      
+                      // Convert hex to RGB
+                      const hex = s.primary_color.replace('#', '');
+                      if (hex.length === 6) {
+                        const r = parseInt(hex.substring(0, 2), 16);
+                        const g = parseInt(hex.substring(2, 4), 16);
+                        const b = parseInt(hex.substring(4, 6), 16);
+                        if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                          document.documentElement.style.setProperty('--primary-rgb', r + ', ' + g + ', ' + b);
+                        }
+                      }
+                    }
+                    
+                    // Apply favicon
+                    if (s.favicon_url && /^https?:\\/\\//.test(s.favicon_url)) {
+                      var faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+                      for (var i = 0; i < faviconLinks.length; i++) {
+                        faviconLinks[i].href = s.favicon_url;
+                      }
+                    }
+                    
+                    // Apply platform names
+                    // If custom branding exists, use custom names; if no custom branding, use defaults
+                    const nameEn = s.name || '';
+                    const nameRu = s.name_ru || '';
+                    const finalNameEn = nameEn || (serverData.hasCustomBranding ? '' : 'ElectivePRO');
+                    const finalNameRu = nameRu || (serverData.hasCustomBranding ? '' : 'ElectivePRO');
+                    
+                    if (finalNameEn || finalNameRu || !serverData.hasCustomBranding) {
+                      document.documentElement.setAttribute('data-platform-name-en', finalNameEn || '');
+                      document.documentElement.setAttribute('data-platform-name-ru', finalNameRu || '');
+                      
+                      // Set title based on current language
+                      // Use Russian name when language is Russian, English name when English
+                      // If language-specific name is not set, fallback to the other language's name
+                      const titleName = initialLang === 'ru' 
+                        ? (finalNameRu || finalNameEn || 'ElectivePRO')
+                        : (finalNameEn || finalNameRu || 'ElectivePRO');
+                      
+                      if (titleName) {
+                        document.documentElement.setAttribute('data-platform-name', titleName);
+                        document.title = titleName;
+                      }
+                    }
+                    
+                    // Store logo URLs
+                    if (s.logo_url_en) {
+                      document.documentElement.setAttribute('data-logo-url-en', s.logo_url_en);
+                    }
+                    if (s.logo_url_ru) {
+                      document.documentElement.setAttribute('data-logo-url-ru', s.logo_url_ru);
+                    }
+                    if (s.logo_url) {
+                      document.documentElement.setAttribute('data-logo-url', s.logo_url);
+                    }
+                  }
+                  
+                  // Also check localStorage cache for faster subsequent loads
                   const cached = localStorage.getItem('epro-brand-settings');
                   if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed.version === '2' && parsed.settings) {
-                      const s = parsed.settings;
-                      // Check if we've confirmed from Supabase that no custom branding exists
-                      let confirmedNoCustom = false;
-                      try {
-                        const confirmed = localStorage.getItem('epro-brand-confirmed');
-                        const hasCustom = localStorage.getItem('epro-brand-has-custom');
-                        confirmedNoCustom = confirmed === 'true' && hasCustom === 'false';
-                      } catch (e) {
-                        // Ignore localStorage errors
-                      }
-
-                      const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.logo_url_en || s.logo_url_ru || s.favicon_url);
-
-                      // Only apply if we have custom branding OR we've confirmed no custom branding exists
-                      if (hasCustom || confirmedNoCustom) {
-                        const primaryColor = s.primary_color || (confirmedNoCustom ? '#027659' : null);
-                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
-
-                        // Get current language from localStorage
-                        let currentLanguage = 'en';
-                        try {
-                          const storedLang = localStorage.getItem('epro-language');
-                          if (storedLang === 'ru' || storedLang === 'en') {
-                            currentLanguage = storedLang;
+                    try {
+                      const parsed = JSON.parse(cached);
+                      if (parsed.version === '1' && parsed.settings) {
+                        const s = parsed.settings;
+                        const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.logo_url_en || s.logo_url_ru || s.favicon_url);
+                        
+                        // Only use cache if server hasn't provided data yet (shouldn't happen, but fallback)
+                        if (!serverData.confirmed && hasCustom) {
+                          // Apply cached settings as fallback
+                          if (s.primary_color) {
+                            document.documentElement.style.setProperty('--primary', s.primary_color);
+                            document.documentElement.style.setProperty('--color-primary', s.primary_color);
                           }
-                        } catch (e) {
-                          // Ignore localStorage errors
-                        }
-
-                        // Use language-specific name - only use default if confirmed no custom branding exists
-                        let nameEn = s.name || '';
-                        let nameRu = s.name_ru || '';
-                        if (confirmedNoCustom && !nameEn && !nameRu) {
-                          nameEn = '${DEFAULT_PLATFORM_NAME}';
-                          nameRu = '${DEFAULT_PLATFORM_NAME}';
-                        }
-                        // If Russian name is not set but English name is, use English name for both languages
-                        if (!nameRu && nameEn) {
-                          nameRu = nameEn;
-                        }
-                        const name = currentLanguage === 'ru' && nameRu ? nameRu : (nameEn || '');
-
-                        // Only set if we have values
-                        if (nameEn || nameRu) {
-                          document.documentElement.setAttribute('data-platform-name-en', nameEn || '');
-                          document.documentElement.setAttribute('data-platform-name-ru', nameRu || '');
-                          if (name) {
-                            document.documentElement.setAttribute('data-platform-name', name);
-                            document.title = name;
+                          
+                          if (s.favicon_url && /^https?:\\/\\//.test(s.favicon_url)) {
+                            var cachedFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+                            for (var j = 0; j < cachedFaviconLinks.length; j++) {
+                              cachedFaviconLinks[j].href = s.favicon_url;
+                            }
                           }
-                        }
-
-                        // Apply CSS variables immediately (only if we have values)
-                        if (primaryColor) {
-                          document.documentElement.style.setProperty('--primary', primaryColor);
-                          document.documentElement.style.setProperty('--color-primary', primaryColor);
-
-                          // Convert hex to RGB for --primary-rgb
-                          const hex = primaryColor.replace('#', '');
-                          if (hex.length === 6) {
-                            const r = parseInt(hex.substring(0, 2), 16);
-                            const g = parseInt(hex.substring(2, 4), 16);
-                            const b = parseInt(hex.substring(4, 6), 16);
-                            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-                              document.documentElement.style.setProperty('--primary-rgb', r + ', ' + g + ', ' + b);
+                          
+                          const cachedNameEn = s.name || '';
+                          const cachedNameRu = s.name_ru || '';
+                          const cachedHasCustom = !!(cachedNameEn || cachedNameRu || s.primary_color || s.logo_url || s.logo_url_en || s.logo_url_ru || s.favicon_url);
+                          const cachedFinalNameEn = cachedHasCustom ? cachedNameEn : 'ElectivePRO';
+                          const cachedFinalNameRu = cachedHasCustom ? cachedNameRu : 'ElectivePRO';
+                          
+                          if (cachedFinalNameEn || cachedFinalNameRu) {
+                            document.documentElement.setAttribute('data-platform-name-en', cachedFinalNameEn);
+                            document.documentElement.setAttribute('data-platform-name-ru', cachedFinalNameRu);
+                            
+                            let currentLanguage = initialLang;
+                            try {
+                              const storedLang = localStorage.getItem('epro-language');
+                              if (storedLang === 'ru' || storedLang === 'en') {
+                                currentLanguage = storedLang;
+                              }
+                            } catch (e) {
+                              // Ignore localStorage errors
+                            }
+                            
+                            // Use Russian name when language is Russian, English name when English
+                            // If language-specific name is not set, fallback to the other language's name
+                            const cachedTitleName = currentLanguage === 'ru' 
+                              ? (cachedFinalNameRu || cachedFinalNameEn || 'ElectivePRO')
+                              : (cachedFinalNameEn || cachedFinalNameRu || 'ElectivePRO');
+                            
+                            if (cachedTitleName) {
+                              document.documentElement.setAttribute('data-platform-name', cachedTitleName);
+                              document.title = cachedTitleName;
                             }
                           }
                         }
-
-                        // Update favicon links immediately (only if we have a URL)
-                        if (faviconUrl) {
-                          var faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-                          for (var i = 0; i < faviconLinks.length; i++) {
-                            faviconLinks[i].href = faviconUrl;
-                          }
-                        }
-
-                        // Set logo URLs in data attributes
-                        const logoUrlEn = s.logo_url_en && /^https?:\\/\\//.test(s.logo_url_en) ? s.logo_url_en :
-                                         (s.logo_url && /^https?:\\/\\//.test(s.logo_url) ? s.logo_url : (confirmedNoCustom ? 'https://cldup.com/-gQTLXtXxV.svg' : null));
-                        const logoUrlRu = s.logo_url_ru && /^https?:\\/\\//.test(s.logo_url_ru) ? s.logo_url_ru :
-                                         (s.logo_url && /^https?:\\/\\//.test(s.logo_url) ? s.logo_url : (confirmedNoCustom ? 'https://cldup.com/-gQTLXtXxV.svg' : null));
-
-                        if (logoUrlEn || logoUrlRu) {
-                          document.documentElement.setAttribute('data-logo-url-en', logoUrlEn || '');
-                          document.documentElement.setAttribute('data-logo-url-ru', logoUrlRu || '');
-                          document.documentElement.setAttribute('data-logo-url', logoUrlEn || '');
-                        }
                       }
+                    } catch (e) {
+                      // Ignore cache parse errors
                     }
                   }
                 } catch (e) {

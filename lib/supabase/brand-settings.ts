@@ -19,33 +19,79 @@ function getContactEmail(): string {
 }
 
 export interface BrandSettings {
-  platformName: string | null
+  platformName: string
   platformDescription: string
-  logo: string | null
-  favicon: string | null
-  primaryColor: string | null
-  institutionName: string | null
+  logo: string
+  favicon: string
+  primaryColor: string
+  institutionName: string
   contactEmail: string
   appUrl: string
 }
 
+export interface RawBrandSettings {
+  name: string | null
+  name_ru: string | null
+  primary_color: string | null
+  logo_url: string | null
+  logo_url_en: string | null
+  logo_url_ru: string | null
+  favicon_url: string | null
+}
+
 /**
- * Get brand settings with no-flash logic
- * - Return null/empty values during loading to prevent default flash
- * - Only show defaults after confirming from database that no custom branding exists
- * - Store raw database values, apply defaults only when confirmed
+ * Get raw brand settings from database (no defaults applied)
+ * Used for server-side rendering and initial data loading
  */
-export async function getBrandSettings(): Promise<BrandSettings> {
-  // Since there's only one settings row, select without filtering by ID
+export async function getRawBrandSettings(): Promise<{
+  platformSettings: RawBrandSettings | null
+  hasCustomBranding: boolean
+}> {
   const { data: platformSettings, error } = await supabaseAdmin
     .from("settings")
-    .select("*")
+    .select("name, name_ru, primary_color, logo_url, logo_url_en, logo_url_ru, favicon_url")
     .limit(1)
     .maybeSingle()
 
-  // If we get a "not found" error (PGRST116), we can confirm no custom branding exists
-  if (error && error.code === "PGRST116") {
-    // Confirmed no custom branding exists - safe to use defaults
+  if (error && error.code !== "PGRST116") {
+    // PGRST116 is "not found" - that's okay
+    console.error("Error fetching raw brand settings:", error)
+    return {
+      platformSettings: null,
+      hasCustomBranding: false,
+    }
+  }
+
+  // Type assertion to handle Supabase type inference issues
+  const settings = platformSettings as RawBrandSettings | null
+
+  // Check if ANY custom brand setting has been set
+  const hasCustomBranding = !!(
+    settings?.name ||
+    settings?.name_ru ||
+    settings?.logo_url ||
+    settings?.logo_url_en ||
+    settings?.logo_url_ru ||
+    settings?.favicon_url ||
+    settings?.primary_color
+  )
+
+  return {
+    platformSettings: settings || null,
+    hasCustomBranding,
+  }
+}
+
+/**
+ * Get brand settings with smart fallback logic
+ * NOTE: This function still returns defaults for backward compatibility
+ * For no-flash implementation, use getRawBrandSettings() instead
+ */
+export async function getBrandSettings(): Promise<BrandSettings> {
+  const { platformSettings, hasCustomBranding } = await getRawBrandSettings()
+
+  // If no record exists at all, use defaults
+  if (!platformSettings || !hasCustomBranding) {
     return {
       platformName: DEFAULT_PLATFORM_NAME,
       platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
@@ -58,56 +104,16 @@ export async function getBrandSettings(): Promise<BrandSettings> {
     }
   }
 
-  // If any other error or no data, return null values to prevent flash
-  // Don't show defaults until we've confirmed no custom branding exists
-  if (!platformSettings || error) {
-    return {
-      platformName: null,
-      platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
-      logo: null,
-      favicon: null,
-      primaryColor: null,
-      institutionName: null,
-      contactEmail: getContactEmail(),
-      appUrl: getAppUrl(),
-    }
-  }
-
-  // Check if ANY custom brand setting has been set in database
-  const hasCustomBranding = !!(
-    platformSettings.name ||
-    platformSettings.name_ru ||
-    platformSettings.logo_url ||
-    platformSettings.logo_url_en ||
-    platformSettings.logo_url_ru ||
-    platformSettings.favicon_url ||
-    platformSettings.primary_color
-  )
-
-  // If custom branding exists, return raw database values
-  // Client-side hooks will apply defaults only when confirmed
-  if (hasCustomBranding) {
-    return {
-      platformName: platformSettings.name || null, // Return null if empty, let client decide
-      platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
-      logo: platformSettings.logo_url || null,
-      favicon: platformSettings.favicon_url || null,
-      primaryColor: platformSettings.primary_color || null,
-      institutionName: platformSettings.name || null,
-      contactEmail: getContactEmail(),
-      appUrl: getAppUrl(),
-    }
-  }
-
-  // No custom branding set in database - we've confirmed no custom branding exists
-  // Safe to use defaults
+  // If admin has set custom branding, use custom values where set
+  // Empty/null values fallback to defaults
+  const customName = platformSettings.name || DEFAULT_PLATFORM_NAME
   return {
-    platformName: DEFAULT_PLATFORM_NAME,
+    platformName: customName,
     platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
-    logo: DEFAULT_LOGO_URL,
-    favicon: DEFAULT_FAVICON_URL,
-    primaryColor: DEFAULT_PRIMARY_COLOR,
-    institutionName: DEFAULT_PLATFORM_NAME,
+    logo: platformSettings.logo_url || DEFAULT_LOGO_URL,
+    favicon: platformSettings.favicon_url || DEFAULT_FAVICON_URL,
+    primaryColor: platformSettings.primary_color || DEFAULT_PRIMARY_COLOR,
+    institutionName: customName,
     contactEmail: getContactEmail(),
     appUrl: getAppUrl(),
   }

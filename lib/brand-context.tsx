@@ -29,7 +29,7 @@ interface BrandContextType {
 const BrandContext = createContext<BrandContextType | undefined>(undefined)
 
 const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
-const BRAND_SETTINGS_VERSION = "2" // Increment to invalidate old cache
+const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
 
 // Helper to get cached settings from localStorage
 function getCachedSettings(): BrandSettings | null {
@@ -73,21 +73,42 @@ function saveCachedSettings(settings: BrandSettings) {
 export function BrandProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [settings, setSettings] = useState<BrandSettings | null>(() => {
-    // Initialize with cached settings immediately (synchronous, prevents flicker)
-    const cached = getCachedSettings()
-    // Apply cached settings immediately if they exist (before React renders)
+    // First, try to get initial data from server-side (data attributes)
+    let initialServerData: { platformSettings: BrandSettings | null; hasCustomBranding: boolean; confirmed: boolean } | null = null
     if (typeof document !== "undefined") {
-      // Only apply if we have cached custom branding - don't use defaults until confirmed from Supabase
-      const hasCustom = !!(cached?.name || cached?.name_ru || cached?.primary_color || cached?.logo_url || cached?.logo_url_en || cached?.logo_url_ru || cached?.favicon_url)
+      try {
+        const serverDataAttr = document.documentElement.getAttribute("data-initial-settings")
+        if (serverDataAttr) {
+          initialServerData = JSON.parse(serverDataAttr)
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    // Initialize with server-side data if available, otherwise use cached settings
+    const initialSettings = initialServerData?.platformSettings || getCachedSettings()
+    
+    // Apply initial settings immediately if they exist (before React renders)
+    if (typeof document !== "undefined") {
+      // Only apply if we have custom branding OR we've confirmed no custom branding exists
+      const hasCustom = !!(initialSettings?.name || initialSettings?.name_ru || initialSettings?.primary_color || 
+                          initialSettings?.logo_url || initialSettings?.logo_url_en || initialSettings?.logo_url_ru || 
+                          initialSettings?.favicon_url)
+      const confirmedNoCustom = initialServerData?.confirmed && !initialServerData?.hasCustomBranding
       
-      if (hasCustom) {
-        // Only set if we have custom branding in cache
-        const nameEn = cached?.name || ""
-        const nameRu = cached?.name_ru || ""
+      if (hasCustom || confirmedNoCustom) {
+        // Use initialSettings (from server or cache), not cached
+        const nameEn = initialSettings?.name || ""
+        const nameRu = initialSettings?.name_ru || ""
         
-        if (nameEn || nameRu) {
-          document.documentElement.setAttribute("data-platform-name-en", nameEn || "")
-          document.documentElement.setAttribute("data-platform-name-ru", nameRu || "")
+        // If we have custom branding, use custom names; if confirmed no custom, use defaults
+        const finalNameEn = hasCustom ? nameEn : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
+        const finalNameRu = hasCustom ? nameRu : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
+        
+        if (finalNameEn || finalNameRu || confirmedNoCustom) {
+          document.documentElement.setAttribute("data-platform-name-en", finalNameEn || "")
+          document.documentElement.setAttribute("data-platform-name-ru", finalNameRu || "")
           
           // Get current language from localStorage to set appropriate title
           let currentLanguage: "en" | "ru" = "en"
@@ -100,7 +121,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             // Ignore localStorage errors
           }
           
-          const titleName = currentLanguage === "ru" && nameRu ? nameRu : (nameEn || "")
+          // Use Russian name when language is Russian, English name when English
+          // Fallback to default if no custom branding exists
+          const titleName = currentLanguage === "ru" 
+            ? (finalNameRu || finalNameEn || DEFAULT_PLATFORM_NAME)
+            : (finalNameEn || finalNameRu || DEFAULT_PLATFORM_NAME)
+          
           if (titleName) {
             document.documentElement.setAttribute("data-platform-name", titleName)
             document.title = titleName
@@ -108,38 +134,61 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         }
         
         // Apply other branding settings (colors, logos, favicons)
-        // CRITICAL: Don't use defaults during loading - only apply cached custom values
-        const primaryColor = cached.primary_color || null
-        const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : null
-        const logoUrlEn = cached.logo_url_en && /^https?:\/\//.test(cached.logo_url_en) ? cached.logo_url_en :
-                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : null)
-        const logoUrlRu = cached.logo_url_ru && /^https?:\/\//.test(cached.logo_url_ru) ? cached.logo_url_ru :
-                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : null)
+        // Only use defaults if we've confirmed no custom branding exists
+        const primaryColor = initialSettings.primary_color || (confirmedNoCustom ? DEFAULT_PRIMARY_COLOR : null)
+        const faviconUrl = initialSettings.favicon_url && /^https?:\/\//.test(initialSettings.favicon_url) 
+          ? initialSettings.favicon_url 
+          : (confirmedNoCustom ? DEFAULT_FAVICON_URL : null)
+        const logoUrlEn = initialSettings.logo_url_en && /^https?:\/\//.test(initialSettings.logo_url_en) 
+          ? initialSettings.logo_url_en 
+          : (initialSettings.logo_url && /^https?:\/\//.test(initialSettings.logo_url) 
+            ? initialSettings.logo_url 
+            : (confirmedNoCustom ? DEFAULT_LOGO_URL : null))
+        const logoUrlRu = initialSettings.logo_url_ru && /^https?:\/\//.test(initialSettings.logo_url_ru) 
+          ? initialSettings.logo_url_ru 
+          : (initialSettings.logo_url && /^https?:\/\//.test(initialSettings.logo_url) 
+            ? initialSettings.logo_url 
+            : (confirmedNoCustom ? DEFAULT_LOGO_URL : null))
         
         // Store logo URLs in data attributes
         document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
         document.documentElement.setAttribute("data-logo-url-ru", logoUrlRu)
         document.documentElement.setAttribute("data-logo-url", logoUrlEn)
         
-        // Apply immediately to prevent default flash
-        document.documentElement.style.setProperty("--primary", primaryColor)
-        document.documentElement.style.setProperty("--color-primary", primaryColor)
+        // Apply immediately to prevent default flash (only if we have values)
+        if (primaryColor) {
+          document.documentElement.style.setProperty("--primary", primaryColor)
+          document.documentElement.style.setProperty("--color-primary", primaryColor)
+          
+          // Set RGB values for components that need them
+          const hex = primaryColor.replace('#', '')
+          const r = parseInt(hex.substr(0, 2), 16)
+          const g = parseInt(hex.substr(2, 2), 16)
+          const b = parseInt(hex.substr(4, 2), 16)
+          document.documentElement.style.setProperty("--primary-rgb", `${r}, ${g}, ${b}`)
+        }
         
-        // Set RGB values for components that need them
-        const hex = primaryColor.replace('#', '')
-        const r = parseInt(hex.substr(0, 2), 16)
-        const g = parseInt(hex.substr(2, 2), 16)
-        const b = parseInt(hex.substr(4, 2), 16)
-        document.documentElement.style.setProperty("--primary-rgb", `${r}, ${g}, ${b}`)
+        // Update favicon immediately (only if we have a URL)
+        if (faviconUrl) {
+          const allFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
+          allFaviconLinks.forEach((link) => {
+            (link as HTMLLinkElement).href = faviconUrl
+          })
+        }
         
-        // Update favicon immediately
-        const allFaviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]')
-        allFaviconLinks.forEach((link) => {
-          (link as HTMLLinkElement).href = faviconUrl
-        })
+        // Store logo URLs in data attributes
+        if (logoUrlEn) {
+          document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
+        }
+        if (logoUrlRu) {
+          document.documentElement.setAttribute("data-logo-url-ru", logoUrlRu)
+        }
+        if (logoUrlEn) {
+          document.documentElement.setAttribute("data-logo-url", logoUrlEn)
+        }
       }
     }
-    return cached
+    return initialSettings
   })
   const [isLoading, setIsLoading] = useState(true)
   const supabase = getSupabaseBrowserClient()
@@ -219,7 +268,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     (brandSettings: BrandSettings) => {
       if (typeof document === "undefined") return
       
-      // Check if we've confirmed from Supabase that no custom branding exists
+      // Check if we've confirmed from database that no custom branding exists
       let confirmedNoCustom = false
       try {
         const confirmed = localStorage.getItem("epro-brand-confirmed")
@@ -228,6 +277,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       } catch {
         // Ignore localStorage errors
       }
+      
+      // Check if any custom branding exists
+      const hasCustom = !!(brandSettings.name || brandSettings.name_ru || brandSettings.primary_color || 
+                          brandSettings.logo_url || brandSettings.logo_url_en || brandSettings.logo_url_ru || 
+                          brandSettings.favicon_url)
       
       // Determine values: use custom if valid, otherwise fall back to defaults
       // Only use defaults if we've confirmed from database that no custom branding exists
@@ -240,11 +294,6 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         if (!faviconUrl) faviconUrl = DEFAULT_FAVICON_URL
       }
       
-      // Check if any custom branding exists
-      const hasCustom = !!(brandSettings.name || brandSettings.name_ru || brandSettings.primary_color || 
-                          brandSettings.logo_url || brandSettings.logo_url_en || brandSettings.logo_url_ru || 
-                          brandSettings.favicon_url)
-      
       // Logo URLs - prefer language-specific, fallback to generic logo_url, then default
       // Only use defaults if we've confirmed from database that no custom branding exists
       let logoUrlEn = hasCustom && isValidUrl(brandSettings.logo_url_en) ? brandSettings.logo_url_en! : 
@@ -256,27 +305,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       if (confirmedNoCustom && !logoUrlEn && !logoUrlRu) {
         logoUrlEn = DEFAULT_LOGO_URL
         logoUrlRu = DEFAULT_LOGO_URL
-      } else if (!logoUrlEn && !logoUrlRu) {
+      } else if (!logoUrlEn && !logoUrlRu && !confirmedNoCustom) {
         // No logo and not confirmed - use empty strings
         logoUrlEn = ""
         logoUrlRu = ""
       }
 
       // Platform names - use language-specific
-      // Only use defaults if we've confirmed from database that no custom branding exists
-      let nameEn = brandSettings.name || ""
-      let nameRu = brandSettings.name_ru || ""
-
-      // If Russian name is not set but English name is, use English name for both languages
-      if (!nameRu && nameEn) {
-        nameRu = nameEn
-      }
-      
-      // Only use defaults if we've confirmed from Supabase that no custom branding exists
-      if (confirmedNoCustom && !nameEn && !nameRu) {
-        nameEn = DEFAULT_PLATFORM_NAME
-        nameRu = DEFAULT_PLATFORM_NAME
-      }
+      // If custom branding exists, use custom names; if no custom branding, use defaults
+      let nameEn = hasCustom ? (brandSettings.name || "") : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
+      let nameRu = hasCustom ? (brandSettings.name_ru || "") : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
 
       console.log("Applying branding:", { primaryColor, faviconUrl, logoUrlEn, logoUrlRu, nameEn, nameRu, brandSettings, confirmedNoCustom })
 
@@ -326,19 +364,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       }
       
       // Update page title based on current language
-      // Only set title if we have a name (don't use defaults until confirmed from Supabase)
-      const titleName = currentLanguage === "ru" && nameRu ? nameRu : (nameEn || "")
+      // Use Russian name when language is Russian, English name when English
+      // If the language-specific name is not set but custom branding exists, fallback to the other language's name
+      // If no custom branding exists, use default
+      const titleName = currentLanguage === "ru" 
+        ? (nameRu || nameEn || DEFAULT_PLATFORM_NAME)
+        : (nameEn || nameRu || DEFAULT_PLATFORM_NAME)
+      
       if (titleName) {
         document.documentElement.setAttribute("data-platform-name", titleName)
         document.title = titleName
-      } else {
-        // If no name, leave title empty or use a generic placeholder
-        // Don't set to default until confirmed from database
-        document.documentElement.setAttribute("data-platform-name", "")
-        // Keep existing title or set to empty
-        if (!document.title || document.title === DEFAULT_PLATFORM_NAME) {
-          document.title = ""
-        }
       }
     },
     [isAdmin, hexToRgb, updateFavicon],
@@ -356,43 +391,34 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     }
   }, [applyBranding]) // Include applyBranding in deps but only run once due to settings initial state
 
-  // Load settings from database (background fetch to ensure we have latest)
+  // Load settings from API (background fetch to ensure we have latest)
   useEffect(() => {
     async function loadSettings() {
       try {
-        const { data, error } = await supabase
-          .from("settings")
-          .select("name, name_ru, primary_color, logo_url, logo_url_en, logo_url_ru, favicon_url")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle()
-
-        if (error && error.code !== "PGRST116") {
-          // PGRST116 is "not found" - that's okay, we'll use defaults
-          console.error("Error loading brand settings:", error)
-          throw error
+        // Use the API endpoint that returns raw data with confirmation flags
+        const response = await fetch("/api/brand-settings")
+        if (!response.ok) {
+          throw new Error("Failed to fetch brand settings")
         }
 
-        // Check if we have any custom branding in the database
-        const hasCustomInDb = !!(data?.name || data?.name_ru || data?.primary_color || 
-                                 data?.logo_url || data?.logo_url_en || data?.logo_url_ru || 
-                                 data?.favicon_url)
+        const data = await response.json()
+        const { platformSettings, hasCustomBranding, confirmed } = data
 
         const brandSettings: BrandSettings = {
-          name: data?.name || null,
-          name_ru: data?.name_ru || null,
-          primary_color: data?.primary_color || null,
-          logo_url: data?.logo_url || null, // Keep for backward compatibility
-          logo_url_en: data?.logo_url_en || null,
-          logo_url_ru: data?.logo_url_ru || null,
-          favicon_url: data?.favicon_url || null,
+          name: platformSettings?.name || null,
+          name_ru: platformSettings?.name_ru || null,
+          primary_color: platformSettings?.primary_color || null,
+          logo_url: platformSettings?.logo_url || null, // Keep for backward compatibility
+          logo_url_en: platformSettings?.logo_url_en || null,
+          logo_url_ru: platformSettings?.logo_url_ru || null,
+          favicon_url: platformSettings?.favicon_url || null,
         }
 
-        // Mark that we've confirmed from Supabase (store in localStorage)
-        if (typeof window !== "undefined") {
+        // Mark that we've confirmed from database (store in localStorage)
+        if (typeof window !== "undefined" && confirmed) {
           try {
             localStorage.setItem("epro-brand-confirmed", "true")
-            localStorage.setItem("epro-brand-has-custom", hasCustomInDb ? "true" : "false")
+            localStorage.setItem("epro-brand-has-custom", hasCustomBranding ? "true" : "false")
           } catch {
             // Ignore localStorage errors
           }
@@ -410,14 +436,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             prev?.logo_url_ru !== brandSettings.logo_url_ru ||
             prev?.favicon_url !== brandSettings.favicon_url
 
-          // Always save to cache and apply branding when loading from DB
+          // Always save to cache and apply branding when loading from API
           // This ensures cache is populated even if settings haven't changed
           saveCachedSettings(brandSettings)
           
           // Only apply branding if we have custom branding OR we've confirmed no custom branding exists
-          if (hasCustomInDb || (!data && error?.code === "PGRST116")) {
+          if (hasCustomBranding || (confirmed && !hasCustomBranding)) {
             // If we have custom branding, apply it
-            // If we got PGRST116 (not found), we've confirmed no custom branding exists, so apply defaults
+            // If we've confirmed no custom branding exists, apply branding (will use defaults)
             applyBranding(brandSettings)
           }
           
@@ -430,58 +456,22 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error loading brand settings:", error)
         // On error, don't use defaults - keep existing cached settings if available
-        // Only mark as confirmed if we got a "not found" error (PGRST116)
-        if (error && typeof error === "object" && "code" in error && error.code === "PGRST116") {
-          // Not found - confirmed no custom branding exists
-          if (typeof window !== "undefined") {
-            try {
-              localStorage.setItem("epro-brand-confirmed", "true")
-              localStorage.setItem("epro-brand-has-custom", "false")
-            } catch {
-              // Ignore localStorage errors
-            }
+        // Don't mark as confirmed on error
+        setSettings((prev) => {
+          if (prev) {
+            // Keep existing cached settings
+            return prev
           }
-          
-          // Now we can use defaults since we've confirmed no custom branding exists
-          const defaultSettings: BrandSettings = {
-            name: null,
-            name_ru: null,
-            primary_color: null,
-            logo_url: null,
-            logo_url_en: null,
-            logo_url_ru: null,
-            favicon_url: null,
-          }
-          
-          setSettings((prev) => {
-            if (prev) {
-              // Keep existing settings but apply branding (will use defaults)
-              applyBranding(prev)
-              return prev
-            }
-            
-            saveCachedSettings(defaultSettings)
-            applyBranding(defaultSettings)
-            return defaultSettings
-          })
-        } else {
-          // Other error - don't use defaults, keep cached settings if available
-          setSettings((prev) => {
-            if (prev) {
-              // Keep existing cached settings
-              return prev
-            }
-            // No cached settings and error - set to null (no defaults)
-            return null
-          })
-        }
+          // No cached settings and error - set to null (no defaults)
+          return null
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     loadSettings()
-  }, [applyBranding, supabase])
+  }, [applyBranding])
 
   // Re-apply branding when pathname changes (to handle admin page detection)
   useEffect(() => {
@@ -495,11 +485,23 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!settings) return
     
     const handleLanguageChange = () => {
+      // Check if we've confirmed no custom branding exists
+      let confirmedNoCustom = false
+      try {
+        const confirmed = localStorage.getItem("epro-brand-confirmed")
+        const hasCustomFlag = localStorage.getItem("epro-brand-has-custom")
+        confirmedNoCustom = confirmed === "true" && hasCustomFlag === "false"
+      } catch {
+        // Ignore localStorage errors
+      }
+      
       const hasCustom = !!(settings.name || settings.name_ru || settings.primary_color || 
                           settings.logo_url || settings.logo_url_en || settings.logo_url_ru || 
                           settings.favicon_url)
-      const nameEn = hasCustom && settings.name ? settings.name : DEFAULT_PLATFORM_NAME
-      const nameRu = hasCustom && settings.name_ru ? settings.name_ru : DEFAULT_PLATFORM_NAME
+      
+      // If custom branding exists, use custom names; if no custom branding, use defaults
+      const nameEn = hasCustom ? (settings.name || "") : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
+      const nameRu = hasCustom ? (settings.name_ru || "") : (confirmedNoCustom ? DEFAULT_PLATFORM_NAME : "")
       
       let currentLanguage: "en" | "ru" = "en"
       try {
@@ -511,7 +513,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         // Ignore localStorage errors
       }
       
-      const titleName = currentLanguage === "ru" ? nameRu : nameEn
+      // Use Russian name when language is Russian, English name when English
+      // If the language-specific name is not set but custom branding exists, fallback to the other language's name
+      // If no custom branding exists, use default
+      const titleName = currentLanguage === "ru" 
+        ? (nameRu || nameEn || DEFAULT_PLATFORM_NAME)
+        : (nameEn || nameRu || DEFAULT_PLATFORM_NAME)
+      
       document.documentElement.setAttribute("data-platform-name", titleName)
       document.title = titleName
     }

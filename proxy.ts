@@ -38,9 +38,10 @@ export default async function proxy(req: NextRequest) {
   }
 
   // Check if the current path is a protected route
+  // Exclude login, signup, forgot-password, and reset-password pages
   const protectedRoute = Object.keys(protectedRoutes).find(route =>
-    path.startsWith(route) &&
-    path !== `${route}/login` &&
+    path.startsWith(route) && 
+    path !== `${route}/login` && 
     path !== `${route}/signup` &&
     path !== `${route}/forgot-password` &&
     path !== `${route}/reset-password`

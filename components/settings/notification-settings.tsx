@@ -95,7 +95,7 @@ export function NotificationSettings() {
         id: settingsId,
         // Use existing values or defaults for required fields
         name: existingSettings?.name || "ElectivePRO",
-        primary_color: existingSettings?.primary_color || "#027659",
+        primary_color: existingSettings?.primary_color || "#000000",
         updated_at: new Date().toISOString(),
       }
 

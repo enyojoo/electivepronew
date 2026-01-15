@@ -2644,54 +2644,65 @@ const getStoredLanguage = (): "en" | "ru" | null => {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   // Initialize language synchronously on client to avoid flash
-  // Check stored preference first, then fall back to browser language
+  // Priority: server-side data attribute > stored preference > browser language
   const [language, setLanguageState] = useState<"en" | "ru">(() => {
     // Only run on client side
     if (typeof window === "undefined") return "en"
     
-    const storedLang = getStoredLanguage()
-    if (storedLang) return storedLang
+    // First, try to get language from server-side data attribute
+    try {
+      const serverLang = document.documentElement.getAttribute("data-initial-language")
+      if (serverLang === "ru" || serverLang === "en") {
+        // Also update HTML lang attribute if needed
+        if (document.documentElement.lang !== serverLang) {
+          document.documentElement.lang = serverLang
+        }
+        return serverLang
+      }
+    } catch {
+      // Ignore errors
+    }
     
-    return detectBrowserLanguage()
+    const storedLang = getStoredLanguage()
+    if (storedLang) {
+      // Update HTML lang attribute
+      if (document.documentElement.lang !== storedLang) {
+        document.documentElement.lang = storedLang
+      }
+      return storedLang
+    }
+    
+    const browserLang = detectBrowserLanguage()
+    // Update HTML lang attribute
+    if (document.documentElement.lang !== browserLang) {
+      document.documentElement.lang = browserLang
+    }
+    return browserLang
   })
 
-  // Custom setter that also updates localStorage and DOM attributes immediately
+  // Custom setter that also updates localStorage, cookie, and HTML lang attribute
   const setLanguage = useCallback((newLanguage: "en" | "ru") => {
     setLanguageState(newLanguage)
     try {
+      // Update localStorage
       localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage)
-
-      // Immediately update DOM attributes to prevent flash
+      
+      // Update HTML lang attribute immediately
       if (typeof document !== "undefined") {
-        // Get current platform names from data attributes
-        const nameEn = document.documentElement.getAttribute("data-platform-name-en") || ""
-        const nameRu = document.documentElement.getAttribute("data-platform-name-ru") || ""
-
-        // Determine which name to use for title
-        const titleName = newLanguage === "ru" && nameRu ? nameRu : (nameEn || "")
-
-        // Update title immediately
-        if (titleName) {
-          document.documentElement.setAttribute("data-platform-name", titleName)
-          document.title = titleName
-        }
-
-        // Update logo data attribute
-        const logoUrl = newLanguage === "ru"
-          ? (document.documentElement.getAttribute("data-logo-url-ru") || document.documentElement.getAttribute("data-logo-url-en") || "")
-          : (document.documentElement.getAttribute("data-logo-url-en") || document.documentElement.getAttribute("data-logo-url") || "")
-
-        if (logoUrl) {
-          document.documentElement.setAttribute("data-logo-url", logoUrl)
-        }
+        document.documentElement.lang = newLanguage
       }
-
+      
+      // Update cookie for server-side rendering
+      if (typeof document !== "undefined") {
+        document.cookie = `epro-language=${newLanguage}; path=/; max-age=31536000; SameSite=Lax`
+      }
+      
       // Dispatch custom event to notify other components (like brand context)
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("language-changed"))
       }
     } catch (error) {
-      console.error("Error setting localStorage:", error)
+      console.error("Error setting language:", error)
     }
   }, [])
 
@@ -2699,7 +2710,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     (key: string, params?: Record<string, any>) => {
       const dict = translations[language] || translations.en
       let translation = dict[key] || key
-
+      
       // Support parameter substitution (e.g., {count} in translation strings)
       if (params) {
         translation = Object.entries(params).reduce((acc, [paramKey, value]) => {
@@ -2708,38 +2719,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           return acc.replace(new RegExp(`\\{${escapedKey}\\}`, "g"), String(value))
         }, translation)
       }
-
+      
       return translation
     },
     [language],
   )
-
-  // Update DOM attributes on mount and language changes
-  useEffect(() => {
-    if (typeof document === "undefined") return
-
-    // Get current platform names from data attributes
-    const nameEn = document.documentElement.getAttribute("data-platform-name-en") || ""
-    const nameRu = document.documentElement.getAttribute("data-platform-name-ru") || ""
-
-    // Determine which name to use for title
-    const titleName = language === "ru" && nameRu ? nameRu : (nameEn || "")
-
-    // Update title
-    if (titleName) {
-      document.documentElement.setAttribute("data-platform-name", titleName)
-      document.title = titleName
-    }
-
-    // Update logo data attribute
-    const logoUrl = language === "ru"
-      ? (document.documentElement.getAttribute("data-logo-url-ru") || document.documentElement.getAttribute("data-logo-url-en") || "")
-      : (document.documentElement.getAttribute("data-logo-url-en") || document.documentElement.getAttribute("data-logo-url") || "")
-
-    if (logoUrl) {
-      document.documentElement.setAttribute("data-logo-url", logoUrl)
-    }
-  }, [language])
 
   return <LanguageContext.Provider value={{ language, setLanguage, t }}>{children}</LanguageContext.Provider>
 }

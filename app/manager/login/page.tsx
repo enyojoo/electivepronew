@@ -190,57 +190,9 @@ function ManagerLoginForm() {
   )
 }
 
-function LoginFallback() {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center space-y-2 text-center">
-          <div className="animate-pulse bg-muted rounded mb-4 h-8 w-auto max-w-[160px]"></div>
-        </div>
-
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-          <div className="flex flex-col space-y-1.5 p-6">
-            <h3 className="text-2xl font-semibold leading-none tracking-tight">Login to your account</h3>
-            <p className="text-sm text-muted-foreground">Enter your credentials to access your account</p>
-          </div>
-          <form>
-            <div className="p-6 pt-0 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">Email</label>
-                <input type="email" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="email" placeholder="manager@example.com" required="" value=""/>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">Password</label>
-                <div className="relative">
-                  <input type="password" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm" id="password" placeholder="••••••••" required="" value=""/>
-                </div>
-              </div>
-              <div className="text-sm text-right">
-                <a className="text-primary hover:underline" href="/manager/forgot-password">Forgot password?</a>
-              </div>
-            </div>
-            <div className="items-center p-6 pt-0 flex flex-col space-y-4">
-              <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full" type="submit">Login</button>
-              <p className="text-sm text-center">Don't have an account? <a className="text-primary hover:underline" href="/manager/signup">Register</a></p>
-            </div>
-          </form>
-        </div>
-        <div className="flex justify-center">
-          <button className="justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md flex items-center gap-2 px-3 py-2 h-9" title="Switch to Russian">
-            <span className="inline-flex items-center justify-center shrink-0">
-              <img alt="gb flag" loading="lazy" width="16" height="12" decoding="async" data-nimg="1" className="rounded-sm object-cover" style={{color: 'transparent'}} src="/flags/4x3/gb.svg"/>
-            </span>
-            <span className="text-sm">EN</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function ManagerLoginPage() {
   return (
-    <Suspense fallback={<LoginFallback />}>
+    <Suspense fallback={null}>
       <ManagerLoginForm />
     </Suspense>
   )

@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       clearTimeout(timeoutId)
       // During build time or if fetch fails, return a simple SVG favicon
       // This prevents build errors when network is unavailable
-      const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#027659"/><text x="50" y="70" font-size="60" fill="white" text-anchor="middle" font-family="Arial">E</text></svg>`
+      const svgFavicon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#000000"/><text x="50" y="70" font-size="60" fill="white" text-anchor="middle" font-family="Arial">E</text></svg>`
       return new NextResponse(svgFavicon, {
         headers: {
           "Content-Type": "image/svg+xml",
