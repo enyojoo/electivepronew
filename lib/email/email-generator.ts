@@ -135,7 +135,7 @@ export function generateSelectionDetails(
     universities?: Array<{ name: string; country: string; city: string; preferenceOrder: number }>
     submittedAt: string
   },
-  primaryColor: string = "#000000",
+  primaryColor: string = "#027659",
   language: "en" | "ru" = "en"
 ): string {
   const t = getEmailTranslation(language)

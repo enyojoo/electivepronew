@@ -31,31 +31,21 @@ const BrandContext = createContext<BrandContextType | undefined>(undefined)
 const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
 const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
 
-// Cache expiry time: 30 days (brand settings rarely change)
-const BRAND_CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
-
 // Helper to get cached settings from localStorage
 function getCachedSettings(): BrandSettings | null {
   if (typeof window === "undefined") return null
-
+  
   try {
     const cached = localStorage.getItem(BRAND_SETTINGS_STORAGE_KEY)
     if (!cached) return null
-
+    
     const parsed = JSON.parse(cached)
     // Check version to ensure cache is still valid
     if (parsed.version !== BRAND_SETTINGS_VERSION) {
       localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
       return null
     }
-
-    // Check if cache has expired
-    const now = Date.now()
-    if (parsed.timestamp && (now - parsed.timestamp) > BRAND_CACHE_EXPIRY) {
-      localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
-      return null
-    }
-
+    
     return parsed.settings as BrandSettings
   } catch {
     return null
@@ -92,14 +82,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       
       if (hasCustom) {
         // Only set if we have custom branding in cache
-        let nameEn = cached?.name || ""
-        let nameRu = cached?.name_ru || ""
-
-        // Apply fallback: use English for Russian if Russian name not set
-        if (nameEn && !nameRu) {
-          nameRu = nameEn
-        }
-
+        const nameEn = cached?.name || ""
+        const nameRu = cached?.name_ru || ""
+        
         if (nameEn || nameRu) {
           document.documentElement.setAttribute("data-platform-name-en", nameEn || "")
           document.documentElement.setAttribute("data-platform-name-ru", nameRu || "")
@@ -280,12 +265,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       // Only use defaults if we've confirmed from database that no custom branding exists
       let nameEn = brandSettings.name || ""
       let nameRu = brandSettings.name_ru || ""
-
-      // If we have custom branding, apply fallback: use English for Russian if Russian not set
-      if (hasCustom && nameEn && !nameRu) {
-        nameRu = nameEn // Use English name for Russian if Russian name not set
-      }
-
+      
       // Only use defaults if we've confirmed from Supabase that no custom branding exists
       if (confirmedNoCustom && !nameEn && !nameRu) {
         nameEn = DEFAULT_PLATFORM_NAME
@@ -412,7 +392,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Update settings from database only when there are changes
+        // Always update settings from database (even if same as cache)
+        // This ensures custom settings are applied even after cache clear
         setSettings((prev) => {
           const hasChanged =
             prev?.name !== brandSettings.name ||
@@ -423,21 +404,17 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             prev?.logo_url_ru !== brandSettings.logo_url_ru ||
             prev?.favicon_url !== brandSettings.favicon_url
 
-          // Only save to cache when settings have actually changed from database
-          // This preserves cache longer and only updates when there are real changes
-          if (hasChanged) {
-            saveCachedSettings(brandSettings)
-          }
-
-          // Apply branding based on what we have from database
-          if (hasCustomInDb) {
-            // Custom branding exists - apply it
-            applyBranding(brandSettings)
-          } else if (!data && error?.code === "PGRST116") {
-            // No custom branding exists in database - apply defaults
+          // Always save to cache and apply branding when loading from DB
+          // This ensures cache is populated even if settings haven't changed
+          saveCachedSettings(brandSettings)
+          
+          // Only apply branding if we have custom branding OR we've confirmed no custom branding exists
+          if (hasCustomInDb || (!data && error?.code === "PGRST116")) {
+            // If we have custom branding, apply it
+            // If we got PGRST116 (not found), we've confirmed no custom branding exists, so apply defaults
             applyBranding(brandSettings)
           }
-
+          
           if (hasChanged || !prev) {
             // Settings changed or this is first load - update state
             return brandSettings
@@ -512,16 +489,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (!settings) return
     
     const handleLanguageChange = () => {
-      const hasCustom = !!(settings.name || settings.name_ru || settings.primary_color ||
-                          settings.logo_url || settings.logo_url_en || settings.logo_url_ru ||
+      const hasCustom = !!(settings.name || settings.name_ru || settings.primary_color || 
+                          settings.logo_url || settings.logo_url_en || settings.logo_url_ru || 
                           settings.favicon_url)
       const nameEn = hasCustom && settings.name ? settings.name : DEFAULT_PLATFORM_NAME
-      let nameRu = hasCustom && settings.name_ru ? settings.name_ru : DEFAULT_PLATFORM_NAME
-
-      // Apply fallback: use English name for Russian if Russian name not set and we have custom branding
-      if (hasCustom && nameEn !== DEFAULT_PLATFORM_NAME && nameRu === DEFAULT_PLATFORM_NAME) {
-        nameRu = nameEn
-      }
+      const nameRu = hasCustom && settings.name_ru ? settings.name_ru : DEFAULT_PLATFORM_NAME
       
       let currentLanguage: "en" | "ru" = "en"
       try {

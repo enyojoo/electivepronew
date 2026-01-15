@@ -115,7 +115,7 @@ export async function PUT(request: NextRequest) {
       id: settingsId,
       // Use provided values or fall back to existing or defaults
       name: body.name !== undefined ? body.name : (existingSettings?.name || "ElectivePRO"),
-      primary_color: body.primary_color !== undefined ? body.primary_color : (existingSettings?.primary_color || "#000000"),
+      primary_color: body.primary_color !== undefined ? body.primary_color : (existingSettings?.primary_color || "#027659"),
       updated_at: new Date().toISOString(),
     }
 

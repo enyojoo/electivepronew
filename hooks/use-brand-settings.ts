@@ -82,11 +82,7 @@ export function useBrandSettings(): BrandSettings {
 
     // Determine which value to use based on language
     // Only use custom values if custom branding exists
-    // Apply fallback: use English for Russian if Russian not set
-    let customValue = customValueEn
-    if (language === "ru") {
-      customValue = customValueRu || customValueEn // Use Russian if exists, otherwise English
-    }
+    const customValue = language === "ru" && customValueRu ? customValueRu : customValueEn
 
     // If custom branding exists and we have a custom value, use it
     if (hasCustomBranding && customValue) {
