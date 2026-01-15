@@ -18,7 +18,6 @@ const loginPages = {
 
 export default async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname
-  const isApiRoute = path.startsWith("/api/")
 
   // If accessing the root, redirect to admin login
   if (path === "/") {
@@ -43,12 +42,7 @@ export default async function proxy(req: NextRequest) {
     path.startsWith(route) && path !== `${route}/login` && path !== `${route}/signup`
   )
 
-  // Allow auth API routes to pass through
-  if (path.startsWith("/api/auth/")) {
-    return NextResponse.next()
-  }
-
-  if (!protectedRoute && !isApiRoute) {
+  if (!protectedRoute) {
     // Not a protected route, continue normally
     return NextResponse.next()
   }
@@ -79,13 +73,9 @@ export default async function proxy(req: NextRequest) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError || !session) {
-      // No valid session
-      if (isApiRoute) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      } else {
-        const loginUrl = new URL(loginPages[requiredRole], req.url)
-        return NextResponse.redirect(loginUrl)
-      }
+      // No valid session, redirect to appropriate login page
+      const loginUrl = new URL(loginPages[requiredRole], req.url)
+      return NextResponse.redirect(loginUrl)
     }
 
     // Get user profile to check role
@@ -97,29 +87,22 @@ export default async function proxy(req: NextRequest) {
 
     if (profileError) {
       console.error("Profile fetch error in proxy:", profileError)
-      if (isApiRoute) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      } else {
-        const loginUrl = new URL(loginPages[requiredRole], req.url)
-        return NextResponse.redirect(loginUrl)
-      }
+      // If profile fetch fails, redirect to login
+      const loginUrl = new URL(loginPages[requiredRole], req.url)
+      return NextResponse.redirect(loginUrl)
     }
 
     if (!profile || profile.role !== requiredRole) {
-      // User doesn't have the required role
-      if (isApiRoute) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-      } else {
+      // User doesn't have the required role, redirect to their appropriate dashboard or login
+      if (profile && profile.role in loginPages) {
         // User has a different valid role, redirect to their dashboard
-        if (profile && profile.role in loginPages) {
-          const userLoginPage = loginPages[profile.role as keyof typeof loginPages]
-          const dashboardUrl = userLoginPage.replace('/login', '/dashboard')
-          return NextResponse.redirect(new URL(dashboardUrl, req.url))
-        } else {
-          // Invalid role or no role, redirect to login for the requested route
-          const loginUrl = new URL(loginPages[requiredRole], req.url)
-          return NextResponse.redirect(loginUrl)
-        }
+        const userLoginPage = loginPages[profile.role as keyof typeof loginPages]
+        const dashboardUrl = userLoginPage.replace('/login', '/dashboard')
+        return NextResponse.redirect(new URL(dashboardUrl, req.url))
+      } else {
+        // Invalid role or no role, redirect to login for the requested route
+        const loginUrl = new URL(loginPages[requiredRole], req.url)
+        return NextResponse.redirect(loginUrl)
       }
     }
 
@@ -127,15 +110,12 @@ export default async function proxy(req: NextRequest) {
     return response
   } catch (error) {
     console.error("Proxy error:", error)
-    if (isApiRoute) {
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-    } else {
-      const loginUrl = new URL(loginPages[requiredRole], req.url)
-      return NextResponse.redirect(loginUrl)
-    }
+    // On error, redirect to login
+    const loginUrl = new URL(loginPages[requiredRole], req.url)
+    return NextResponse.redirect(loginUrl)
   }
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg|api/auth).*)"],
 }
