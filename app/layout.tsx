@@ -56,6 +56,8 @@ export default async function RootLayout({
   // Note: titleName will be set in the inline script after checking both cookie and localStorage
   // This ensures we use the correct language even if cookie isn't set yet
 
+  // Note: lang attribute will be set immediately by inline script based on localStorage
+  // Using initialLanguage here as fallback, but script will override it immediately
   return (
     <html lang={initialLanguage} suppressHydrationWarning style={{ "--primary": primaryColor || DEFAULT_PRIMARY_COLOR } as React.CSSProperties}>
       <head>
@@ -63,7 +65,8 @@ export default async function RootLayout({
         <link rel="icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
         <link rel="shortcut icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
         <link rel="apple-touch-icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
-        {/* Inline script to apply server-side brand settings immediately, before React loads */}
+        {/* CRITICAL: This script runs FIRST, before any other scripts or React hydration */}
+        {/* It sets lang attribute and title immediately to prevent any flicker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -84,14 +87,42 @@ export default async function RootLayout({
                     // Ignore localStorage errors
                   }
                   
-                  // Store server data in data attributes for client access
+                  // STEP 1: Set HTML lang attribute IMMEDIATELY before anything else to prevent flicker
+                  document.documentElement.lang = currentLang;
+                  
+                  // STEP 2: Store server data in data attributes for client access
                   document.documentElement.setAttribute('data-initial-settings', JSON.stringify(serverData));
                   document.documentElement.setAttribute('data-initial-language', currentLang);
                   
-                  // Set HTML lang attribute immediately to prevent flicker
-                  document.documentElement.lang = currentLang;
+                  // STEP 3: Determine platform names (ALWAYS set title, even if no custom branding)
+                  let nameEn = '';
+                  let nameRu = '';
+                  let finalNameEn = 'ElectivePRO';
+                  let finalNameRu = 'ElectivePRO';
                   
-                  // Apply server-side settings immediately (only if we have custom branding)
+                  if (serverData.hasCustomBranding && serverData.platformSettings) {
+                    const s = serverData.platformSettings;
+                    nameEn = s.name || '';
+                    nameRu = s.name_ru || '';
+                    finalNameEn = nameEn || 'ElectivePRO';
+                    finalNameRu = nameRu || 'ElectivePRO';
+                  }
+                  
+                  // STEP 4: Always set platform names in data attributes
+                  document.documentElement.setAttribute('data-platform-name-en', finalNameEn);
+                  document.documentElement.setAttribute('data-platform-name-ru', finalNameRu);
+                  
+                  // STEP 5: Set title IMMEDIATELY based on CURRENT language to prevent flicker
+                  // Use Russian name when language is Russian, English name when English
+                  // If language-specific name is not set, fallback to the other language's name
+                  const titleName = currentLang === 'ru' 
+                    ? (finalNameRu || finalNameEn || 'ElectivePRO')
+                    : (finalNameEn || finalNameRu || 'ElectivePRO');
+                  
+                  document.documentElement.setAttribute('data-platform-name', titleName);
+                  document.title = titleName;
+                  
+                  // STEP 6: Apply custom branding settings (only if we have custom branding)
                   if (serverData.hasCustomBranding && serverData.platformSettings) {
                     const s = serverData.platformSettings;
                     
@@ -120,29 +151,7 @@ export default async function RootLayout({
                       }
                     }
                     
-                    // Apply platform names
-                    // If custom branding exists, use custom names; if no custom branding, use defaults
-                    const nameEn = s.name || '';
-                    const nameRu = s.name_ru || '';
-                    const finalNameEn = nameEn || (serverData.hasCustomBranding ? '' : 'ElectivePRO');
-                    const finalNameRu = nameRu || (serverData.hasCustomBranding ? '' : 'ElectivePRO');
-                    
-                    if (finalNameEn || finalNameRu || !serverData.hasCustomBranding) {
-                      document.documentElement.setAttribute('data-platform-name-en', finalNameEn || '');
-                      document.documentElement.setAttribute('data-platform-name-ru', finalNameRu || '');
-                      
-                      // Set title based on CURRENT language (from localStorage if available, otherwise cookie)
-                      // Use Russian name when language is Russian, English name when English
-                      // If language-specific name is not set, fallback to the other language's name
-                      const titleName = currentLang === 'ru' 
-                        ? (finalNameRu || finalNameEn || 'ElectivePRO')
-                        : (finalNameEn || finalNameRu || 'ElectivePRO');
-                      
-                      if (titleName) {
-                        document.documentElement.setAttribute('data-platform-name', titleName);
-                        document.title = titleName;
-                      }
-                    }
+                    // Platform names already set above, just apply branding settings
                     
                     // Store logo URLs
                     if (s.logo_url_en) {
