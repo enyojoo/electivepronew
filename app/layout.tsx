@@ -14,11 +14,7 @@ export const metadata: Metadata = {
   title: DEFAULT_PLATFORM_NAME,
   description:
     "The complete platform for managing the selection of elective courses, exchange programs, and academic pathways.",
-  icons: {
-    icon: DEFAULT_FAVICON_URL,
-    shortcut: DEFAULT_FAVICON_URL,
-    apple: DEFAULT_FAVICON_URL,
-  },
+  // Don't set favicon in metadata - handled dynamically by inline script
   generator: 'v0.dev',
 }
 
@@ -27,20 +23,12 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Use default branding
-  const primaryColor = DEFAULT_PRIMARY_COLOR
-  const faviconUrl = DEFAULT_FAVICON_URL
-  const pageTitle = DEFAULT_PLATFORM_NAME
-
-  // Metadata is exported below, not defined here
+  // DON'T set favicon/theme-color in HTML head - let inline script handle it
+  // This prevents flash of defaults before custom branding loads
 
   return (
-    <html lang="en" suppressHydrationWarning style={{ "--primary": primaryColor } as React.CSSProperties}>
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content={primaryColor} />
-        <link rel="icon" href={faviconUrl} />
-        <link rel="shortcut icon" href={faviconUrl} />
-        <link rel="apple-touch-icon" href={faviconUrl} />
         {/* Inline script to apply cached brand settings immediately, before React loads */}
         <script
           dangerouslySetInnerHTML={{
@@ -64,10 +52,12 @@ export default async function RootLayout({
 
                       const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.favicon_url);
 
-                      // Apply branding: CUSTOM ALWAYS TAKES PRIORITY
-                      // Only apply defaults when 100% confirmed no custom branding exists in database
-                      const shouldApplyBranding = hasCustom || confirmedNoCustom;
-                      if (shouldApplyBranding) {
+                      // CUSTOM BRANDING ALWAYS TAKES PRIORITY
+                      // Only apply defaults when 100% confirmed no custom branding exists
+                      if (hasCustom) {
+                        // Apply custom branding immediately
+                        const primaryColor = s.primary_color || null;
+                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : null;
                         const primaryColor = s.primary_color || (confirmedNoCustom ? '#000000' : null);
                         const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
 
@@ -139,6 +129,37 @@ export default async function RootLayout({
                             faviconLinks[i].href = faviconUrl;
                           }
                         }
+                      } else if (confirmedNoCustom) {
+                        // Only apply defaults when 100% confirmed no custom branding exists
+                        const primaryColor = '#000000';
+                        const faviconUrl = 'https://cldup.com/Jnah6-hWcg.png';
+
+                        // Apply CSS variables immediately
+                        document.documentElement.style.setProperty('--primary', primaryColor);
+                        document.documentElement.style.setProperty('--color-primary', primaryColor);
+
+                        // Convert hex to RGB for --primary-rgb
+                        const hex = primaryColor.replace('#', '');
+                        if (hex.length === 6) {
+                          const r = parseInt(hex.substring(0, 2), 16);
+                          const g = parseInt(hex.substring(2, 4), 16);
+                          const b = parseInt(hex.substring(4, 6), 16);
+                          if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                            document.documentElement.style.setProperty('--primary-rgb', r + ', ' + g + ', ' + b);
+                          }
+                        }
+
+                        // Update favicon links immediately
+                        var faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
+                        for (var i = 0; i < faviconLinks.length; i++) {
+                          faviconLinks[i].href = faviconUrl;
+                        }
+
+                        // Set default title
+                        document.documentElement.setAttribute('data-platform-name-en', 'ElectivePRO');
+                        document.documentElement.setAttribute('data-platform-name-ru', 'ElectivePRO');
+                        document.documentElement.setAttribute('data-platform-name', 'ElectivePRO');
+                        document.title = 'ElectivePRO';
                       }
                     }
                   }
