@@ -36,7 +36,7 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { uploadStatement } from "@/lib/file-utils"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelCourseSelection } from "@/app/actions/student-selections"
@@ -237,70 +237,33 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     setFetchError(null)
 
     try {
-      const supabase = getSupabaseBrowserClient()
-      
-      // First, try to fetch without group_id filter to see if the pack exists
-      const { data: ecDataCheck, error: checkError } = await supabase
-        .from("elective_courses")
-        .select("id, name, group_id, status")
-        .eq("id", packId)
-        .maybeSingle()
-
-      if (checkError) {
-        console.error("Error checking elective course:", checkError)
-        throw checkError
-      }
-
-      if (!ecDataCheck) {
-        console.error(`Elective course pack not found with id: ${packId}`)
-        throw new Error(t("student.courses.packNotFound"))
-      }
-
-      // Log what we found for debugging
-      console.log("Found elective course:", {
-        id: ecDataCheck.id,
-        name: ecDataCheck.name,
-        group_id: ecDataCheck.group_id,
-        student_group_id: profile.group.id,
-        status: ecDataCheck.status,
-      })
-
-      // Check if group_id matches
-      if (ecDataCheck.group_id !== profile.group.id) {
-        console.error(`Group mismatch: pack group_id=${ecDataCheck.group_id}, student group_id=${profile.group.id}`)
-        throw new Error(t("student.courses.packNotFound"))
-      }
-
-      // Check if status is published
-      if (ecDataCheck.status !== "published") {
-        console.error(`Status mismatch: pack status=${ecDataCheck.status}, expected=published`)
-        throw new Error(t("student.courses.packNotFound"))
-      }
-
-      // Now fetch the full data
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
       const { data: ecData, error: ecError } = await supabase
         .from("elective_courses")
         .select("*")
         .eq("id", packId)
         .eq("group_id", profile.group.id)
         .eq("status", "published")
-        .single()
 
-      if (ecError) {
-        console.error("Error fetching elective course:", ecError)
-        throw ecError
-      }
-      
-      if (!ecData) {
-        throw new Error(t("student.courses.packNotFound"))
-      }
+      if (ecError) throw ecError
+      if (!ecData || ecData.length === 0) throw new Error(t("student.courses.packNotFound"))
+      if (ecData.length > 1) throw new Error(t("student.courses.multiplePacksFound"))
 
-      setElectiveCourseData(ecData)
+      const packData = ecData[0]
+      setElectiveCourseData(packData)
 
       let courseUuids: string[] = []
-      // courses is a uuid[] array in the schema, not JSON
-      if (ecData.courses && Array.isArray(ecData.courses)) {
-        courseUuids = ecData.courses.map((id: any) => String(id))
+      if (packData.courses && typeof packData.courses === "string") {
+        try {
+          const parsed = JSON.parse(packData.courses)
+          if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+            courseUuids = parsed
+          }
+        } catch (e) {
+          console.error("Error parsing 'courses' JSON from elective_courses:", e)
+        }
+      } else if (Array.isArray(packData.courses) && packData.courses.every((item: any) => typeof item === "string")) {
+        courseUuids = packData.courses
       }
 
       if (courseUuids.length > 0) {
@@ -370,7 +333,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   useEffect(() => {
     if (!profile?.id || !packId) return
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     const channel = supabase
       .channel(`student-course-${packId}`)
@@ -476,7 +439,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
     setSubmitting(true)
     try {
-      const supabase = getSupabaseBrowserClient()
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
       let statementUrlToSave = existingSelectionRecord?.statement_url
 
       if (uploadedStatement) {

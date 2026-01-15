@@ -38,7 +38,7 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/language-context"
 import { useToast } from "@/hooks/use-toast"
 import { uploadStatement } from "@/lib/file-utils"
-import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelExchangeSelection } from "@/app/actions/student-exchange-selections"
@@ -168,65 +168,22 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     setFetchError(null)
 
     try {
-      const supabase = getSupabaseBrowserClient()
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-      // First, try to fetch without group_id filter to see if the pack exists
-      const { data: packDataCheck, error: checkError } = await supabase
-        .from("elective_exchange")
-        .select("id, name, group_id, status")
-        .eq("id", packId)
-        .maybeSingle()
-
-      if (checkError) {
-        console.error("Error checking exchange program:", checkError)
-        throw checkError
-      }
-
-      if (!packDataCheck) {
-        console.error(`Exchange program not found with id: ${packId}`)
-        throw new Error(t("student.exchange.programNotFound"))
-      }
-
-      // Log what we found for debugging
-      console.log("Found exchange program:", {
-        id: packDataCheck.id,
-        name: packDataCheck.name,
-        group_id: packDataCheck.group_id,
-        student_group_id: profile.group.id,
-        status: packDataCheck.status,
-      })
-
-      // Check if group_id matches
-      if (packDataCheck.group_id !== profile.group.id) {
-        console.error(`Group mismatch: pack group_id=${packDataCheck.group_id}, student group_id=${profile.group.id}`)
-        throw new Error(t("student.exchange.programNotFound"))
-      }
-
-      // Check if status is published
-      if (packDataCheck.status !== "published") {
-        console.error(`Status mismatch: pack status=${packDataCheck.status}, expected=published`)
-        throw new Error(t("student.exchange.programNotFound"))
-      }
-
-      // Now fetch the full data
+      // Fetch exchange pack data
       const { data: packData, error: packError } = await supabase
         .from("elective_exchange")
         .select("*")
         .eq("id", packId)
         .eq("group_id", profile.group.id)
         .eq("status", "published")
-        .single()
 
-      if (packError) {
-        console.error("Error fetching exchange program:", packError)
-        throw packError
-      }
-      
-      if (!packData) {
-        throw new Error(t("student.exchange.programNotFound"))
-      }
+      if (packError) throw packError
+      if (!packData || packData.length === 0) throw new Error(t("student.exchange.programNotFound"))
+      if (packData.length > 1) throw new Error(t("student.exchange.multipleProgramsFound"))
 
-      setExchangePackData(packData)
+      const exchangePackData = packData[0]
+      setExchangePackData(exchangePackData)
 
       // Fetch universities using the UUIDs from the universities column
       const universityUuids = exchangePackData.universities || []
@@ -288,7 +245,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   useEffect(() => {
     if (!profile?.id || !packId) return
 
-    const supabase = getSupabaseBrowserClient()
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     const channel = supabase
       .channel(`student-exchange-${packId}`)
@@ -393,7 +350,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
     setSubmitting(true)
     try {
-      const supabase = getSupabaseBrowserClient()
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
       let statementUrlToSave = existingSelection?.statement_url
 
       if (uploadedStatement) {
