@@ -1,4 +1,10 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export interface Database {
   public: {
@@ -46,6 +52,107 @@ export interface Database {
           },
         ]
       }
+      courses: {
+        Row: {
+          id: string
+          name: string
+          name_ru: string | null
+          description: string | null
+          description_ru: string | null
+          max_students: number
+          status: string
+          created_at: string
+          updated_at: string
+          instructor_en: string | null
+          instructor_ru: string | null
+          degree_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_ru?: string | null
+          description?: string | null
+          description_ru?: string | null
+          max_students?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+          instructor_en?: string | null
+          instructor_ru?: string | null
+          degree_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_ru?: string | null
+          description?: string | null
+          description_ru?: string | null
+          max_students?: number
+          status?: string
+          created_at?: string
+          updated_at?: string
+          instructor_en?: string | null
+          instructor_ru?: string | null
+          degree_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courses_degree_id_fkey"
+            columns: ["degree_id"]
+            referencedRelation: "degrees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_selections: {
+        Row: {
+          id: string
+          student_id: string
+          elective_courses_id: string
+          status: string
+          statement_url: string | null
+          created_at: string
+          updated_at: string
+          selected_course_ids: string[] | null
+          authorized_by: string | null
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          elective_courses_id: string
+          status?: string
+          statement_url?: string | null
+          created_at?: string
+          updated_at?: string
+          selected_course_ids?: string[] | null
+          authorized_by?: string | null
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          elective_courses_id?: string
+          status?: string
+          statement_url?: string | null
+          created_at?: string
+          updated_at?: string
+          selected_course_ids?: string[] | null
+          authorized_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_selections_elective_courses_id_fkey"
+            columns: ["elective_courses_id"]
+            referencedRelation: "elective_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_selections_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       degrees: {
         Row: {
           id: string
@@ -89,36 +196,222 @@ export interface Database {
           },
         ]
       }
+      elective_courses: {
+        Row: {
+          id: string
+          name: string
+          name_ru: string | null
+          status: string
+          created_at: string
+          updated_at: string
+          academic_year: string | null
+          semester: string | null
+          created_by: string | null
+          deadline: string | null
+          max_selections: number
+          syllabus_template_url: string | null
+          courses: string[] | null
+          group_id: string | null
+          requires_statement: boolean
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_ru?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+          academic_year?: string | null
+          semester?: string | null
+          created_by?: string | null
+          deadline?: string | null
+          max_selections?: number
+          syllabus_template_url?: string | null
+          courses?: string[] | null
+          group_id?: string | null
+          requires_statement?: boolean
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_ru?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+          academic_year?: string | null
+          semester?: string | null
+          created_by?: string | null
+          deadline?: string | null
+          max_selections?: number
+          syllabus_template_url?: string | null
+          courses?: string[] | null
+          group_id?: string | null
+          requires_statement?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elective_courses_academic_year_fkey"
+            columns: ["academic_year"]
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elective_courses_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elective_courses_group_id_fkey"
+            columns: ["group_id"]
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elective_exchange: {
+        Row: {
+          id: string
+          name: string
+          name_ru: string | null
+          semester: string
+          academic_year: string
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          deadline: string | null
+          max_selections: number
+          statement_template_url: string | null
+          universities: string[] | null
+          group_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_ru?: string | null
+          semester: string
+          academic_year: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deadline?: string | null
+          max_selections?: number
+          statement_template_url?: string | null
+          universities?: string[] | null
+          group_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_ru?: string | null
+          semester?: string
+          academic_year?: string
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          deadline?: string | null
+          max_selections?: number
+          statement_template_url?: string | null
+          universities?: string[] | null
+          group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elective_exchange_academic_year_fkey"
+            columns: ["academic_year"]
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elective_exchange_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "elective_exchange_group_id_fkey"
+            columns: ["group_id"]
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_selections: {
+        Row: {
+          id: string
+          student_id: string
+          elective_exchange_id: string
+          status: string
+          statement_url: string | null
+          created_at: string
+          updated_at: string
+          selected_university_ids: string[] | null
+          authorized_by: string | null
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          elective_exchange_id: string
+          status?: string
+          statement_url?: string | null
+          created_at?: string
+          updated_at?: string
+          selected_university_ids?: string[] | null
+          authorized_by?: string | null
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          elective_exchange_id?: string
+          status?: string
+          statement_url?: string | null
+          created_at?: string
+          updated_at?: string
+          selected_university_ids?: string[] | null
+          authorized_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_selections_student_id_fkey"
+            columns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exchange_selections_elective_exchange_id_fkey"
+            columns: ["elective_exchange_id"]
+            referencedRelation: "elective_exchange"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           id: string
-          institution_id: string
-          program_id: string
+          degree_id: string
           academic_year_id: string
           name: string
-          display_name: string
           status: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          institution_id: string
-          program_id: string
+          degree_id: string
           academic_year_id: string
           name: string
-          display_name: string
           status?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          institution_id?: string
-          program_id?: string
+          degree_id?: string
           academic_year_id?: string
           name?: string
-          display_name?: string
           status?: string
           created_at?: string
           updated_at?: string
@@ -131,15 +424,9 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "groups_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "institutions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "groups_program_id_fkey"
-            columns: ["program_id"]
-            referencedRelation: "programs"
+            foreignKeyName: "groups_degree_id_fkey"
+            columns: ["degree_id"]
+            referencedRelation: "degrees"
             referencedColumns: ["id"]
           },
         ]
@@ -284,6 +571,33 @@ export interface Database {
           },
         ]
       }
+      semesters: {
+        Row: {
+          id: string
+          name: string
+          name_ru: string
+          code: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_ru: string
+          code: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_ru?: string
+          code?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       programs: {
         Row: {
           id: string
@@ -376,290 +690,6 @@ export interface Database {
           },
         ]
       }
-      // Add elective-related tables here
-      elective_packs: {
-        Row: {
-          id: string
-          institution_id: string
-          name: string
-          name_ru: string | null
-          description: string | null
-          description_ru: string | null
-          type: string
-          status: string
-          academic_year_id: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          institution_id: string
-          name: string
-          name_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          type: string
-          status?: string
-          academic_year_id: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          institution_id?: string
-          name?: string
-          name_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          type?: string
-          status?: string
-          academic_year_id?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "elective_packs_academic_year_id_fkey"
-            columns: ["academic_year_id"]
-            referencedRelation: "academic_years"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "elective_packs_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "institutions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      courses: {
-        Row: {
-          id: string
-          institution_id: string
-          elective_pack_id: string | null
-          name: string
-          name_ru: string | null
-          degree_id: string | null
-          instructor_en: string | null
-          instructor_ru: string | null
-          description: string | null
-          description_ru: string | null
-          max_students: number
-          status: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          institution_id: string
-          elective_pack_id?: string | null
-          name: string
-          name_ru?: string | null
-          degree_id?: string | null
-          instructor_en?: string | null
-          instructor_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          max_students?: number
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          institution_id?: string
-          elective_pack_id?: string | null
-          name?: string
-          name_ru?: string | null
-          degree_id?: string | null
-          instructor_en?: string | null
-          instructor_ru?: string | null
-          description?: string | null
-          description_ru?: string | null
-          max_students?: number
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "courses_elective_pack_id_fkey"
-            columns: ["elective_pack_id"]
-            referencedRelation: "elective_packs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "courses_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "institutions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      program_electives: {
-        Row: {
-          id: string
-          program_id: string
-          elective_pack_id: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          program_id: string
-          elective_pack_id: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          program_id?: string
-          elective_pack_id?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "program_electives_elective_pack_id_fkey"
-            columns: ["elective_pack_id"]
-            referencedRelation: "elective_packs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "program_electives_program_id_fkey"
-            columns: ["program_id"]
-            referencedRelation: "programs"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      student_selections: {
-        Row: {
-          id: string
-          student_id: string
-          elective_pack_id: string
-          status: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          elective_pack_id: string
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          elective_pack_id?: string
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_selections_elective_pack_id_fkey"
-            columns: ["elective_pack_id"]
-            referencedRelation: "elective_packs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_selections_student_id_fkey"
-            columns: ["student_id"]
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      selection_courses: {
-        Row: {
-          id: string
-          selection_id: string
-          course_id: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          selection_id: string
-          course_id: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          selection_id?: string
-          course_id?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "selection_courses_course_id_fkey"
-            columns: ["course_id"]
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "selection_courses_selection_id_fkey"
-            columns: ["selection_id"]
-            referencedRelation: "student_selections"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      elective_exchange: {
-        Row: {
-          id: string
-          name: string
-          name_ru: string | null
-          semester: string
-          academic_year: string
-          status: string
-          created_by: string | null
-          created_at: string
-          updated_at: string
-          deadline: string
-          max_selections: number
-          statement_template_url: string | null
-          universities: string[] // Array of university IDs
-          group_id: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          name_ru?: string | null
-          semester: string
-          academic_year: string
-          status?: string
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-          deadline: string
-          max_selections?: number
-          statement_template_url?: string | null
-          universities?: string[]
-          group_id?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          name_ru?: string | null
-          semester?: string
-          academic_year?: string
-          status?: string
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-          deadline?: string
-          max_selections?: number
-          statement_template_url?: string | null
-          universities?: string[]
-          group_id?: string | null
-        }
-      }
       universities: {
         Row: {
           id: string
@@ -697,78 +727,6 @@ export interface Database {
           description?: string | null
           description_ru?: string | null
           status?: string
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      exchange_selections: {
-        Row: {
-          id: string
-          student_id: string
-          elective_exchange_id: string
-          selected_universities: string[] // Array of university IDs
-          statement_url: string | null
-          status: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          elective_exchange_id: string
-          selected_universities: string[]
-          statement_url?: string | null
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          elective_exchange_id?: string
-          selected_universities?: string[]
-          statement_url?: string | null
-          status?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exchange_selections_student_id_fkey"
-            columns: ["student_id"]
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "exchange_selections_elective_exchange_id_fkey"
-            columns: ["elective_exchange_id"]
-            referencedRelation: "elective_exchange"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      countries: {
-        Row: {
-          id: string
-          name: string
-          name_ru: string | null
-          code: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          name_ru?: string | null
-          code: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          name_ru?: string | null
-          code?: string
           created_at?: string
           updated_at?: string
         }

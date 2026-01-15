@@ -1,7 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
+import { createServerClient } from "@supabase/ssr"
 import { redirect } from "next/navigation"
 import { supabaseAdmin } from "@/lib/supabase"
 
@@ -16,7 +16,20 @@ export async function signIn(formData: FormData) {
 
   // For server actions, we need to create a new client each time
   // This is fine because it's server-side and won't cause the GoTrueClient warning
-  const supabase = createServerActionClient({ cookies })
+  const cookieStore = await cookies()
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value
+      },
+      set(name: string, value: string, options: any) {
+        cookieStore.set(name, value, options)
+      },
+      remove(name: string, options: any) {
+        cookieStore.delete(name, options)
+      },
+    },
+  })
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -78,7 +91,19 @@ export async function signUp(formData: FormData) {
   }
 
   // For server actions, we need to create a new client each time
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      get(name: string) {
+        return cookies().get(name)?.value
+      },
+      set(name: string, value: string, options: any) {
+        cookies().set(name, value, options)
+      },
+      remove(name: string, options: any) {
+        cookies().delete(name, options)
+      },
+    },
+  })
 
   try {
     // Create user in auth
@@ -198,7 +223,19 @@ export async function signUp(formData: FormData) {
 }
 
 export async function signOut() {
-  const supabase = createServerActionClient({ cookies })
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: {
+      get(name: string) {
+        return cookies().get(name)?.value
+      },
+      set(name: string, value: string, options: any) {
+        cookies().set(name, value, options)
+      },
+      remove(name: string, options: any) {
+        cookies().delete(name, options)
+      },
+    },
+  })
   await supabase.auth.signOut()
   redirect("/")
 }
