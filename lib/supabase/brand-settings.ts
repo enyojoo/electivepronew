@@ -19,21 +19,21 @@ function getContactEmail(): string {
 }
 
 export interface BrandSettings {
-  platformName: string
+  platformName: string | null
   platformDescription: string
-  logo: string
-  favicon: string
-  primaryColor: string
-  institutionName: string
+  logo: string | null
+  favicon: string | null
+  primaryColor: string | null
+  institutionName: string | null
   contactEmail: string
   appUrl: string
 }
 
 /**
- * Get brand settings with smart fallback logic
- * - If no record exists: Use defaults
- * - If record exists but no custom branding set: Use defaults
- * - If any custom branding is set: Use custom values where provided, defaults for empty fields
+ * Get brand settings with no-flash logic
+ * - Return null/empty values during loading to prevent default flash
+ * - Only show defaults after confirming from database that no custom branding exists
+ * - Store raw database values, apply defaults only when confirmed
  */
 export async function getBrandSettings(): Promise<BrandSettings> {
   // Since there's only one settings row, select without filtering by ID
@@ -43,8 +43,9 @@ export async function getBrandSettings(): Promise<BrandSettings> {
     .limit(1)
     .maybeSingle()
 
-  // If no record exists at all, use defaults
-  if (!platformSettings || error) {
+  // If we get a "not found" error (PGRST116), we can confirm no custom branding exists
+  if (error && error.code === "PGRST116") {
+    // Confirmed no custom branding exists - safe to use defaults
     return {
       platformName: DEFAULT_PLATFORM_NAME,
       platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
@@ -57,31 +58,49 @@ export async function getBrandSettings(): Promise<BrandSettings> {
     }
   }
 
-  // Check if ANY custom brand setting has been set
-  const hasCustomBranding = !!(
-    platformSettings.name ||
-    platformSettings.logo_url ||
-    platformSettings.favicon_url ||
-    platformSettings.primary_color
-  )
-
-  // If admin has set custom branding, use custom values where set
-  // Empty/null values fallback to defaults
-  if (hasCustomBranding) {
-    const customName = platformSettings.name || DEFAULT_PLATFORM_NAME
+  // If any other error or no data, return null values to prevent flash
+  // Don't show defaults until we've confirmed no custom branding exists
+  if (!platformSettings || error) {
     return {
-      platformName: customName, // Use custom name for emails and platform references
+      platformName: null,
       platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
-      logo: platformSettings.logo_url || DEFAULT_LOGO_URL,
-      favicon: platformSettings.favicon_url || DEFAULT_FAVICON_URL,
-      primaryColor: platformSettings.primary_color || DEFAULT_PRIMARY_COLOR,
-      institutionName: customName,
+      logo: null,
+      favicon: null,
+      primaryColor: null,
+      institutionName: null,
       contactEmail: getContactEmail(),
       appUrl: getAppUrl(),
     }
   }
 
-  // No custom branding set - use defaults
+  // Check if ANY custom brand setting has been set in database
+  const hasCustomBranding = !!(
+    platformSettings.name ||
+    platformSettings.name_ru ||
+    platformSettings.logo_url ||
+    platformSettings.logo_url_en ||
+    platformSettings.logo_url_ru ||
+    platformSettings.favicon_url ||
+    platformSettings.primary_color
+  )
+
+  // If custom branding exists, return raw database values
+  // Client-side hooks will apply defaults only when confirmed
+  if (hasCustomBranding) {
+    return {
+      platformName: platformSettings.name || null, // Return null if empty, let client decide
+      platformDescription: DEFAULT_PLATFORM_DESCRIPTION,
+      logo: platformSettings.logo_url || null,
+      favicon: platformSettings.favicon_url || null,
+      primaryColor: platformSettings.primary_color || null,
+      institutionName: platformSettings.name || null,
+      contactEmail: getContactEmail(),
+      appUrl: getAppUrl(),
+    }
+  }
+
+  // No custom branding set in database - we've confirmed no custom branding exists
+  // Safe to use defaults
   return {
     platformName: DEFAULT_PLATFORM_NAME,
     platformDescription: DEFAULT_PLATFORM_DESCRIPTION,

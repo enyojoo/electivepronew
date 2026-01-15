@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useBrand } from "@/lib/brand-context"
+import { useState, useEffect, useCallback } from "react"
 import { useLanguage } from "@/lib/language-context"
 import {
   DEFAULT_PLATFORM_NAME,
@@ -26,24 +25,132 @@ export interface BrandSettings {
   hasData: boolean
 }
 
+const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
+const BRAND_SETTINGS_VERSION = "2" // Increment to invalidate old cache
+
+// Helper to get cached settings from localStorage
+function getCachedSettings(): any | null {
+  if (typeof window === "undefined") return null
+
+  try {
+    const cached = localStorage.getItem(BRAND_SETTINGS_STORAGE_KEY)
+    if (!cached) return null
+
+    const parsed = JSON.parse(cached)
+    // Check version to ensure cache is still valid
+    if (parsed.version !== BRAND_SETTINGS_VERSION) {
+      localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
+      return null
+    }
+
+    return parsed.settings as any
+  } catch {
+    return null
+  }
+}
+
+// Helper to save settings to localStorage
+function saveCachedSettings(settings: any) {
+  if (typeof window === "undefined") return
+
+  try {
+    localStorage.setItem(
+      BRAND_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        version: BRAND_SETTINGS_VERSION,
+        settings,
+        timestamp: Date.now(),
+      })
+    )
+  } catch {
+    // Ignore localStorage errors (e.g., quota exceeded)
+  }
+}
+
+/**
+ * React hook for brand settings with no-flash logic
+ * Returns empty strings during loading to prevent default flash
+ */
 export function useBrandSettings(): BrandSettings {
-  const { settings, isLoading } = useBrand()
   const { language } = useLanguage()
+  const [settings, setSettings] = useState<any>(getCachedSettings)
+  const [isLoading, setIsLoading] = useState(true)
   const [hasConfirmedData, setHasConfirmedData] = useState(false)
 
-  // Track when we've confirmed data from database
-  // Also update when settings change (for real-time updates)
+  // Fetch brand settings from API
+  const fetchBrandSettings = useCallback(async () => {
+    try {
+      const response = await fetch("/api/brand-settings")
+      if (!response.ok) return { platformSettings: null }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("Error fetching brand settings:", error)
+      return { platformSettings: null }
+    }
+  }, [])
+
+  // Load settings on mount
   useEffect(() => {
-    if (!isLoading && settings !== null) {
+    let mounted = true
+
+    const loadSettings = async () => {
+      try {
+        const data = await fetchBrandSettings()
+        if (!mounted) return
+
+        const platformSettings = data?.platformSettings || null
+
+        // Check if ANY custom branding exists in database
+        const hasCustomInDb = platformSettings && !!(
+          platformSettings.name ||
+          platformSettings.name_ru ||
+          platformSettings.logo_url ||
+          platformSettings.logo_url_en ||
+          platformSettings.logo_url_ru ||
+          platformSettings.favicon_url ||
+          platformSettings.primary_color
+        )
+
+        // Mark that we've confirmed from Supabase
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("epro-brand-confirmed", "true")
+            localStorage.setItem("epro-brand-has-custom", hasCustomInDb ? "true" : "false")
+          } catch {
+            // Ignore localStorage errors
+          }
+        }
+
+        // Cache the settings
+        saveCachedSettings(platformSettings)
+
+        setSettings(platformSettings)
+        setHasConfirmedData(true)
+      } catch (error) {
+        console.error("Error loading brand settings:", error)
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    // Use cached data immediately if available
+    const cached = getCachedSettings()
+    if (cached) {
+      setSettings(cached)
       setHasConfirmedData(true)
     }
-  }, [isLoading, settings])
-  
-  // Force re-render when settings change to ensure logo updates
-  useEffect(() => {
-    // This effect ensures the component re-renders when settings change
-    // The dependency on settings will trigger a re-render
-  }, [settings])
+
+    // Always fetch fresh data (background update)
+    loadSettings()
+
+    return () => {
+      mounted = false
+    }
+  }, [fetchBrandSettings])
 
   // Check if any custom branding is set
   const hasCustomBranding =
@@ -58,22 +165,13 @@ export function useBrandSettings(): BrandSettings {
       settings?.primary_color
     )
 
-  // Helper function to get value with smart fallback (language-aware)
+  // CRITICAL: Return empty strings during loading to prevent default flash
   const getValue = (
     customValueEn: string | null | undefined,
     customValueRu: string | null | undefined,
-    defaultValue: string,
-    dataAttrKey: string
+    defaultValue: string
   ): string => {
-    // If we haven't confirmed data yet, try to read from data attribute (synchronous, prevents flicker)
-    if (!hasConfirmedData && typeof document !== "undefined") {
-      const cachedValue = document.documentElement.getAttribute(dataAttrKey)
-      if (cachedValue) {
-        return cachedValue
-      }
-      // Return empty string to show skeleton if no cache
-      return ""
-    }
+    if (isLoading || !hasConfirmedData) return "" // No defaults during loading!
 
     // If we've confirmed no custom branding exists, use default for both languages
     if (hasConfirmedData && !hasCustomBranding) {
@@ -94,22 +192,12 @@ export function useBrandSettings(): BrandSettings {
       return defaultValue
     }
 
-    // Fallback to default
-    return defaultValue
+    return "" // Custom branding exists but value is empty
   }
 
   // Helper function to get logo URL (language-aware with fallback chain)
   const getLogoUrl = (): string => {
-    // If we haven't confirmed data yet, try to read from data attribute
-    if (!hasConfirmedData && typeof document !== "undefined") {
-      const cachedLogo = document.documentElement.getAttribute(
-        language === "ru" ? "data-logo-url-ru" : "data-logo-url-en"
-      ) || document.documentElement.getAttribute("data-logo-url")
-      if (cachedLogo) {
-        return cachedLogo
-      }
-      return ""
-    }
+    if (isLoading || !hasConfirmedData) return "" // No defaults during loading!
 
     // If no custom branding exists, use default for both languages
     if (hasConfirmedData && !hasCustomBranding) {
@@ -136,16 +224,14 @@ export function useBrandSettings(): BrandSettings {
       return DEFAULT_LOGO_URL
     }
 
-    // Fallback to default
-    return DEFAULT_LOGO_URL
+    return "" // Custom branding exists but no logo
   }
 
   // Get platform name - language-aware
   const platformNameValue = getValue(
     settings?.name,
     settings?.name_ru,
-    DEFAULT_PLATFORM_NAME,
-    language === "ru" ? "data-platform-name-ru" : "data-platform-name-en"
+    DEFAULT_PLATFORM_NAME
   )
 
   return {
@@ -155,14 +241,12 @@ export function useBrandSettings(): BrandSettings {
     favicon: getValue(
       settings?.favicon_url,
       null, // Favicon doesn't have language variants
-      DEFAULT_FAVICON_URL,
-      "data-favicon-url"
+      DEFAULT_FAVICON_URL
     ),
     primaryColor: getValue(
       settings?.primary_color,
       null, // Color doesn't have language variants
-      DEFAULT_PRIMARY_COLOR,
-      "data-primary-color"
+      DEFAULT_PRIMARY_COLOR
     ),
     institutionName: platformNameValue,
     contactEmail: DEFAULT_CONTACT_EMAIL,

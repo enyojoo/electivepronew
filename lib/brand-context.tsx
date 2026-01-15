@@ -29,7 +29,7 @@ interface BrandContextType {
 const BrandContext = createContext<BrandContextType | undefined>(undefined)
 
 const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
-const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
+const BRAND_SETTINGS_VERSION = "2" // Increment to invalidate old cache
 
 // Helper to get cached settings from localStorage
 function getCachedSettings(): BrandSettings | null {
@@ -108,12 +108,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         }
         
         // Apply other branding settings (colors, logos, favicons)
-        const primaryColor = cached.primary_color || DEFAULT_PRIMARY_COLOR
-        const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : DEFAULT_FAVICON_URL
+        // CRITICAL: Don't use defaults during loading - only apply cached custom values
+        const primaryColor = cached.primary_color || null
+        const faviconUrl = cached.favicon_url && /^https?:\/\//.test(cached.favicon_url) ? cached.favicon_url : null
         const logoUrlEn = cached.logo_url_en && /^https?:\/\//.test(cached.logo_url_en) ? cached.logo_url_en :
-                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : null)
         const logoUrlRu = cached.logo_url_ru && /^https?:\/\//.test(cached.logo_url_ru) ? cached.logo_url_ru :
-                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : DEFAULT_LOGO_URL)
+                         (cached.logo_url && /^https?:\/\//.test(cached.logo_url) ? cached.logo_url : null)
         
         // Store logo URLs in data attributes
         document.documentElement.setAttribute("data-logo-url-en", logoUrlEn)
@@ -265,6 +266,11 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       // Only use defaults if we've confirmed from database that no custom branding exists
       let nameEn = brandSettings.name || ""
       let nameRu = brandSettings.name_ru || ""
+
+      // If Russian name is not set but English name is, use English name for both languages
+      if (!nameRu && nameEn) {
+        nameRu = nameEn
+      }
       
       // Only use defaults if we've confirmed from Supabase that no custom branding exists
       if (confirmedNoCustom && !nameEn && !nameRu) {
