@@ -64,14 +64,13 @@ export default async function RootLayout({
 
                       const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.favicon_url);
 
-                      // Apply branding in this order of priority:
-                      // 1. Custom branding from cache (if exists) - apply instantly
-                      // 2. Default branding ONLY when confirmed no custom exists in database
+                      // Apply branding: CUSTOM ALWAYS TAKES PRIORITY
+                      // Only apply defaults when 100% confirmed no custom branding exists in database
                       const shouldApplyBranding = hasCustom || confirmedNoCustom;
                       if (shouldApplyBranding) {
                         const primaryColor = s.primary_color || (confirmedNoCustom ? '#000000' : null);
                         const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
-                        
+
                         // Get current language from localStorage
                         let currentLanguage = 'en';
                         try {
@@ -82,39 +81,45 @@ export default async function RootLayout({
                         } catch (e) {
                           // Ignore localStorage errors
                         }
-                        
-                        // Use language-specific name - apply defaults ONLY when confirmed no custom branding exists
+
+                        // Handle names: if English exists but Russian doesn't, use English for both
                         let nameEn = s.name || '';
                         let nameRu = s.name_ru || '';
-                        if (confirmedNoCustom && !nameEn && !nameRu) {
+
+                        // If we have custom branding, ensure names are set
+                        if (hasCustom) {
+                          if (nameEn && !nameRu) {
+                            nameRu = nameEn; // Use English name for Russian if Russian not set
+                          }
+                        } else if (confirmedNoCustom) {
+                          // Only apply defaults when confirmed no custom branding exists
                           nameEn = 'ElectivePRO';
                           nameRu = 'ElectivePRO';
                         }
-                        // Priority: Russian name (if language is Russian) > English name > default
-                        let name = '';
+
+                        // Determine display name based on language priority
+                        let displayName = '';
                         if (currentLanguage === 'ru' && nameRu) {
-                          name = nameRu;
+                          displayName = nameRu;
                         } else if (nameEn) {
-                          name = nameEn;
+                          displayName = nameEn;
                         } else if (confirmedNoCustom) {
-                          name = 'ElectivePRO';
+                          displayName = 'ElectivePRO';
                         }
-                        
-                        // Only set if we have values
-                        if (nameEn || nameRu) {
-                          document.documentElement.setAttribute('data-platform-name-en', nameEn || '');
-                          document.documentElement.setAttribute('data-platform-name-ru', nameRu || '');
-                          if (name) {
-                            document.documentElement.setAttribute('data-platform-name', name);
-                            document.title = name;
-                          }
+
+                        // Always set the attributes if we have any branding to apply
+                        if (hasCustom || confirmedNoCustom) {
+                          document.documentElement.setAttribute('data-platform-name-en', nameEn);
+                          document.documentElement.setAttribute('data-platform-name-ru', nameRu);
+                          document.documentElement.setAttribute('data-platform-name', displayName);
+                          document.title = displayName;
                         }
-                        
+
                         // Apply CSS variables immediately (only if we have values)
                         if (primaryColor) {
                           document.documentElement.style.setProperty('--primary', primaryColor);
                           document.documentElement.style.setProperty('--color-primary', primaryColor);
-                        
+
                           // Convert hex to RGB for --primary-rgb
                           const hex = primaryColor.replace('#', '');
                           if (hex.length === 6) {
@@ -126,7 +131,7 @@ export default async function RootLayout({
                             }
                           }
                         }
-                        
+
                         // Update favicon links immediately (only if we have a URL)
                         if (faviconUrl) {
                           var faviconLinks = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');

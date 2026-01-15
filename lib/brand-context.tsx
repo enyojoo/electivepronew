@@ -31,21 +31,31 @@ const BrandContext = createContext<BrandContextType | undefined>(undefined)
 const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
 const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
 
+// Cache expiry time: 7 days (much longer than before)
+const BRAND_CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+
 // Helper to get cached settings from localStorage
 function getCachedSettings(): BrandSettings | null {
   if (typeof window === "undefined") return null
-  
+
   try {
     const cached = localStorage.getItem(BRAND_SETTINGS_STORAGE_KEY)
     if (!cached) return null
-    
+
     const parsed = JSON.parse(cached)
     // Check version to ensure cache is still valid
     if (parsed.version !== BRAND_SETTINGS_VERSION) {
       localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
       return null
     }
-    
+
+    // Check if cache has expired
+    const now = Date.now()
+    if (parsed.timestamp && (now - parsed.timestamp) > BRAND_CACHE_EXPIRY) {
+      localStorage.removeItem(BRAND_SETTINGS_STORAGE_KEY)
+      return null
+    }
+
     return parsed.settings as BrandSettings
   } catch {
     return null
@@ -392,8 +402,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Always update settings from database (even if same as cache)
-        // This ensures custom settings are applied even after cache clear
+        // Update settings from database only when there are changes
         setSettings((prev) => {
           const hasChanged =
             prev?.name !== brandSettings.name ||
@@ -404,17 +413,21 @@ export function BrandProvider({ children }: { children: ReactNode }) {
             prev?.logo_url_ru !== brandSettings.logo_url_ru ||
             prev?.favicon_url !== brandSettings.favicon_url
 
-          // Always save to cache and apply branding when loading from DB
-          // This ensures cache is populated even if settings haven't changed
-          saveCachedSettings(brandSettings)
-          
-          // Only apply branding if we have custom branding OR we've confirmed no custom branding exists
-          if (hasCustomInDb || (!data && error?.code === "PGRST116")) {
-            // If we have custom branding, apply it
-            // If we got PGRST116 (not found), we've confirmed no custom branding exists, so apply defaults
+          // Only save to cache when settings have actually changed from database
+          // This preserves cache longer and only updates when there are real changes
+          if (hasChanged) {
+            saveCachedSettings(brandSettings)
+          }
+
+          // Apply branding based on what we have from database
+          if (hasCustomInDb) {
+            // Custom branding exists - apply it
+            applyBranding(brandSettings)
+          } else if (!data && error?.code === "PGRST116") {
+            // No custom branding exists in database - apply defaults
             applyBranding(brandSettings)
           }
-          
+
           if (hasChanged || !prev) {
             // Settings changed or this is first load - update state
             return brandSettings
