@@ -31,8 +31,8 @@ const BrandContext = createContext<BrandContextType | undefined>(undefined)
 const BRAND_SETTINGS_STORAGE_KEY = "epro-brand-settings"
 const BRAND_SETTINGS_VERSION = "1" // Increment to invalidate old cache
 
-// Cache expiry time: 7 days (much longer than before)
-const BRAND_CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+// Cache expiry time: 30 days (brand settings rarely change)
+const BRAND_CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
 
 // Helper to get cached settings from localStorage
 function getCachedSettings(): BrandSettings | null {
