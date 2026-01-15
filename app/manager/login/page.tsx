@@ -191,22 +191,5 @@ function ManagerLoginForm() {
 }
 
 export default function ManagerLoginPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 md:p-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex flex-col items-center space-y-2 text-center">
-            <Logo className="mb-4 h-8 w-auto max-w-[160px]" />
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Loading...</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    }>
-      <ManagerLoginForm />
-    </Suspense>
-  )
+  return <ManagerLoginForm />
 }
