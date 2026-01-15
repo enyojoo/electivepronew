@@ -61,13 +61,16 @@ export default async function RootLayout({
                       } catch (e) {
                         // Ignore localStorage errors
                       }
-                      
+
                       const hasCustom = !!(s.name || s.name_ru || s.primary_color || s.logo_url || s.favicon_url);
-                      
-                      // Only apply if we have custom branding OR we've confirmed no custom branding exists
-                      if (hasCustom || confirmedNoCustom) {
-                        const primaryColor = s.primary_color || (confirmedNoCustom ? '#000000' : null);
-                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom ? 'https://cldup.com/Jnah6-hWcg.png' : null);
+
+                      // Apply branding in this order of priority:
+                      // 1. Custom branding from cache (if exists)
+                      // 2. Default branding (if confirmed no custom exists OR no cached settings at all)
+                      const shouldApplyBranding = hasCustom || confirmedNoCustom || !cached;
+                      if (shouldApplyBranding) {
+                        const primaryColor = s.primary_color || (confirmedNoCustom || !cached ? '#000000' : null);
+                        const faviconUrl = s.favicon_url && /^https?:\\/\\//.test(s.favicon_url) ? s.favicon_url : (confirmedNoCustom || !cached ? 'https://cldup.com/Jnah6-hWcg.png' : null);
                         
                         // Get current language from localStorage
                         let currentLanguage = 'en';
@@ -80,14 +83,22 @@ export default async function RootLayout({
                           // Ignore localStorage errors
                         }
                         
-                        // Use language-specific name - only use default if confirmed no custom branding exists
+                        // Use language-specific name - apply defaults if no custom branding exists
                         let nameEn = s.name || '';
                         let nameRu = s.name_ru || '';
-                        if (confirmedNoCustom && !nameEn && !nameRu) {
+                        if ((confirmedNoCustom || !cached) && !nameEn && !nameRu) {
                           nameEn = 'ElectivePRO';
                           nameRu = 'ElectivePRO';
                         }
-                        const name = currentLanguage === 'ru' && nameRu ? nameRu : (nameEn || '');
+                        // Priority: Russian name (if language is Russian) > English name > default
+                        let name = '';
+                        if (currentLanguage === 'ru' && nameRu) {
+                          name = nameRu;
+                        } else if (nameEn) {
+                          name = nameEn;
+                        } else if (confirmedNoCustom || !cached) {
+                          name = 'ElectivePRO';
+                        }
                         
                         // Only set if we have values
                         if (nameEn || nameRu) {
