@@ -138,15 +138,46 @@ export default function ExchangeElectivesPage() {
           throw error
         }
 
-        // Process the data to include university count
+        // Get unique creator IDs
+        const creatorIds = packs
+          .map((pack) => pack.created_by)
+          .filter((id): id is string => id !== null && id !== undefined)
+          .filter((id, index, self) => self.indexOf(id) === index)
+
+        // Fetch creator profiles in a single query
+        let creatorProfiles: Record<string, string> = {}
+        if (creatorIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", creatorIds)
+
+          if (profilesError) {
+            console.error("Error fetching creator profiles:", profilesError)
+          } else if (profiles) {
+            // Create a map of profile IDs to names
+            creatorProfiles = profiles.reduce(
+              (acc, profile) => {
+                acc[profile.id] = profile.full_name
+                return acc
+              },
+              {} as Record<string, string>,
+            )
+          }
+        }
+
+        // Process the data to include university count and creator name
         const processedPacks = (packs || []).map((pack) => {
           // Get university count from the universities array (TEXT[])
           const universityCount = Array.isArray(pack.universities) ? pack.universities.length : 0
 
+          // Get creator name from the profiles map
+          const creatorName = pack.created_by ? creatorProfiles[pack.created_by] || null : null
+
           return {
             ...pack,
             university_count: universityCount,
-            creator_name: "Admin", // elective_exchange table doesn't have created_by field
+            creator_name: creatorName,
           }
         })
 
@@ -416,7 +447,11 @@ export default function ExchangeElectivesPage() {
                           <TableCell>{pack.university_count || 0}</TableCell>
                           <TableCell>{getStatusBadge(pack.status)}</TableCell>
                           <TableCell>
-                            <span className="text-muted-foreground">{pack.creator_name || "Admin"}</span>
+                            {pack.creator_name ? (
+                              <span>{pack.creator_name}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
