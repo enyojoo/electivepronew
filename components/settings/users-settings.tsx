@@ -431,8 +431,11 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+      // Clear localStorage cache and trigger refetch
+      localStorage.removeItem("admin_users_cache")
+      // Force refetch by resetting the hook's internal state
+      setUsers([])
+      setIsLoading(true)
 
       toast({
         title: "Success",
@@ -474,8 +477,11 @@ export function UsersSettings() {
       const updatedFilteredUsers = filteredUsers.filter((user) => user.id !== userToDelete)
       setFilteredUsers(updatedFilteredUsers)
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+      // Clear localStorage cache and trigger refetch
+      localStorage.removeItem("admin_users_cache")
+      // Force refetch by resetting the hook's internal state
+      setUsers([])
+      setIsLoading(true)
 
       toast({
         title: "Success",
@@ -635,9 +641,11 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Invalidate cache to trigger refetch (matching groups page pattern)
+        // Clear localStorage cache and trigger refetch
         localStorage.removeItem("admin_users_cache")
-        // Hook will detect cache removal and refetch automatically
+        // Force refetch by resetting the hook's internal state
+        setUsers([])
+        setIsLoading(true)
 
         toast({
           title: "Success",
@@ -791,13 +799,16 @@ export function UsersSettings() {
         }),
       )
 
-      // Invalidate the users cache
-      invalidateCache("users", "all")
+        // Clear localStorage cache and trigger refetch
+        localStorage.removeItem("admin_users_cache")
+        // Force refetch by resetting the hook's internal state
+        setUsers([])
+        setIsLoading(true)
 
-      toast({
-        title: "Success",
-        description: "User updated successfully",
-      })
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        })
 
       handleCloseEditDialog()
     } catch (error: any) {
