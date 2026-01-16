@@ -357,7 +357,7 @@ export default function ExchangePage() {
         )}
 
         {!fetchError && exchangePrograms.length > 0 && (
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2">
             {exchangePrograms.map((exchange) => {
               const selectionStatus = getSelectionStatus(exchange.id)
               const selectedCount = getSelectedUniversitiesCount(exchange.id)
