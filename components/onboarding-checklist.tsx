@@ -60,7 +60,7 @@ export function OnboardingChecklist() {
   const { t } = useLanguage()
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = getSupabaseBrowserClient()
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
 
   // Initialize checklist status from cache synchronously to prevent flashes
   const getInitialChecklistStatus = (): ChecklistStatus => {
@@ -365,72 +365,72 @@ export function OnboardingChecklist() {
     loadChecklistStatus()
   }, [isAdmin, forceRefresh])
 
-  // Real-time updates via database listeners
-  useEffect(() => {
-    if (!isAdmin) return
+  // Real-time updates via database listeners - temporarily disabled to prevent infinite loops
+  // useEffect(() => {
+  //   if (!isAdmin) return
 
-    const channel = supabase
-      .channel("onboarding-checklist-updates")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "settings" as any },
-        () => {
-          console.log("Settings changed, invalidating cache")
-          invalidateCacheForTable("settings")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "degrees" },
-        () => {
-          console.log("Degrees changed, invalidating cache")
-          invalidateCacheForTable("degrees")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "groups" },
-        () => {
-          console.log("Groups changed, invalidating cache")
-          invalidateCacheForTable("groups")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "universities" },
-        () => {
-          console.log("Universities changed, invalidating cache")
-          invalidateCacheForTable("universities")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "courses" },
-        () => {
-          console.log("Courses changed, invalidating cache")
-          invalidateCacheForTable("courses")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "profiles" },
-        () => {
-          console.log("Profiles changed, invalidating cache")
-          invalidateCacheForTable("profiles")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .subscribe()
+  //   const channel = supabase
+  //     .channel("onboarding-checklist-updates")
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "settings" as any },
+  //       () => {
+  //         console.log("Settings changed, invalidating cache")
+  //         invalidateCacheForTable("settings")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "degrees" },
+  //       () => {
+  //         console.log("Degrees changed, invalidating cache")
+  //         invalidateCacheForTable("degrees")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "groups" },
+  //       () => {
+  //         console.log("Groups changed, invalidating cache")
+  //         invalidateCacheForTable("groups")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "universities" },
+  //       () => {
+  //         console.log("Universities changed, invalidating cache")
+  //         invalidateCacheForTable("universities")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "courses" },
+  //       () => {
+  //         console.log("Courses changed, invalidating cache")
+  //         invalidateCacheForTable("courses")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .on(
+  //       "postgres_changes",
+  //       { event: "*", schema: "public", table: "profiles" },
+  //       () => {
+  //         console.log("Profiles changed, invalidating cache")
+  //         invalidateCacheForTable("profiles")
+  //         setForceRefresh(prev => prev + 1)
+  //       }
+  //     )
+  //     .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [isAdmin, supabase])
+  //   return () => {
+  //     supabase.removeChannel(channel)
+  //   }
+  // }, [isAdmin, supabase])
 
   // Data deletion recovery - detect when required data is deleted
   useEffect(() => {
@@ -441,7 +441,7 @@ export function OnboardingChecklist() {
       if (!cached) return
 
       // Check if previously completed steps are now incomplete
-      const currentComplete = Object.values(checklistStatus).filter(Boolean).length
+      const currentComplete = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
       const cachedComplete = Object.values(cached.status).filter(Boolean).length
 
       // If we had more completed steps cached than we have now, data was deleted
