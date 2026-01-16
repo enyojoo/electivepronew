@@ -134,7 +134,7 @@ export function OnboardingChecklist() {
 
       // Invalidate specific status based on table
       switch (tableName) {
-        case "brand_settings":
+        case "settings":
           updatedStatus.brandSettings = false // Will be rechecked
           break
         case "degrees":
@@ -169,14 +169,14 @@ export function OnboardingChecklist() {
   // Check completion status from database
   const checkCompletionStatus = async (): Promise<ChecklistStatus> => {
     try {
-      // Check brand settings - any record with institution_name (English) indicates it's configured
+      // Check brand settings - configured if English institution name exists (from settings table)
       const { data: brandData } = await supabase
-        .from("brand_settings")
-        .select("institution_name")
+        .from("settings")
+        .select("name")
         .limit(1)
         .maybeSingle()
 
-      const brandSettings = brandData && !!brandData.institution_name
+      const brandSettings = brandData && !!brandData.name
 
       // Check degrees
       const { count: degreesCount } = await supabase
@@ -272,10 +272,10 @@ export function OnboardingChecklist() {
       .channel("onboarding-checklist-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "brand_settings" },
+        { event: "*", schema: "public", table: "settings" },
         () => {
-          console.log("Brand settings changed, invalidating cache")
-          invalidateCacheForTable("brand_settings")
+          console.log("Settings changed, invalidating cache")
+          invalidateCacheForTable("settings")
           setForceRefresh(prev => prev + 1)
         }
       )
