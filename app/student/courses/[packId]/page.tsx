@@ -201,7 +201,9 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       return
     }
 
+    console.log("DEBUG: Student profile:", { id: profile.id, group: profile.group })
     if (!profile.group?.id) {
+      console.log("DEBUG: Student has no group assigned")
       setFetchError(t("student.courses.groupInfoMissing"))
       setIsLoadingPage(false)
       return
@@ -238,15 +240,26 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+      console.log("DEBUG: Querying elective_courses with packId:", packId, "groupId:", profile.group.id)
       const { data: ecData, error: ecError } = await supabase
         .from("elective_courses")
         .select("*")
         .eq("id", packId)
         .eq("group_id", profile.group.id)
-        .eq("status", "published")
+
+      console.log("DEBUG: elective_courses query result:", { data: ecData, error: ecError })
 
       if (ecError) throw ecError
-      if (!ecData || ecData.length === 0) throw new Error(t("student.courses.packNotFound"))
+      if (!ecData || ecData.length === 0) {
+        console.log("DEBUG: No elective_courses found, checking if packId exists with any group...")
+        // Check if pack exists with any group
+        const { data: anyPack } = await supabase
+          .from("elective_courses")
+          .select("id, group_id, status")
+          .eq("id", packId)
+        console.log("DEBUG: Pack with any group:", anyPack)
+        throw new Error(t("student.courses.packNotFound"))
+      }
       if (ecData.length > 1) throw new Error(t("student.courses.multiplePacksFound"))
 
       const packData = ecData[0]
