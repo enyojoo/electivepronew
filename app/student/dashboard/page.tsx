@@ -374,7 +374,7 @@ export default function StudentDashboard() {
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
             {profile?.full_name
-              ? t("student.dashboard.welcome", { name: profile.full_name })
+              ? t("student.dashboard.welcome", { name: profile.full_name.split(' ')[0] })
               : t("student.dashboard.welcomeGeneric")
             }
           </h1>
