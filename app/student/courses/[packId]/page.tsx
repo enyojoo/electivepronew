@@ -223,6 +223,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
       const data = await response.json()
       console.log("CourseDetailPage: API data received:", data)
+      console.log("CourseDetailPage: Course data:", data.course)
+      console.log("CourseDetailPage: Course.courses array:", data.course?.courses)
 
       // Set the course pack data
       if (data.course) {
@@ -230,12 +232,16 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
         // Fetch courses using the UUIDs from the courses column
         const courseUuids = data.course.courses || []
+        console.log("CourseDetailPage: Course UUIDs to fetch:", courseUuids)
+
         if (courseUuids.length > 0) {
           const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
           const { data: fetchedCourses, error: coursesError } = await supabase
             .from("courses")
             .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
             .in("id", courseUuids)
+
+          console.log("CourseDetailPage: Fetched courses from database:", fetchedCourses)
 
           if (coursesError) throw coursesError
 
@@ -259,8 +265,10 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
           const fetchedCoursesMap = new Map(coursesWithCounts.map((fc) => [fc.id, fc]))
           const orderedFetchedCourses = courseUuids.map((uuid) => fetchedCoursesMap.get(uuid)).filter(Boolean)
+          console.log("CourseDetailPage: Final ordered courses:", orderedFetchedCourses)
           setIndividualCourses(orderedFetchedCourses || [])
         } else {
+          console.log("CourseDetailPage: No course UUIDs found, setting empty courses array")
           setIndividualCourses([])
         }
       }

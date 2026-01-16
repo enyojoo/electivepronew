@@ -156,6 +156,8 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
       const data = await response.json()
       console.log("ExchangeDetailPage: API data received:", data)
+      console.log("ExchangeDetailPage: Exchange program data:", data.exchangeProgram)
+      console.log("ExchangeDetailPage: Exchange.universities array:", data.exchangeProgram?.universities)
 
       // Set the exchange pack data
       if (data.exchangeProgram) {
@@ -163,12 +165,16 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
         // Fetch universities using the UUIDs from the universities column
         const universityUuids = data.exchangeProgram.universities || []
+        console.log("ExchangeDetailPage: University UUIDs to fetch:", universityUuids)
+
         if (universityUuids.length > 0) {
           const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
           const { data: fetchedUnis, error: unisError } = await supabase
             .from("universities")
             .select("*")
             .in("id", universityUuids)
+
+          console.log("ExchangeDetailPage: Fetched universities from database:", fetchedUnis)
 
           if (unisError) throw unisError
 
@@ -190,8 +196,10 @@ export default function ExchangePage({ params }: ExchangePageProps) {
             }),
           )
 
+          console.log("ExchangeDetailPage: Final universities with counts:", universitiesWithCounts)
           setUniversities(universitiesWithCounts || [])
         } else {
+          console.log("ExchangeDetailPage: No university UUIDs found, setting empty universities array")
           setUniversities([])
         }
       }
