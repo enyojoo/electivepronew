@@ -51,16 +51,58 @@ export function OnboardingChecklist() {
   const pathname = usePathname()
   const supabase = getSupabaseBrowserClient()
 
-  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>({
-    brandSettings: false,
-    degrees: false,
-    groups: false,
-    universities: false,
-    courses: false,
-    users: false,
-  })
+  // Initialize checklist status from cache synchronously to prevent flashes
+  const getInitialChecklistStatus = (): ChecklistStatus => {
+    if (typeof window === "undefined") return {
+      brandSettings: false,
+      degrees: false,
+      groups: false,
+      universities: false,
+      courses: false,
+      users: false,
+    }
 
-  const [isLoading, setIsLoading] = useState(true)
+    try {
+      const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return data
+        }
+      }
+    } catch (error) {
+      console.error("Error loading cached checklist status:", error)
+    }
+
+    return {
+      brandSettings: false,
+      degrees: false,
+      groups: false,
+      universities: false,
+      courses: false,
+      users: false,
+    }
+  }
+
+  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(getInitialChecklistStatus)
+
+  const [isLoading, setIsLoading] = useState(() => {
+    // Only set loading if we don't have valid cache
+    if (typeof window === "undefined") return true
+
+    try {
+      const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
+      if (cached) {
+        const { timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return false // Cache exists and is valid, no need to show loading
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+    return true
+  })
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // Load collapse state from localStorage, default to collapsed when complete
     if (typeof window !== "undefined") {
@@ -84,6 +126,21 @@ export function OnboardingChecklist() {
   })
   const [forceRefresh, setForceRefresh] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(() => {
+    // Check if we have valid cached data for initial render
+    if (typeof window === "undefined") return false
+
+    try {
+      const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
+      if (cached) {
+        const { timestamp } = JSON.parse(cached)
+        return Date.now() - timestamp < CACHE_DURATION
+      }
+    } catch {
+      // Ignore errors
+    }
+    return false
+  })
 
   // Only show for admin users and when not dismissed
   const isAdmin = pathname.includes("/admin")
@@ -258,13 +315,31 @@ export function OnboardingChecklist() {
     if (!isAdmin) return // Only load for admin users
 
     const loadChecklistStatus = async () => {
-      setIsLoading(true)
+      // Only show loading if we don't have valid cached data
+      const hasValidCache = (() => {
+        if (typeof window === "undefined") return false
+        try {
+          const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
+          if (cached) {
+            const { timestamp } = JSON.parse(cached)
+            return Date.now() - timestamp < CACHE_DURATION
+          }
+        } catch {
+          // Ignore errors
+        }
+        return false
+      })()
+
+      if (!hasValidCache || forceRefresh > 0) {
+        setIsLoading(true)
+      }
 
       // Check cache first
       const cached = getCachedStatus()
       if (cached && forceRefresh === 0) {
         setChecklistStatus(cached.status)
         setIsLoading(false)
+        setHasLoadedInitialData(true)
         return
       }
 
@@ -273,6 +348,7 @@ export function OnboardingChecklist() {
       setChecklistStatus(status)
       setCachedStatus(status)
       setIsLoading(false)
+      setHasLoadedInitialData(true)
     }
 
     loadChecklistStatus()
@@ -440,8 +516,8 @@ export function OnboardingChecklist() {
     },
   ]
 
-  // Don't render if shouldn't show
-  if (!shouldShow) return null
+  // Don't render if shouldn't show or if still determining initial state
+  if (!shouldShow || (typeof window !== "undefined" && isLoading && !hasLoadedInitialData)) return null
 
   return (
     <div className="mx-2 sm:mx-4 mb-2 sm:mb-4">
