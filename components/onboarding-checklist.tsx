@@ -150,14 +150,14 @@ export function OnboardingChecklist() {
   )
 
   // Check if checklist has been manually dismissed
-  const isDismissed = useMemo(() => {
+  const [isDismissed, setIsDismissed] = useState(() => {
     if (typeof window === "undefined") return false
     try {
       return localStorage.getItem(DISMISSED_CACHE_KEY) === "true"
     } catch {
       return false
     }
-  }, [])
+  })
 
   // Show checklist if admin user and not dismissed (even when complete)
   const shouldShow = isAdmin && !isDismissed
@@ -457,7 +457,7 @@ export function OnboardingChecklist() {
   // Handle manual dismissal of the checklist
   const dismissChecklist = () => {
     localStorage.setItem(DISMISSED_CACHE_KEY, "true")
-    // The component will automatically hide on next render due to shouldShow logic
+    setIsDismissed(true)
   }
 
   // Handle navigation to specific step
@@ -584,27 +584,13 @@ export function OnboardingChecklist() {
               <Progress value={progressPercentage} className="h-2 transition-all duration-500" />
               <p id="checklist-progress" className="text-[10px] text-muted-foreground">
                 {progressPercentage === 100
-                  ? t("admin.checklist.readyToGo", "You're all set! Managers can now create electives.")
+                  ? t("admin.checklist.completedMessage", "Congratulations! You're all set! Managers can now create electives.")
                   : t("admin.checklist.progress", `${completedCount} of ${totalCount} steps completed`)
                 }
               </p>
             </div>
           )}
 
-          {/* Show completion celebration when all steps are done and expanded */}
-          {allStepsComplete && !isCollapsed && (
-            <div className="px-4 pb-3 border-t bg-green-50/50 dark:bg-green-950/20">
-              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                <CheckCircle className="h-4 w-4" />
-                <span className="font-medium">
-                  {t("admin.checklist.congratulations", "Congratulations!")}
-                </span>
-              </div>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                {t("admin.checklist.systemReady", "Your system is fully configured and ready to use.")}
-              </p>
-            </div>
-          )}
         </CardHeader>
 
         {!isCollapsed && !allStepsComplete && (
