@@ -227,8 +227,15 @@ export default function AdminDashboard() {
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
     // Helper function to refetch and update a specific stat
-    const refetchStat = async (table: string, statKey: keyof DashboardStats) => {
+    const refetchStat = async (table: string, statKey: keyof DashboardStats, showLoading = false) => {
       try {
+        if (showLoading) {
+          setDashboardStats((prev) => ({
+            ...prev,
+            [statKey]: { ...prev[statKey], isLoading: true },
+          }))
+        }
+
         const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true })
         if (error) {
           setDashboardStats((prev) => ({
@@ -271,13 +278,7 @@ export default function AdminDashboard() {
             // Invalidate cache immediately
             localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
 
-            // Set loading state
-            setDashboardStats((prev) => ({
-              ...prev,
-              [statKey]: { ...prev[statKey], isLoading: true },
-            }))
-
-            // Refetch the specific stat
+            // Directly refetch and update the stat without loading spinner
             await refetchStat(tableName, statKey)
           }
         )
