@@ -573,23 +573,62 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     }
     setDownloadingStatement(true)
     try {
+      // Extract filename from URL for better download handling
+      const url = new URL(electiveCourseData.syllabus_template_url)
+      const pathname = url.pathname
+      const filename = pathname.split('/').pop() || 'statement_template.pdf'
+
       // Create a temporary anchor element to trigger download
       const link = document.createElement('a')
       link.href = electiveCourseData.syllabus_template_url
-      link.download = '' // This will use the filename from the URL
-      // Don't set target to avoid opening in new tab
+      link.download = filename // Explicit filename for download
       link.style.display = 'none'
+      link.rel = 'noopener noreferrer' // Security best practice
+
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      toast({ title: "Download started", description: "Statement template is being downloaded." })
+      // Keep spinner for a brief moment to show user something is happening
+      setTimeout(() => {
+        setDownloadingStatement(false)
+        toast({ title: "Download initiated", description: `"${filename}" is being downloaded.` })
+      }, 1000)
+
     } catch (error) {
-      // Fallback: open in new tab if download fails
-      window.open(electiveCourseData.syllabus_template_url, '_blank')
-      toast({ title: "Download started", description: "Statement template opened in new tab." })
-    } finally {
+      console.error("Download failed:", error)
       setDownloadingStatement(false)
+      // Fallback: try to force download with fetch
+      try {
+        const response = await fetch(electiveCourseData.syllabus_template_url)
+        if (response.ok) {
+          const blob = await response.blob()
+          const url = new URL(electiveCourseData.syllabus_template_url)
+          const filename = url.pathname.split('/').pop() || 'statement_template.pdf'
+
+          const blobUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = blobUrl
+          link.download = filename
+          link.style.display = 'none'
+
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+
+          // Clean up the blob URL
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
+
+          toast({ title: "Download completed", description: `"${filename}" has been downloaded.` })
+        } else {
+          throw new Error('Fetch failed')
+        }
+      } catch (fetchError) {
+        console.error("Fallback download failed:", fetchError)
+        // Final fallback: open in new tab
+        window.open(electiveCourseData.syllabus_template_url, '_blank')
+        toast({ title: "Download started", description: "Statement template opened in new tab." })
+      }
     }
   }
 
@@ -661,8 +700,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         <Info className="h-4 w-4" />
         <AlertTitle>{t("student.courses.selectionPeriodActive")}</AlertTitle>
         <AlertDescription>
-          {t("student.courses.selectionUntil")} 11:59 PM{" "}
-          {electiveCourseData?.deadline && formatDateDisplay(electiveCourseData.deadline)}.
+          {t("student.courses.selectionUntil")} <span className="font-bold">11:59 PM{" "}
+          {electiveCourseData?.deadline && formatDateDisplay(electiveCourseData.deadline)}</span>.
         </AlertDescription>
       </Alert>
     )
