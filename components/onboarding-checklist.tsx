@@ -160,7 +160,7 @@ export function OnboardingChecklist() {
   })
 
   // Show checklist if admin user and not dismissed (even when complete)
-  const shouldShow = isAdmin && !isDismissed
+  const shouldShow = isAdmin && !isDismissed && progressPercentage < 100
 
   // Get cached data
   const getCachedStatus = (): CachedData | null => {
