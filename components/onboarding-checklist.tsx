@@ -63,7 +63,7 @@ export function OnboardingChecklist() {
   const supabase = getSupabaseBrowserClient()
 
   // Initialize checklist status from cache synchronously to prevent flashes
-  const getInitialChecklistStatus = (): ChecklistStatus => {
+  const getInitialChecklistStatus = useMemo((): ChecklistStatus => {
     if (typeof window === "undefined") return {
       brandSettings: false,
       degrees: false,
@@ -76,9 +76,9 @@ export function OnboardingChecklist() {
     try {
       const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
-        if (Date.now() - timestamp < CACHE_DURATION) {
-          return data
+        const parsed = JSON.parse(cached) as CachedData
+        if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+          return parsed.status
         }
       }
     } catch (error) {
@@ -93,7 +93,7 @@ export function OnboardingChecklist() {
       courses: false,
       users: false,
     }
-  }
+  }, [])
 
   const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(getInitialChecklistStatus)
 
@@ -154,11 +154,8 @@ export function OnboardingChecklist() {
   })
 
   // Only show for admin users and when not dismissed
-  const isAdmin = useMemo(() => pathname.includes("/admin"), [pathname])
-  const allStepsComplete = useMemo(() =>
-    checklistStatus ? Object.values(checklistStatus).every(status => status) : false,
-    [checklistStatus]
-  )
+  const isAdmin = pathname.includes("/admin")
+  const allStepsComplete = checklistStatus ? Object.values(checklistStatus).every(status => status) : false
 
   // Check if checklist has been manually dismissed
   const [isDismissed, setIsDismissed] = useState(() => {
@@ -171,10 +168,7 @@ export function OnboardingChecklist() {
   })
 
   // Show checklist if admin user and not dismissed (even when complete)
-  const shouldShow = useMemo(() =>
-    isAdmin && !isDismissed && progressPercentage < 100,
-    [isAdmin, isDismissed, progressPercentage]
-  )
+  const shouldShow = isAdmin && !isDismissed && progressPercentage < 100
 
   // Get cached data
   const getCachedStatus = (): CachedData | null => {
@@ -480,18 +474,12 @@ export function OnboardingChecklist() {
   }
 
   // Calculate progress
-  const { completedCount, totalCount, progressPercentage } = useMemo(() => {
-    if (!checklistStatus) {
-      return { completedCount: 0, totalCount: 6, progressPercentage: 0 }
-    }
-    const completed = Object.values(checklistStatus).filter(Boolean).length
-    const total = Object.keys(checklistStatus).length
-    const percentage = total > 0 ? (completed / total) * 100 : 0
-    return { completedCount: completed, totalCount: total, progressPercentage: percentage }
-  }, [checklistStatus])
+  const completedCount = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
+  const totalCount = checklistStatus ? Object.keys(checklistStatus).length : 6
+  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   // Define checklist items
-  const checklistItems: ChecklistItem[] = useMemo(() => [
+  const checklistItems: ChecklistItem[] = [
     {
       id: "brandSettings",
       title: t("admin.checklist.brandSettings", "Update Brand Settings"),
@@ -534,7 +522,7 @@ export function OnboardingChecklist() {
       link: "/admin/settings?tab=users",
       completed: checklistStatus?.users || false,
     },
-  ], [t, checklistStatus])
+  ]
 
   // Don't render if shouldn't show or if still determining initial state
   if (!shouldShow || (typeof window !== "undefined" && isLoading && !hasLoadedInitialData)) return null
