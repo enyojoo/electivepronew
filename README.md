@@ -195,6 +195,46 @@ Once logged in as an admin, navigate to **Settings → Branding** to customize y
 
 These settings will automatically update across your entire platform, including the logo in the sidebar, favicon in browser tabs, email templates, and SEO tags for better search engine visibility.
 
+### System Setup Steps
+
+After customizing your branding, follow these setup steps to get your platform ready for use:
+
+1. **Create Academic Degrees** (Settings → Degrees)
+   - Add your institution's degree programs (Bachelor's, Master's, etc.)
+   - Include both English and Russian names
+   - Set degree codes and status
+
+2. **Create Student Groups** (Settings → Groups)
+   - Set up student groups/classes for each academic year
+   - Configure group capacity and academic year associations
+
+3. **Add Partner Universities** (Admin → Universities)
+   - Add universities for exchange programs
+   - Include university details, locations, and contact information
+   - Upload university logos and flags
+
+4. **Create Course Catalog** (Admin → Courses)
+   - Build your complete course catalog
+   - Add course details, descriptions, and instructor information
+   - Support for both English and Russian content
+
+5. **Import/Create Users** (Settings → Users)
+   - Import users via CSV with name and email
+   - Or create users manually
+   - Set appropriate roles (Admin, Program Manager, Student)
+   - Assign degrees, groups, and academic years
+   - Users receive welcome emails with login credentials
+
+6. **Create Elective Course Packs** (Manager → Electives → Course Builder)
+   - Program managers can now create elective course packs
+   - Set selection periods, capacity limits, and eligibility rules
+   - Configure course selection workflows
+
+7. **Set Up Exchange Programs** (Manager → Electives → Exchange Builder)
+   - Create international exchange opportunities
+   - Configure application periods and requirements
+   - Manage partner university relationships
+
 ### Email Notifications
 
 ElectivePRO includes a comprehensive email notification system powered by SendGrid. The following emails are automatically sent:

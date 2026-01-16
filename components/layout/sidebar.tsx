@@ -236,7 +236,8 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
         </div>
 
         {/* Onboarding Checklist - shows for admins during setup */}
-        {isAdmin && <OnboardingChecklist />}
+        {/* Temporarily hidden - setup checklist causing issues */}
+        {/* {isAdmin && <OnboardingChecklist />} */}
 
         {/* Logout button at bottom with role-specific route */}
         <div className="mt-auto border-t flex-shrink-0">
