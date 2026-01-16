@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils"
 // Cache configuration
 const CHECKLIST_CACHE_KEY = "admin_onboarding_checklist"
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const VISIBILITY_CACHE_KEY = "admin_checklist_visibility"
+const VISIBILITY_CACHE_DURATION = 60 * 1000 // 1 minute
 
 interface ChecklistItem {
   id: string
@@ -78,6 +80,8 @@ export function OnboardingChecklist() {
     }
     return false
   })
+  const [forceRefresh, setForceRefresh] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   // Only show for admin users and when not all steps are complete
   const isAdmin = pathname.includes("/admin")
@@ -115,6 +119,54 @@ export function OnboardingChecklist() {
       localStorage.setItem(CHECKLIST_CACHE_KEY, JSON.stringify(cacheData))
     } catch (error) {
       console.error("Error writing checklist cache:", error)
+    }
+  }
+
+  // Selectively invalidate cache based on changed table
+  const invalidateCacheForTable = (tableName: string) => {
+    if (typeof window === "undefined") return
+
+    try {
+      const cached = getCachedStatus()
+      if (!cached) return
+
+      const updatedStatus = { ...cached.status }
+
+      // Invalidate specific status based on table
+      switch (tableName) {
+        case "brand_settings":
+          updatedStatus.brandSettings = false // Will be rechecked
+          break
+        case "degrees":
+          updatedStatus.degrees = false
+          break
+        case "groups":
+          updatedStatus.groups = false
+          break
+        case "universities":
+          updatedStatus.universities = false
+          break
+        case "courses":
+          updatedStatus.courses = false
+          break
+        case "profiles":
+          updatedStatus.users = false
+          break
+        case "elective_courses":
+        case "elective_exchange":
+          updatedStatus.electives = false
+          break
+      }
+
+      // Update cache with invalidated status
+      const cacheData: CachedData = {
+        status: updatedStatus,
+        timestamp: Date.now(),
+      }
+      localStorage.setItem(CHECKLIST_CACHE_KEY, JSON.stringify(cacheData))
+
+    } catch (error) {
+      console.error("Error invalidating cache for table:", error)
     }
   }
 
@@ -192,14 +244,14 @@ export function OnboardingChecklist() {
 
   // Load checklist status on mount and when needed
   useEffect(() => {
-    if (!shouldShow) return
+    if (!isAdmin) return // Only load for admin users
 
     const loadChecklistStatus = async () => {
       setIsLoading(true)
 
       // Check cache first
       const cached = getCachedStatus()
-      if (cached) {
+      if (cached && forceRefresh === 0) {
         setChecklistStatus(cached.status)
         setIsLoading(false)
         return
@@ -213,13 +265,125 @@ export function OnboardingChecklist() {
     }
 
     loadChecklistStatus()
-  }, [shouldShow])
+  }, [isAdmin, forceRefresh])
 
-  // Handle collapse state changes
+  // Real-time updates via database listeners
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const channel = supabase
+      .channel("onboarding-checklist-updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "brand_settings" },
+        () => {
+          console.log("Brand settings changed, invalidating cache")
+          invalidateCacheForTable("brand_settings")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "degrees" },
+        () => {
+          console.log("Degrees changed, invalidating cache")
+          invalidateCacheForTable("degrees")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "groups" },
+        () => {
+          console.log("Groups changed, invalidating cache")
+          invalidateCacheForTable("groups")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "universities" },
+        () => {
+          console.log("Universities changed, invalidating cache")
+          invalidateCacheForTable("universities")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "courses" },
+        () => {
+          console.log("Courses changed, invalidating cache")
+          invalidateCacheForTable("courses")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => {
+          console.log("Profiles changed, invalidating cache")
+          invalidateCacheForTable("profiles")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_courses" },
+        () => {
+          console.log("Elective courses changed, invalidating cache")
+          invalidateCacheForTable("elective_courses")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "elective_exchange" },
+        () => {
+          console.log("Elective exchange changed, invalidating cache")
+          invalidateCacheForTable("elective_exchange")
+          setForceRefresh(prev => prev + 1)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isAdmin, supabase])
+
+  // Data deletion recovery - detect when required data is deleted
+  useEffect(() => {
+    if (!isAdmin) return
+
+    const checkForDataDeletion = () => {
+      const cached = getCachedStatus()
+      if (!cached) return
+
+      // Check if previously completed steps are now incomplete
+      const currentComplete = Object.values(checklistStatus).filter(Boolean).length
+      const cachedComplete = Object.values(cached.status).filter(Boolean).length
+
+      // If we had more completed steps cached than we have now, data was deleted
+      if (cachedComplete > currentComplete) {
+        console.log("Data deletion detected, clearing visibility cache")
+        // Clear the visibility cache so checklist shows again
+        localStorage.removeItem(VISIBILITY_CACHE_KEY)
+      }
+    }
+
+    checkForDataDeletion()
+  }, [checklistStatus, isAdmin])
+
+  // Handle collapse state changes with animation
   const toggleCollapsed = () => {
+    setIsAnimating(true)
     const newCollapsed = !isCollapsed
     setIsCollapsed(newCollapsed)
     localStorage.setItem("admin_checklist_collapsed", JSON.stringify(newCollapsed))
+
+    // Reset animation state after transition
+    setTimeout(() => setIsAnimating(false), 300)
   }
 
   // Handle navigation to specific step
@@ -296,15 +460,20 @@ export function OnboardingChecklist() {
   if (!shouldShow) return null
 
   return (
-    <div className="mx-4 mb-4">
-      <Card className="shadow-sm border">
+    <div className="mx-2 sm:mx-4 mb-2 sm:mb-4">
+      <Card
+        className="shadow-sm border transition-all duration-300 hover:shadow-md"
+        role="region"
+        aria-labelledby="checklist-title"
+        aria-describedby="checklist-progress"
+      >
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle id="checklist-title" className="text-sm font-medium">
                 {t("admin.checklist.title", "Setup Checklist")}
               </CardTitle>
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs" aria-label={`${completedCount} of ${totalCount} steps completed`}>
                 {completedCount}/{totalCount}
               </Badge>
             </div>
@@ -313,19 +482,25 @@ export function OnboardingChecklist() {
               size="sm"
               onClick={toggleCollapsed}
               className="h-6 w-6 p-0"
+              aria-label={isCollapsed ? "Expand setup checklist" : "Collapse setup checklist"}
+              aria-expanded={!isCollapsed}
+              aria-controls="checklist-content"
             >
               {isCollapsed ? (
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3 w-3" aria-hidden="true" />
               ) : (
-                <ChevronUp className="h-3 w-3" />
+                <ChevronUp className="h-3 w-3" aria-hidden="true" />
               )}
             </Button>
           </div>
 
           {!isCollapsed && (
-            <div className="space-y-2">
-              <Progress value={progressPercentage} className="h-2" />
-              <p className="text-xs text-muted-foreground">
+            <div className={cn(
+              "space-y-2 overflow-hidden transition-all duration-300 ease-in-out",
+              isAnimating ? "animate-in slide-in-from-top-2" : ""
+            )}>
+              <Progress value={progressPercentage} className="h-2 transition-all duration-500" />
+              <p id="checklist-progress" className="text-xs text-muted-foreground">
                 {progressPercentage === 100
                   ? t("admin.checklist.complete", "All setup steps completed!")
                   : t("admin.checklist.progress", `${completedCount} of ${totalCount} steps completed`)
@@ -336,18 +511,29 @@ export function OnboardingChecklist() {
         </CardHeader>
 
         {!isCollapsed && (
-          <CardContent className="pt-0">
+          <CardContent
+            id="checklist-content"
+            className={cn(
+              "pt-0 overflow-hidden transition-all duration-300 ease-in-out",
+              isAnimating ? "animate-in slide-in-from-top-2" : ""
+            )}
+            aria-labelledby="checklist-progress"
+          >
             <div className="space-y-2">
-              {checklistItems.map((item) => (
+              {checklistItems.map((item, index) => (
                 <button
                   key={item.id}
                   onClick={() => navigateToStep(item.link)}
                   className={cn(
-                    "w-full text-left p-3 rounded-md transition-colors hover:bg-accent/50",
-                    "flex items-start gap-3",
-                    item.completed ? "opacity-75" : "cursor-pointer"
+                    "w-full text-left p-3 rounded-md transition-all duration-200 hover:bg-accent/50",
+                    "flex items-start gap-3 group",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
+                    item.completed ? "opacity-75 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]",
+                    "sm:p-3 p-2" // Smaller padding on mobile
                   )}
                   disabled={item.completed}
+                  aria-label={`${item.title}: ${item.completed ? 'Completed' : 'Click to complete'}`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div className="flex-shrink-0 mt-0.5">
                     {item.loading ? (
@@ -360,21 +546,24 @@ export function OnboardingChecklist() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-1">
                       <div className={cn(
-                        "flex-shrink-0",
-                        item.completed ? "text-green-600" : "text-foreground"
+                        "flex-shrink-0 transition-colors duration-200",
+                        item.completed ? "text-green-600" : "text-foreground group-hover:text-primary"
                       )}>
                         {item.icon}
                       </div>
                       <h4 className={cn(
-                        "text-sm font-medium truncate",
-                        item.completed ? "text-green-700" : "text-foreground"
+                        "text-sm font-medium truncate transition-colors duration-200",
+                        item.completed ? "text-green-700" : "text-foreground group-hover:text-primary"
                       )}>
                         {item.title}
                       </h4>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className={cn(
+                      "text-xs text-muted-foreground transition-colors duration-200",
+                      "sm:block hidden sm:text-xs text-[10px] leading-tight"
+                    )}>
                       {item.description}
                     </p>
                   </div>
