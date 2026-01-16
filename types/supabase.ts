@@ -12,42 +12,33 @@ export interface Database {
       academic_years: {
         Row: {
           id: string
-          institution_id: string
-          program_id: string
           year: string
-          is_active: boolean
+          is_active: boolean | null
           created_at: string
           updated_at: string
+          degree_id: string
         }
         Insert: {
           id?: string
-          institution_id: string
-          program_id: string
           year: string
-          is_active?: boolean
+          is_active?: boolean | null
           created_at?: string
           updated_at?: string
+          degree_id: string
         }
         Update: {
           id?: string
-          institution_id?: string
-          program_id?: string
           year?: string
-          is_active?: boolean
+          is_active?: boolean | null
           created_at?: string
           updated_at?: string
+          degree_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "academic_years_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "institutions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_years_program_id_fkey"
-            columns: ["program_id"]
-            referencedRelation: "programs"
+            foreignKeyName: "academic_years_degree_id_fkey"
+            columns: ["degree_id"]
+            referencedRelation: "degrees"
             referencedColumns: ["id"]
           },
         ]
@@ -391,27 +382,33 @@ export interface Database {
       groups: {
         Row: {
           id: string
-          degree_id: string
+          institution_id: string
+          program_id: string
           academic_year_id: string
           name: string
+          display_name: string
           status: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          degree_id: string
+          institution_id: string
+          program_id: string
           academic_year_id: string
           name: string
+          display_name: string
           status?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          degree_id?: string
+          institution_id?: string
+          program_id?: string
           academic_year_id?: string
           name?: string
+          display_name?: string
           status?: string
           created_at?: string
           updated_at?: string
@@ -424,9 +421,15 @@ export interface Database {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "groups_degree_id_fkey"
-            columns: ["degree_id"]
-            referencedRelation: "degrees"
+            foreignKeyName: "groups_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_program_id_fkey"
+            columns: ["program_id"]
+            referencedRelation: "programs"
             referencedColumns: ["id"]
           },
         ]
@@ -571,33 +574,6 @@ export interface Database {
           },
         ]
       }
-      semesters: {
-        Row: {
-          id: string
-          name: string
-          name_ru: string
-          code: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          name_ru: string
-          code: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          name_ru?: string
-          code?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       programs: {
         Row: {
           id: string
@@ -689,6 +665,33 @@ export interface Database {
             referencedColumns: ["id"]
           },
         ]
+      }
+      semesters: {
+        Row: {
+          id: string
+          name: string
+          name_ru: string
+          code: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_ru: string
+          code: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_ru?: string
+          code?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       universities: {
         Row: {

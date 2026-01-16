@@ -1,5 +1,5 @@
 import { getElectivePacks } from "@/actions/elective-packs"
-// import { getCountries } from "@/actions/countries" // Removed - using static data
+import { getCountries } from "@/actions/countries"
 import { ExchangeUniversityForm } from "@/components/exchange-university-form"
 import { PageHeader } from "@/components/page-header"
 import { getCurrentUser } from "@/lib/session"
@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/session"
 export default async function NewExchangeUniversityPage() {
   const user = await getCurrentUser()
   const electivePacks = await getElectivePacks()
-  const { countries } = await import("@/lib/countries")
+  const countries = await getCountries()
 
   return (
     <div className="space-y-6">
