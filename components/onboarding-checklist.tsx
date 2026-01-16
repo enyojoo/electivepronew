@@ -176,19 +176,14 @@ export function OnboardingChecklist() {
   // Check completion status from database
   const checkCompletionStatus = async (): Promise<ChecklistStatus> => {
     try {
-      // Check brand settings - configured if English name exists OR (Russian name AND Russian logo exist)
+      // Check brand settings - any record with institution_name (English) indicates it's configured
       const { data: brandData } = await supabase
         .from("brand_settings")
-        .select("institution_name, institution_name_ru, logo_url, logo_url_ru")
+        .select("institution_name")
         .limit(1)
         .maybeSingle()
 
-      const brandSettings = brandData && (
-        // English version is configured
-        brandData.institution_name ||
-        // OR Russian version is fully configured (name + logo)
-        (brandData.institution_name_ru && brandData.logo_url_ru)
-      )
+      const brandSettings = brandData && !!brandData.institution_name
 
       // Check degrees
       const { count: degreesCount } = await supabase
