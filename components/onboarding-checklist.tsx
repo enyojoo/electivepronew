@@ -62,10 +62,23 @@ export function OnboardingChecklist() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    // Load collapse state from localStorage
+    // Load collapse state from localStorage, default to collapsed when complete
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("admin_checklist_collapsed")
-      return saved ? JSON.parse(saved) : false
+      if (saved !== null) {
+        return JSON.parse(saved)
+      }
+      // Auto-collapse when checklist is complete
+      const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
+      if (cached) {
+        try {
+          const { status } = JSON.parse(cached)
+          const allComplete = Object.values(status).every(Boolean)
+          return allComplete
+        } catch {
+          // Ignore parse errors
+        }
+      }
     }
     return false
   })
@@ -89,6 +102,7 @@ export function OnboardingChecklist() {
     }
   }, [])
 
+  // Show checklist if admin user and not dismissed (even when complete)
   const shouldShow = isAdmin && !isDismissed
 
   // Get cached data
@@ -170,7 +184,7 @@ export function OnboardingChecklist() {
   const checkCompletionStatus = async (): Promise<ChecklistStatus> => {
     try {
       // Check brand settings - configured if English institution name exists (from settings table)
-      const { data: brandData } = await supabase
+      const { data: brandData } = await (supabase as any)
         .from("settings")
         .select("name")
         .limit(1)
@@ -272,7 +286,7 @@ export function OnboardingChecklist() {
       .channel("onboarding-checklist-updates")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "settings" },
+        { event: "*", schema: "public", table: "settings" as any },
         () => {
           console.log("Settings changed, invalidating cache")
           invalidateCacheForTable("settings")
@@ -447,25 +461,7 @@ export function OnboardingChecklist() {
                 {completedCount}/{totalCount}
               </Badge>
             </div>
-            {allStepsComplete ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={dismissChecklist}
-                className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
-                aria-label="Dismiss setup checklist"
-              >
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </Button>
-            ) : (
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
@@ -481,7 +477,27 @@ export function OnboardingChecklist() {
                   <ChevronUp className="h-3 w-3" aria-hidden="true" />
                 )}
               </Button>
-            )}
+
+              {!isCollapsed && allStepsComplete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={dismissChecklist}
+                  className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Dismiss setup checklist permanently"
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
+              )}
+            </div>
           </div>
 
           {!isCollapsed && (
@@ -499,7 +515,7 @@ export function OnboardingChecklist() {
             </div>
           )}
 
-          {/* Show completion celebration when all steps are done */}
+          {/* Show completion celebration when all steps are done and expanded */}
           {allStepsComplete && !isCollapsed && (
             <div className="px-4 pb-3 border-t bg-green-50/50 dark:bg-green-950/20">
               <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
