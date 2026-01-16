@@ -77,6 +77,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const [universities, setUniversities] = useState<any[]>([])
   const [existingSelection, setExistingSelection] = useState<any>(null)
   const [selectedUniversityIds, setSelectedUniversityIds] = useState<string[]>([])
+  const [selectionStatus, setSelectionStatus] = useState<string | null>(null)
 
   const loadData = useCallback(async (forceRefresh = false) => {
     if (profileLoading) return

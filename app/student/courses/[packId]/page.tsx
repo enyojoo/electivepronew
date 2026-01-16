@@ -275,8 +275,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       }
 
       // Cache the data with group-specific keys
-      setCachedData(cacheKey, packData)
-      setCachedData(selectionsCacheKey, selectionData)
+      setCachedData(cacheKey, data.course)
+      setCachedData(selectionsCacheKey, data.selection)
     } catch (error: any) {
       setFetchError(error.message || t("student.courses.failedToLoad"))
       toast({ title: "Error", description: error.message, variant: "destructive" })
