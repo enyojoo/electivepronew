@@ -60,7 +60,7 @@ export function OnboardingChecklist() {
   const { t } = useLanguage()
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
+  const supabase = getSupabaseBrowserClient()
 
   // Initialize checklist status from cache synchronously to prevent flashes
   const getInitialChecklistStatus = (): ChecklistStatus => {
@@ -154,9 +154,9 @@ export function OnboardingChecklist() {
   })
 
   // Only show for admin users and when not dismissed
-  const isAdmin = pathname.includes("/admin")
+  const isAdmin = useMemo(() => pathname.includes("/admin"), [pathname])
   const allStepsComplete = useMemo(() =>
-    Object.values(checklistStatus).every(status => status),
+    checklistStatus ? Object.values(checklistStatus).every(status => status) : false,
     [checklistStatus]
   )
 
@@ -171,7 +171,10 @@ export function OnboardingChecklist() {
   })
 
   // Show checklist if admin user and not dismissed (even when complete)
-  const shouldShow = isAdmin && !isDismissed && progressPercentage < 100
+  const shouldShow = useMemo(() =>
+    isAdmin && !isDismissed && progressPercentage < 100,
+    [isAdmin, isDismissed, progressPercentage]
+  )
 
   // Get cached data
   const getCachedStatus = (): CachedData | null => {
@@ -477,55 +480,61 @@ export function OnboardingChecklist() {
   }
 
   // Calculate progress
-  const completedCount = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
-  const totalCount = checklistStatus ? Object.keys(checklistStatus).length : 6
-  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+  const { completedCount, totalCount, progressPercentage } = useMemo(() => {
+    if (!checklistStatus) {
+      return { completedCount: 0, totalCount: 6, progressPercentage: 0 }
+    }
+    const completed = Object.values(checklistStatus).filter(Boolean).length
+    const total = Object.keys(checklistStatus).length
+    const percentage = total > 0 ? (completed / total) * 100 : 0
+    return { completedCount: completed, totalCount: total, progressPercentage: percentage }
+  }, [checklistStatus])
 
   // Define checklist items
-  const checklistItems: ChecklistItem[] = [
+  const checklistItems: ChecklistItem[] = useMemo(() => [
     {
       id: "brandSettings",
       title: t("admin.checklist.brandSettings", "Update Brand Settings"),
       description: t("admin.checklist.brandSettingsDesc", "Set institution name, logo, and branding"),
       link: "/admin/settings?tab=settings",
-      completed: checklistStatus.brandSettings,
+      completed: checklistStatus?.brandSettings || false,
     },
     {
       id: "degrees",
       title: t("admin.checklist.degrees", "Create Degrees"),
       description: t("admin.checklist.degreesDesc", "Add academic degree programs"),
       link: "/admin/settings?tab=degrees",
-      completed: checklistStatus.degrees,
+      completed: checklistStatus?.degrees || false,
     },
     {
       id: "groups",
       title: t("admin.checklist.groups", "Create Groups"),
       description: t("admin.checklist.groupsDesc", "Set up student groups within degrees"),
       link: "/admin/groups",
-      completed: checklistStatus.groups,
+      completed: checklistStatus?.groups || false,
     },
     {
       id: "universities",
       title: t("admin.checklist.universities", "Add Partner Universities"),
       description: t("admin.checklist.universitiesDesc", "Add exchange partner institutions"),
       link: "/admin/universities",
-      completed: checklistStatus.universities,
+      completed: checklistStatus?.universities || false,
     },
     {
       id: "courses",
       title: t("admin.checklist.courses", "Create Course Catalogues"),
       description: t("admin.checklist.coursesDesc", "Create available courses for electives"),
       link: "/admin/courses",
-      completed: checklistStatus.courses,
+      completed: checklistStatus?.courses || false,
     },
     {
       id: "users",
       title: t("admin.checklist.users", "Import/Create Users"),
       description: t("admin.checklist.usersDesc", "Import or create student and manager accounts"),
       link: "/admin/settings?tab=users",
-      completed: checklistStatus.users,
+      completed: checklistStatus?.users || false,
     },
-  ]
+  ], [t, checklistStatus])
 
   // Don't render if shouldn't show or if still determining initial state
   if (!shouldShow || (typeof window !== "undefined" && isLoading && !hasLoadedInitialData)) return null
