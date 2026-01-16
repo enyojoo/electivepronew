@@ -44,6 +44,7 @@ import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelExchangeSelection } from "@/app/actions/student-exchange-selections"
 import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
+import { ModernFileUploader } from "@/components/modern-file-uploader"
 
 // Cache constants
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
@@ -155,6 +156,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const [uploadedStatement, setUploadedStatement] = useState<File | null>(null)
   const [isUploadingStatement, setIsUploadingStatement] = useState(false)
   const [downloadingStatement, setDownloadingStatement] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [isLoadingPage, setIsLoadingPage] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -469,19 +471,41 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     }
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleFileUpload = async (file: File) => {
     if (file) {
-      if (file.type !== "application/pdf") {
-        toast({ title: "Invalid file type", description: "Please upload a PDF file", variant: "destructive" })
-        return
+      setIsUploadingStatement(true)
+      setUploadProgress(0)
+
+      try {
+        // Simulate upload progress (Supabase doesn't provide progress callbacks easily)
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            const newProgress = prev + Math.random() * 15
+            return newProgress > 90 ? 90 : newProgress
+          })
+        }, 200)
+
+        // Upload the file using the statement upload function
+        const statementUrl = await uploadStatement(file, profile?.id || '', packId)
+
+        clearInterval(progressInterval)
+        setUploadProgress(100)
+
+        setUploadedStatement(file)
+        setExistingSelection(prev => prev ? { ...prev, statement_url: statementUrl } : null)
+
+        toast({ title: "Upload successful", description: `"${file.name}" has been uploaded.` })
+      } catch (error: any) {
+        console.error("Error uploading file:", error)
+        toast({
+          title: "Upload failed",
+          description: error.message || "Failed to upload file",
+          variant: "destructive"
+        })
+      } finally {
+        setIsUploadingStatement(false)
+        setUploadProgress(0)
       }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({ title: "File too large", description: "Please upload a file smaller than 5MB", variant: "destructive" })
-        return
-      }
-      setUploadedStatement(file)
-      toast({ title: "File selected", description: `"${file.name}" ready for upload.` })
     }
   }
 
@@ -774,35 +798,22 @@ export default function ExchangePage({ params }: ExchangePageProps) {
                   {downloadingStatement ? t("student.statement.downloading") : t("student.statement.downloadTemplate")}
                 </Button>
               )}
-              <div className="relative">
-                <Label
-                  htmlFor="statement-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                    <p className="mb-1 text-sm text-muted-foreground">
-                      <span className="font-semibold">{t("student.statement.clickToUpload")}</span>{" "}
-                      {t("student.statement.orDragAndDrop")}
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{t("student.statement.pdfOnly")}</p>
-                  </div>
-                  <Input
-                    id="statement-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    disabled={isUploadingStatement || !canSubmit}
-                    className="sr-only"
-                  />
-                </Label>
-                {isUploadingStatement && (
-                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {t("student.statement.uploading")}
-                  </div>
-                )}
-              </div>
+              <ModernFileUploader
+                selectedFile={uploadedStatement}
+                onFileSelect={(file) => {
+                  if (file) {
+                    handleFileUpload(file)
+                  } else {
+                    setUploadedStatement(null)
+                  }
+                }}
+                isUploading={isUploadingStatement}
+                uploadProgress={uploadProgress}
+                accept=".pdf,.doc,.docx"
+                maxSize={10}
+                existingFileUrl={existingSelection?.statement_url}
+                existingFileName="Previously uploaded statement"
+              />
               {uploadedStatement && (
                 <Alert variant="success">
                   <CheckCircle className="h-4 w-4" />

@@ -107,9 +107,9 @@ export async function uploadFile(
 
 export async function uploadStatement(file: File, userId: string, packId: string): Promise<string> {
   try {
-    // Create a unique file path in the statements folder
+    // Create a file path in the statements folder
     const fileExt = file.name.split(".").pop()
-    const fileName = `student_statements/${userId}_${packId}_${Date.now()}.${fileExt}`
+    const fileName = `student_statements/${userId}_${packId}_${file.name}`
 
     // Upload the file to Supabase Storage using the documents bucket (same as managers)
     const { error } = await supabase.storage.from("documents").upload(fileName, file, {

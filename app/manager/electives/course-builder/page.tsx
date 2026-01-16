@@ -253,10 +253,8 @@ export default function CourseBuilderPage() {
 
     try {
       // Upload file to storage
-      const fileExt = file.name.split(".").pop()
       const originalFileName = file.name
-      const timestamp = Date.now()
-      const fileName = `statement_templates/${timestamp}_${originalFileName}`
+      const fileName = `statement_templates/${originalFileName}`
 
       // Simulate upload progress (Supabase doesn't provide progress callbacks easily)
       const progressInterval = setInterval(() => {
