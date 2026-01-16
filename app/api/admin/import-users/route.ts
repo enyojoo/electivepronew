@@ -56,9 +56,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Users array is required" }, { status: 400 })
     }
 
-    if (users.length > 100) {
-      return NextResponse.json({ error: "Maximum 100 users can be imported at once" }, { status: 400 })
-    }
 
     const result: ImportResult = {
       successful: 0,
