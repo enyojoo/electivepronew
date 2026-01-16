@@ -274,6 +274,7 @@ export function useCachedUsers() {
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
+    console.log("Setting up real-time subscription for users")
     const supabase = getSupabaseBrowserClient()
 
     const channel = supabase
@@ -281,7 +282,8 @@ export function useCachedUsers() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
-        async () => {
+        async (payload) => {
+          console.log("Real-time update received for profiles:", payload.eventType, payload.new?.id || payload.old?.id)
           // Invalidate cache and refetch
           localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
@@ -367,7 +369,8 @@ export function useCachedUsers() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "student_profiles" },
-        async () => {
+        async (payload) => {
+          console.log("Real-time update received for student_profiles:", payload.eventType, payload.new?.profile_id || payload.old?.profile_id)
           // Invalidate cache and refetch when student profiles change
           localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
@@ -442,7 +445,8 @@ export function useCachedUsers() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "manager_profiles" },
-        async () => {
+        async (payload) => {
+          console.log("Real-time update received for manager_profiles:", payload.eventType, payload.new?.profile_id || payload.old?.profile_id)
           // Invalidate cache and refetch when manager profiles change
           localStorage.removeItem(USERS_CACHE_KEY)
           setIsLoading(true)
@@ -517,6 +521,7 @@ export function useCachedUsers() {
       .subscribe()
 
     return () => {
+      console.log("Cleaning up users real-time subscription")
       supabase.removeChannel(channel)
     }
   }, [language])
