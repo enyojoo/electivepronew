@@ -134,67 +134,77 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     setFetchError(null)
 
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+      // Use API route instead of direct database queries (same as list page)
+      console.log("ExchangeDetailPage: Fetching data from API for packId:", packId)
+      const response = await fetch(`/api/student/electives/exchange/${packId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      // Fetch exchange pack data
-      const { data: packData, error: packError } = await supabase
-        .from("elective_exchange")
-        .select("*")
-        .eq("id", packId)
-        .eq("group_id", profile.group.id)
-        .eq("status", "published")
-
-      if (packError) throw packError
-      if (!packData || packData.length === 0) throw new Error(t("student.exchange.programNotFound"))
-      if (packData.length > 1) throw new Error(t("student.exchange.multipleProgramsFound"))
-
-      const exchangePackData = packData[0]
-      setExchangePackData(exchangePackData)
-
-      // Fetch universities using the UUIDs from the universities column
-      const universityUuids = exchangePackData.universities || []
-      if (universityUuids.length > 0) {
-        const { data: fetchedUnis, error: unisError } = await supabase
-          .from("universities")
-          .select("*")
-          .in("id", universityUuids)
-
-        if (unisError) throw unisError
-
-        // Fetch current student counts for each university (pending + approved)
-        const universitiesWithCounts = await Promise.all(
-          (fetchedUnis || []).map(async (university) => {
-            const { count: currentStudents, error: countError } = await supabase
-              .from("exchange_selections")
-              .select("*", { count: "exact", head: true })
-              .contains("selected_university_ids", [university.id])
-              .in("status", ["pending", "approved"])
-
-            if (countError) {
-              console.error("Error fetching exchange selection count:", countError)
-              return { ...university, current_students: 0 }
-            }
-
-            return { ...university, current_students: currentStudents || 0 }
-          }),
-        )
-
-        setUniversities(universitiesWithCounts || [])
-      } else {
-        setUniversities([])
+      if (!response.ok) {
+        const errorData = await response.json()
+        // Redirect to login on authentication errors
+        if (errorData.error === "Authentication failed" || errorData.error === "Unauthorized") {
+          window.location.href = "/student/login"
+          return
+        }
+        throw new Error(errorData.error || `API error: ${response.status}`)
       }
 
-      // Fetch existing selection
-      const { data: selectionData, error: selectionError } = await supabase
-        .from("exchange_selections")
-        .select("*")
-        .eq("student_id", profile.id)
-        .eq("elective_exchange_id", packId)
-        .maybeSingle()
+      const data = await response.json()
+      console.log("ExchangeDetailPage: API data received:", data)
 
-      if (selectionError) throw selectionError
-      setExistingSelection(selectionData)
-      setSelectedUniversityIds(selectionData?.selected_university_ids || [])
+      // Set the exchange pack data
+      if (data.exchangeProgram) {
+        setExchangePackData(data.exchangeProgram)
+
+        // Fetch universities using the UUIDs from the universities column
+        const universityUuids = data.exchangeProgram.universities || []
+        if (universityUuids.length > 0) {
+          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+          const { data: fetchedUnis, error: unisError } = await supabase
+            .from("universities")
+            .select("*")
+            .in("id", universityUuids)
+
+          if (unisError) throw unisError
+
+          // Fetch current student counts for each university (pending + approved)
+          const universitiesWithCounts = await Promise.all(
+            (fetchedUnis || []).map(async (university) => {
+              const { count: currentStudents, error: countError } = await supabase
+                .from("exchange_selections")
+                .select("*", { count: "exact", head: true })
+                .contains("selected_university_ids", [university.id])
+                .in("status", ["pending", "approved"])
+
+              if (countError) {
+                console.error("Error fetching exchange selection count:", countError)
+                return { ...university, current_students: 0 }
+              }
+
+              return { ...university, current_students: currentStudents || 0 }
+            }),
+          )
+
+          setUniversities(universitiesWithCounts || [])
+        } else {
+          setUniversities([])
+        }
+      }
+
+      // Set the selection data
+      if (data.selection) {
+        setExistingSelection(data.selection)
+        setSelectedUniversityIds(data.selection.selected_university_ids || [])
+        setSelectionStatus(data.selection.status || null)
+      } else {
+        setExistingSelection(null)
+        setSelectedUniversityIds([])
+        setSelectionStatus(null)
+      }
     } catch (error: any) {
       setFetchError(error.message || "Failed to load exchange program details.")
       toast({ title: "Error", description: error.message, variant: "destructive" })

@@ -202,82 +202,77 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     setFetchError(null)
 
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-      const { data: ecData, error: ecError } = await supabase
-        .from("elective_courses")
-        .select("*")
-        .eq("id", packId)
-        .eq("group_id", profile.group.id)
-        .eq("status", "published")
+      // Use API route instead of direct database queries (same as list page)
+      console.log("CourseDetailPage: Fetching data from API for packId:", packId)
+      const response = await fetch(`/api/student/electives/course/${packId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (ecError) throw ecError
-      if (!ecData || ecData.length === 0) throw new Error(t("student.courses.packNotFound"))
-      if (ecData.length > 1) throw new Error(t("student.courses.multiplePacksFound"))
-
-      const packData = ecData[0]
-      setElectiveCourseData(packData)
-
-      let courseUuids: string[] = []
-      if (packData.courses && typeof packData.courses === "string") {
-        try {
-          const parsed = JSON.parse(packData.courses)
-          if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
-            courseUuids = parsed
-          }
-        } catch (e) {
-          console.error("Error parsing 'courses' JSON from elective_courses:", e)
+      if (!response.ok) {
+        const errorData = await response.json()
+        // Redirect to login on authentication errors
+        if (errorData.error === "Authentication failed" || errorData.error === "Unauthorized") {
+          window.location.href = "/student/login"
+          return
         }
-      } else if (Array.isArray(packData.courses) && packData.courses.every((item: any) => typeof item === "string")) {
-        courseUuids = packData.courses
+        throw new Error(errorData.error || `API error: ${response.status}`)
       }
 
-      if (courseUuids.length > 0) {
-        const { data: fetchedCourses, error: coursesError } = await supabase
-          .from("courses")
-          .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
-          .in("id", courseUuids)
+      const data = await response.json()
+      console.log("CourseDetailPage: API data received:", data)
 
-        if (coursesError) throw coursesError
+      // Set the course pack data
+      if (data.course) {
+        setElectiveCourseData(data.course)
 
-        // Fetch current student counts for each course (pending + approved)
-        const coursesWithCounts = await Promise.all(
-          (fetchedCourses || []).map(async (course) => {
-            const { count: currentStudents, error: countError } = await supabase
-              .from("course_selections")
-              .select("*", { count: "exact", head: true })
-              .contains("selected_course_ids", [course.id])
-              .in("status", ["pending", "approved"])
+        // Fetch courses using the UUIDs from the courses column
+        const courseUuids = data.course.courses || []
+        if (courseUuids.length > 0) {
+          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+          const { data: fetchedCourses, error: coursesError } = await supabase
+            .from("courses")
+            .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
+            .in("id", courseUuids)
 
-            if (countError) {
-              console.error("Error fetching course selection count:", countError)
-              return { ...course, current_students: 0 }
-            }
+          if (coursesError) throw coursesError
 
-            return { ...course, current_students: currentStudents || 0 }
-          }),
-        )
+          // Fetch current student counts for each course (pending + approved)
+          const coursesWithCounts = await Promise.all(
+            (fetchedCourses || []).map(async (course) => {
+              const { count: currentStudents, error: countError } = await supabase
+                .from("course_selections")
+                .select("*", { count: "exact", head: true })
+                .contains("selected_course_ids", [course.id])
+                .in("status", ["pending", "approved"])
 
-        const fetchedCoursesMap = new Map(coursesWithCounts.map((fc) => [fc.id, fc]))
-        const orderedFetchedCourses = courseUuids.map((uuid) => fetchedCoursesMap.get(uuid)).filter(Boolean)
-        setIndividualCourses(orderedFetchedCourses || [])
+              if (countError) {
+                console.error("Error fetching course selection count:", countError)
+                return { ...course, current_students: 0 }
+              }
+
+              return { ...course, current_students: currentStudents || 0 }
+            }),
+          )
+
+          const fetchedCoursesMap = new Map(coursesWithCounts.map((fc) => [fc.id, fc]))
+          const orderedFetchedCourses = courseUuids.map((uuid) => fetchedCoursesMap.get(uuid)).filter(Boolean)
+          setIndividualCourses(orderedFetchedCourses || [])
+        } else {
+          setIndividualCourses([])
+        }
+      }
+
+      // Set the selection data
+      if (data.selection) {
+        setExistingSelectionRecord(data.selection)
+        setSelectedIndividualCourseIds(data.selection.selected_course_ids || [])
       } else {
-        setIndividualCourses([])
+        setExistingSelectionRecord(null)
+        setSelectedIndividualCourseIds([])
       }
-
-      const { data: selectionData, error: selectionError } = await supabase
-        .from("course_selections")
-        .select("*")
-        .eq("student_id", profile.id)
-        .eq("elective_courses_id", packId)
-        .maybeSingle()
-
-      if (selectionError) throw selectionError
-      setExistingSelectionRecord(selectionData)
-
-      // Example: If 'course_selections' table has a 'selected_course_ids' (TEXT[]) column
-      // setSelectedIndividualCourseIds(selectionData?.selected_course_ids || []);
-      // For now, keeping it simple as the schema detail for this is pending
-      setSelectedIndividualCourseIds(selectionData?.selected_course_ids || [])
 
       // Cache the data with group-specific keys
       setCachedData(cacheKey, packData)

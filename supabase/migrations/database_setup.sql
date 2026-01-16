@@ -692,12 +692,7 @@ CREATE POLICY "Students can view their group's exchange programs"
   TO authenticated
   USING (
     public.user_role() = 'student' AND
-    EXISTS (
-      SELECT 1 FROM student_profiles sp
-      JOIN groups g ON g.id = sp.group_id
-      JOIN elective_packs ep ON ep.academic_year_id = g.academic_year_id
-      WHERE sp.profile_id = auth.uid() AND ep.type = 'exchange'
-    )
+    group_id = public.get_student_group_id()
   );
 
 DROP POLICY IF EXISTS "Admins and managers can manage exchange programs" ON elective_exchange;
