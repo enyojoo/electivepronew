@@ -373,7 +373,10 @@ export default function StudentDashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-            {t("student.dashboard.welcome", { name: profile?.full_name || t("student.dashboard.student") })}
+            {profile?.full_name
+              ? t("student.dashboard.welcome", { name: profile.full_name })
+              : t("student.dashboard.welcomeGeneric")
+            }
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">{t("student.dashboard.subtitle")}</p>
         </div>
