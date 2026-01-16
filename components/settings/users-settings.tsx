@@ -586,8 +586,11 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Invalidate cache to trigger refetch
+        // Clear localStorage cache and trigger refetch
         localStorage.removeItem("admin_users_cache")
+        // Force refetch by resetting the hook's internal state
+        setUsers([])
+        setIsLoading(true)
 
         // Show detailed results
         if (data.failed > 0) {
