@@ -62,8 +62,7 @@ export function OnboardingChecklist() {
   const pathname = usePathname()
   const supabase = getSupabaseBrowserClient()
 
-  // Initialize checklist status from cache synchronously to prevent flashes
-  const getInitialChecklistStatus = useMemo((): ChecklistStatus => {
+  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(() => {
     if (typeof window === "undefined") return {
       brandSettings: false,
       degrees: false,
@@ -93,9 +92,7 @@ export function OnboardingChecklist() {
       courses: false,
       users: false,
     }
-  }, [])
-
-  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(getInitialChecklistStatus)
+  })
 
   const [isLoading, setIsLoading] = useState(() => {
     // Only set loading if we don't have valid cache
