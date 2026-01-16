@@ -126,8 +126,15 @@ export function OnboardingChecklist() {
   })
   const [forceRefresh, setForceRefresh] = useState(0)
 
-  // Separate state for triggering dismissal re-evaluation
-  const [dismissTrigger, setDismissTrigger] = useState(0)
+  // State for dismissal status
+  const [isDismissed, setIsDismissed] = useState(() => {
+    if (typeof window === "undefined") return false
+    try {
+      return localStorage.getItem(DISMISSED_CACHE_KEY) === "true"
+    } catch {
+      return false
+    }
+  })
   const [isAnimating, setIsAnimating] = useState(false)
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(() => {
     // Check if we have valid cached data for initial render
@@ -152,15 +159,6 @@ export function OnboardingChecklist() {
     [checklistStatus]
   )
 
-  // Check if checklist has been manually dismissed
-  const isDismissed = useMemo(() => {
-    if (typeof window === "undefined") return false
-    try {
-      return localStorage.getItem(DISMISSED_CACHE_KEY) === "true"
-    } catch {
-      return false
-    }
-  }, [dismissTrigger])
 
   // Show checklist if admin user and not dismissed (even when complete)
   const shouldShow = isAdmin && !isDismissed
@@ -465,8 +463,7 @@ export function OnboardingChecklist() {
   // Handle manual dismissal of the checklist
   const dismissChecklist = () => {
     localStorage.setItem(DISMISSED_CACHE_KEY, "true")
-    // Force re-render to update shouldShow
-    setDismissTrigger(prev => prev + 1)
+    setIsDismissed(true)
   }
 
   // Handle navigation to specific step
