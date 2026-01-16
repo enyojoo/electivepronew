@@ -72,11 +72,6 @@ interface ElectiveCounts {
     exchange: number
     total: number
   }
-  pending: {
-    courses: number
-    exchange: number
-    total: number
-  }
 }
 
 export default function StudentDashboard() {
@@ -116,7 +111,6 @@ export default function StudentDashboard() {
     return {
       required: { courses: 0, exchange: 0, total: 0 },
       selected: { courses: 0, exchange: 0, total: 0 },
-      pending: { courses: 0, exchange: 0, total: 0 },
     }
   })
 
@@ -214,8 +208,6 @@ export default function StudentDashboard() {
       if (!availableCoursesError && !availableExchangeError && !courseSelectionsError && !exchangeSelectionsError) {
         const selectedCourses = courseSelections?.length || 0
         const selectedExchange = exchangeSelections?.length || 0
-        const pendingCourses = courseSelections?.filter((s) => s.status === "pending")?.length || 0
-        const pendingExchange = exchangeSelections?.filter((s) => s.status === "pending")?.length || 0
 
         const counts: ElectiveCounts = {
           required: {
@@ -227,11 +219,6 @@ export default function StudentDashboard() {
             courses: selectedCourses,
             exchange: selectedExchange,
             total: selectedCourses + selectedExchange,
-          },
-          pending: {
-            courses: pendingCourses,
-            exchange: pendingExchange,
-            total: pendingCourses + pendingExchange,
           },
         }
 
@@ -428,19 +415,6 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("student.dashboard.pendingSelections")}</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{electiveCounts.pending.total}</div>
-              <p className="text-xs text-muted-foreground">
-                {electiveCounts.pending.courses} {t("student.dashboard.courses")}, {electiveCounts.pending.exchange}{" "}
-                {t("student.dashboard.exchange")}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
