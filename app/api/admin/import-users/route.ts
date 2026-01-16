@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Starting bulk user import process...")
-    console.log("SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
 
     const { users }: { users: UserImportData[] } = await request.json()
 
@@ -115,7 +114,6 @@ export async function POST(request: NextRequest) {
         const tempPassword = Math.random().toString(36).slice(-12) + "A1!"
 
         // Create auth user
-        console.log(`Creating auth user for ${email}`)
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email,
           password: tempPassword,
@@ -136,8 +134,6 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        console.log(`Auth user created successfully with ID: ${authData.user.id}`)
-
         // Create profile
         const profileData: any = {
           id: authData.user.id,
@@ -148,7 +144,6 @@ export async function POST(request: NextRequest) {
         }
 
         // Create profile
-        console.log(`Creating profile for user ${authData.user.id}:`, profileData)
         const { data: profileInsertData, error: profileError } = await supabaseAdmin
           .from("profiles")
           .insert(profileData)
@@ -170,8 +165,6 @@ export async function POST(request: NextRequest) {
           result.failed++
           continue
         }
-
-        console.log(`Profile created successfully:`, profileInsertData)
 
         // Create student or manager profile if needed
         if (role === "student" && groupId) {
