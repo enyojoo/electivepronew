@@ -1104,38 +1104,6 @@ export function UsersSettings() {
                           <p className="text-sm text-destructive">{csvError}</p>
                         )}
 
-                        {parsedUsers.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">
-                              {t("admin.users.previewUsers") || "Users to Import"} ({parsedUsers.length})
-                            </Label>
-                            <div className="max-h-40 overflow-y-auto border rounded-md">
-                              <table className="w-full text-sm">
-                                <thead className="bg-muted/50">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left font-medium">{t("admin.users.name")}</th>
-                                    <th className="px-3 py-2 text-left font-medium">{t("admin.users.email")}</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {parsedUsers.slice(0, 5).map((user, index) => (
-                                    <tr key={index} className="border-t">
-                                      <td className="px-3 py-2">{user.name}</td>
-                                      <td className="px-3 py-2">{user.email}</td>
-                                    </tr>
-                                  ))}
-                                  {parsedUsers.length > 5 && (
-                                    <tr className="border-t">
-                                      <td colSpan={2} className="px-3 py-2 text-center text-muted-foreground">
-                                        ... and {parsedUsers.length - 5} more users
-                                      </td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <>
