@@ -38,6 +38,8 @@ import { Label } from "@/components/ui/label"
 import { UserRole } from "@/lib/types"
 import { useCachedDegrees } from "@/hooks/use-cached-degrees"
 import { useCachedGroups } from "@/hooks/use-cached-groups"
+import { ModernFileUploader } from "@/components/modern-file-uploader"
+import Papa from "papaparse"
 
 export function UsersSettings() {
   const { t, language } = useLanguage()
@@ -65,6 +67,10 @@ export function UsersSettings() {
   const [isSaving, setIsSaving] = useState(false)
   const [filteredGroups, setFilteredGroups] = useState<any[]>([])
   const [academicYears, setAcademicYears] = useState<any[]>([])
+  const [isImportMode, setIsImportMode] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [parsedUsers, setParsedUsers] = useState<any[]>([])
+  const [csvError, setCsvError] = useState<string | null>(null)
 
   const supabase = getSupabaseBrowserClient()
 
@@ -215,6 +221,133 @@ export function UsersSettings() {
 
     fetchGroups()
   }, [editingUser?.degreeId, editingUser?.year, supabase])
+
+  // Parse CSV file when uploaded
+  useEffect(() => {
+    if (!uploadedFile || !isImportMode) {
+      setParsedUsers([])
+      setCsvError(null)
+      return
+    }
+
+    const parseCSV = async () => {
+      Papa.parse(uploadedFile, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const { data, errors, meta } = results
+
+          // Check for parsing errors
+          if (errors.length > 0) {
+            setCsvError(t("admin.users.csvParseError") || "Error parsing CSV file")
+            setParsedUsers([])
+            return
+          }
+
+          // Validate CSV structure
+          const headers = meta.fields || []
+          const nameIndex = headers.findIndex(h => h?.toLowerCase() === 'name')
+          const emailIndex = headers.findIndex(h => h?.toLowerCase() === 'email')
+
+          if (nameIndex === -1 || emailIndex === -1) {
+            setCsvError(t("admin.users.csvMissingColumns") || "CSV must contain 'name' and 'email' columns")
+            setParsedUsers([])
+            return
+          }
+
+          // Validate and filter data
+          const validUsers: any[] = []
+          const validationErrors: string[] = []
+          const seenEmails = new Set<string>()
+
+          // First pass: basic validation and duplicate checking within CSV
+          data.forEach((row: any, index: number) => {
+            const name = row[headers[nameIndex]]?.trim()
+            const email = row[headers[emailIndex]]?.trim()
+
+            // Basic validation
+            if (!name || !email) {
+              validationErrors.push(`Row ${index + 2}: Missing name or email`)
+              return
+            }
+
+            // Email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+            if (!emailRegex.test(email)) {
+              validationErrors.push(`Row ${index + 2}: Invalid email format`)
+              return
+            }
+
+            // Check for duplicates within CSV
+            const normalizedEmail = email.toLowerCase()
+            if (seenEmails.has(normalizedEmail)) {
+              validationErrors.push(`Row ${index + 2}: Duplicate email in CSV`)
+              return
+            }
+            seenEmails.add(normalizedEmail)
+
+            validUsers.push({
+              name,
+              email: normalizedEmail,
+              originalIndex: index
+            })
+          })
+
+          if (validationErrors.length > 0) {
+            setCsvError(validationErrors.join('\n'))
+            setParsedUsers([])
+            return
+          }
+
+          // Check for existing users
+          try {
+            const emailsToCheck = validUsers.map(u => u.email)
+            const { data: existingUsers, error } = await supabase
+              .from("profiles")
+              .select("email")
+              .in("email", emailsToCheck)
+
+            if (error) {
+              console.error("Error checking existing users:", error)
+              setCsvError(t("admin.users.errorCheckingExisting") || "Error checking for existing users")
+              setParsedUsers([])
+              return
+            }
+
+            const existingEmails = new Set(existingUsers?.map(u => u.email.toLowerCase()) || [])
+
+            // Filter out existing users
+            const newUsers = validUsers.filter(user => {
+              if (existingEmails.has(user.email)) {
+                validationErrors.push(`${user.email}: User already exists`)
+                return false
+              }
+              return true
+            })
+
+            if (validationErrors.length > 0) {
+              setCsvError(validationErrors.join('\n'))
+              setParsedUsers([])
+            } else {
+              setParsedUsers(newUsers)
+              setCsvError(null)
+            }
+          } catch (error) {
+            console.error("Error validating users:", error)
+            setCsvError(t("admin.users.errorValidating") || "Error validating users")
+            setParsedUsers([])
+          }
+        },
+        error: (error) => {
+          console.error("CSV parsing error:", error)
+          setCsvError(t("admin.users.csvParseError") || "Error parsing CSV file")
+          setParsedUsers([])
+        }
+      })
+    }
+
+    parseCSV()
+  }, [uploadedFile, isImportMode, t, supabase])
 
   // Get current page items
   const getCurrentPageItems = () => {
@@ -390,6 +523,10 @@ export function UsersSettings() {
     closeEditDialog()
     setTimeout(() => {
       setEditingUser(null)
+      setIsImportMode(false)
+      setUploadedFile(null)
+      setParsedUsers([])
+      setCsvError(null)
       cleanupDialogEffects()
     }, 300)
   }
@@ -417,8 +554,62 @@ export function UsersSettings() {
     try {
       const isNewUser = !editingUser.id
 
-      if (isNewUser) {
-        // Create new user via API
+      if (isImportMode) {
+        // Handle bulk import
+        if (!parsedUsers.length) {
+          throw new Error("No users to import")
+        }
+
+        const usersToImport = parsedUsers.map(user => ({
+          email: user.email,
+          name: user.name,
+          role: editingUser.role,
+          degreeId: editingUser.degreeId || null,
+          groupId: editingUser.groupId || null,
+          year: editingUser.year || null,
+        }))
+
+        const response = await fetch("/api/admin/import-users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            users: usersToImport,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to import users")
+        }
+
+        const data = await response.json()
+
+        // Invalidate cache to trigger refetch
+        localStorage.removeItem("admin_users_cache")
+
+        // Show detailed results
+        if (data.failed > 0) {
+          toast({
+            title: "Import Completed",
+            description: `Successfully imported ${data.successful} users. ${data.failed} users failed to import.`,
+            variant: "default",
+          })
+
+          // Show detailed error information in a separate toast or modal
+          if (data.errors && data.errors.length > 0) {
+            console.log("Import errors:", data.errors)
+            // Could show a modal with detailed errors, but for now just log them
+          }
+        } else {
+          toast({
+            title: "Success",
+            description: `Successfully imported ${data.successful} users.`,
+          })
+        }
+      } else if (isNewUser) {
+        // Create single new user via API
         const response = await fetch("/api/admin/invite-user", {
           method: "POST",
           headers: {
@@ -636,24 +827,47 @@ export function UsersSettings() {
           <h2 className="text-xl font-semibold">{t("admin.users.title")}</h2>
           <p className="text-muted-foreground mt-1">{t("admin.users.subtitle")}</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingUser({
-              id: "",
-              name: "",
-              email: "",
-              role: UserRole.STUDENT,
-              status: "active",
-              degreeId: "",
-              groupId: "",
-              year: "",
-            })
-            openEditDialog()
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {t("admin.users.createUser") || "Create User"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => {
+              setEditingUser({
+                id: "",
+                name: "",
+                email: "",
+                role: UserRole.STUDENT,
+                status: "active",
+                degreeId: "",
+                groupId: "",
+                year: "",
+              })
+              setIsImportMode(false)
+              openEditDialog()
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t("admin.users.createUser") || "Create User"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingUser({
+                id: "",
+                name: "",
+                email: "",
+                role: UserRole.STUDENT,
+                status: "active",
+                degreeId: "",
+                groupId: "",
+                year: "",
+              })
+              setIsImportMode(true)
+              openEditDialog()
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t("admin.users.importUser") || "Import User"}
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -855,7 +1069,14 @@ export function UsersSettings() {
           onPointerDownOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
-            <DialogTitle className="text-xl">{editingUser?.id ? t("admin.users.edit") : (t("admin.users.createUser") || "Create User")}</DialogTitle>
+            <DialogTitle className="text-xl">
+              {editingUser?.id
+                ? t("admin.users.edit")
+                : isImportMode
+                  ? (t("admin.users.importUser") || "Import User")
+                  : (t("admin.users.createUser") || "Create User")
+              }
+            </DialogTitle>
             <DialogDescription className="mt-1.5">
               {editingUser?.id ? t("admin.settings.subtitle") : t("admin.users.createUserDescription")}
             </DialogDescription>
@@ -868,26 +1089,78 @@ export function UsersSettings() {
                 <div className="space-y-4">
                   <h3 className="text-sm font-semibold text-foreground">{t("admin.users.basicInfo") || "Basic Information"}</h3>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-name" className="text-sm font-medium">{t("admin.users.name")}</Label>
-                      <Input
-                        id="edit-name"
-                        value={editingUser.name}
-                        onChange={(e) => handleEditInputChange("name", e.target.value)}
-                        className="h-10"
-                      />
-                    </div>
+                    {isImportMode ? (
+                      <div className="space-y-2">
+                        <ModernFileUploader
+                          onFileSelect={setUploadedFile}
+                          selectedFile={uploadedFile}
+                          isUploading={false}
+                          accept=".csv"
+                          maxSize={5}
+                          title={t("admin.users.uploadCsv") || "Upload CSV File"}
+                          description={t("admin.users.csvFormat") || "CSV should contain 'name' and 'email' columns"}
+                        />
+                        {csvError && (
+                          <p className="text-sm text-destructive">{csvError}</p>
+                        )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-email" className="text-sm font-medium">{t("admin.users.email")}</Label>
-                      <Input
-                        id="edit-email"
-                        type="email"
-                        value={editingUser.email}
-                        onChange={(e) => handleEditInputChange("email", e.target.value)}
-                        className="h-10"
-                      />
-                    </div>
+                        {parsedUsers.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">
+                              {t("admin.users.previewUsers") || "Users to Import"} ({parsedUsers.length})
+                            </Label>
+                            <div className="max-h-40 overflow-y-auto border rounded-md">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-medium">{t("admin.users.name")}</th>
+                                    <th className="px-3 py-2 text-left font-medium">{t("admin.users.email")}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {parsedUsers.slice(0, 5).map((user, index) => (
+                                    <tr key={index} className="border-t">
+                                      <td className="px-3 py-2">{user.name}</td>
+                                      <td className="px-3 py-2">{user.email}</td>
+                                    </tr>
+                                  ))}
+                                  {parsedUsers.length > 5 && (
+                                    <tr className="border-t">
+                                      <td colSpan={2} className="px-3 py-2 text-center text-muted-foreground">
+                                        ... and {parsedUsers.length - 5} more users
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-name" className="text-sm font-medium">{t("admin.users.name")}</Label>
+                          <Input
+                            id="edit-name"
+                            value={editingUser.name}
+                            onChange={(e) => handleEditInputChange("name", e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-email" className="text-sm font-medium">{t("admin.users.email")}</Label>
+                          <Input
+                            id="edit-email"
+                            type="email"
+                            value={editingUser.email}
+                            onChange={(e) => handleEditInputChange("email", e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1065,12 +1338,12 @@ export function UsersSettings() {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("settings.branding.saving")}
+                  {isImportMode ? t("admin.users.importing") : t("settings.branding.saving")}
                 </>
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
-                  {t("settings.branding.save")}
+                  {isImportMode ? <Plus className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                  {isImportMode ? (t("admin.users.import") || "Import") : t("settings.branding.save")}
                 </>
               )}
             </Button>
