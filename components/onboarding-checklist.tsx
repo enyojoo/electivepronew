@@ -26,8 +26,7 @@ import { cn } from "@/lib/utils"
 // Cache configuration
 const CHECKLIST_CACHE_KEY = "admin_onboarding_checklist"
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-const VISIBILITY_CACHE_KEY = "admin_checklist_visibility"
-const VISIBILITY_CACHE_DURATION = 60 * 1000 // 1 minute
+const DISMISSED_CACHE_KEY = "admin_checklist_dismissed"
 
 interface ChecklistItem {
   id: string
@@ -80,13 +79,24 @@ export function OnboardingChecklist() {
   const [forceRefresh, setForceRefresh] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
 
-  // Only show for admin users and when not all steps are complete
+  // Only show for admin users and when not dismissed
   const isAdmin = pathname.includes("/admin")
   const allStepsComplete = useMemo(() =>
     Object.values(checklistStatus).every(status => status),
     [checklistStatus]
   )
-  const shouldShow = isAdmin && !allStepsComplete
+
+  // Check if checklist has been manually dismissed
+  const isDismissed = useMemo(() => {
+    if (typeof window === "undefined") return false
+    try {
+      return localStorage.getItem(DISMISSED_CACHE_KEY) === "true"
+    } catch {
+      return false
+    }
+  }, [])
+
+  const shouldShow = isAdmin && !isDismissed
 
   // Get cached data
   const getCachedStatus = (): CachedData | null => {
@@ -360,6 +370,12 @@ export function OnboardingChecklist() {
     setTimeout(() => setIsAnimating(false), 300)
   }
 
+  // Handle manual dismissal of the checklist
+  const dismissChecklist = () => {
+    localStorage.setItem(DISMISSED_CACHE_KEY, "true")
+    // The component will automatically hide on next render due to shouldShow logic
+  }
+
   // Handle navigation to specific step
   const navigateToStep = (link: string) => {
     router.push(link)
@@ -443,21 +459,41 @@ export function OnboardingChecklist() {
                 {completedCount}/{totalCount}
               </Badge>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCollapsed}
-              className="h-6 w-6 p-0"
-              aria-label={isCollapsed ? "Expand setup checklist" : "Collapse setup checklist"}
-              aria-expanded={!isCollapsed}
-              aria-controls="checklist-content"
-            >
-              {isCollapsed ? (
-                <ChevronDown className="h-3 w-3" aria-hidden="true" />
-              ) : (
-                <ChevronUp className="h-3 w-3" aria-hidden="true" />
-              )}
-            </Button>
+            {allStepsComplete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={dismissChecklist}
+                className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Dismiss setup checklist"
+              >
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleCollapsed}
+                className="h-6 w-6 p-0"
+                aria-label={isCollapsed ? "Expand setup checklist" : "Collapse setup checklist"}
+                aria-expanded={!isCollapsed}
+                aria-controls="checklist-content"
+              >
+                {isCollapsed ? (
+                  <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                ) : (
+                  <ChevronUp className="h-3 w-3" aria-hidden="true" />
+                )}
+              </Button>
+            )}
           </div>
 
           {!isCollapsed && (
@@ -474,9 +510,24 @@ export function OnboardingChecklist() {
               </p>
             </div>
           )}
+
+          {/* Show completion celebration when all steps are done */}
+          {allStepsComplete && !isCollapsed && (
+            <div className="px-4 pb-3 border-t bg-green-50/50 dark:bg-green-950/20">
+              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                <CheckCircle className="h-4 w-4" />
+                <span className="font-medium">
+                  {t("admin.checklist.congratulations", "Congratulations!")}
+                </span>
+              </div>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                {t("admin.checklist.systemReady", "Your system is fully configured and ready to use.")}
+              </p>
+            </div>
+          )}
         </CardHeader>
 
-        {!isCollapsed && (
+        {!isCollapsed && !allStepsComplete && (
           <CardContent
             id="checklist-content"
             className={cn(
