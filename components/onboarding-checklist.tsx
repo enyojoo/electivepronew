@@ -13,13 +13,7 @@ import {
   Circle,
   Loader2,
   ChevronDown,
-  ChevronUp,
-  Settings,
-  GraduationCap,
-  Users,
-  Building,
-  BookOpen,
-  UserPlus
+  ChevronUp
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -32,7 +26,6 @@ interface ChecklistItem {
   id: string
   title: string
   description: string
-  icon: React.ReactNode
   link: string
   completed: boolean
   loading?: boolean
@@ -393,7 +386,6 @@ export function OnboardingChecklist() {
       id: "brandSettings",
       title: t("admin.checklist.brandSettings", "Update Brand Settings"),
       description: t("admin.checklist.brandSettingsDesc", "Set institution name, logo, and branding"),
-      icon: <Settings className="h-4 w-4" />,
       link: "/admin/settings?tab=settings",
       completed: checklistStatus.brandSettings,
     },
@@ -401,7 +393,6 @@ export function OnboardingChecklist() {
       id: "degrees",
       title: t("admin.checklist.degrees", "Create Degrees"),
       description: t("admin.checklist.degreesDesc", "Add academic degree programs"),
-      icon: <GraduationCap className="h-4 w-4" />,
       link: "/admin/settings?tab=degrees",
       completed: checklistStatus.degrees,
     },
@@ -409,7 +400,6 @@ export function OnboardingChecklist() {
       id: "groups",
       title: t("admin.checklist.groups", "Create Groups"),
       description: t("admin.checklist.groupsDesc", "Set up student groups within degrees"),
-      icon: <Users className="h-4 w-4" />,
       link: "/admin/groups",
       completed: checklistStatus.groups,
     },
@@ -417,7 +407,6 @@ export function OnboardingChecklist() {
       id: "universities",
       title: t("admin.checklist.universities", "Add Partner Universities"),
       description: t("admin.checklist.universitiesDesc", "Add exchange partner institutions"),
-      icon: <Building className="h-4 w-4" />,
       link: "/admin/universities",
       completed: checklistStatus.universities,
     },
@@ -425,7 +414,6 @@ export function OnboardingChecklist() {
       id: "courses",
       title: t("admin.checklist.courses", "Create Course Catalogues"),
       description: t("admin.checklist.coursesDesc", "Create available courses for electives"),
-      icon: <BookOpen className="h-4 w-4" />,
       link: "/admin/courses",
       completed: checklistStatus.courses,
     },
@@ -433,7 +421,6 @@ export function OnboardingChecklist() {
       id: "users",
       title: t("admin.checklist.users", "Import/Create Users"),
       description: t("admin.checklist.usersDesc", "Import or create student and manager accounts"),
-      icon: <UserPlus className="h-4 w-4" />,
       link: "/admin/settings?tab=users",
       completed: checklistStatus.users,
     },
@@ -564,15 +551,9 @@ export function OnboardingChecklist() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={cn(
-                        "flex-shrink-0 transition-colors duration-200",
-                        item.completed ? "text-green-600" : "text-foreground group-hover:text-primary"
-                      )}>
-                        {item.icon}
-                      </div>
+                    <div className="mb-1">
                       <h4 className={cn(
-                        "text-xs font-medium truncate transition-colors duration-200",
+                        "text-xs font-medium transition-colors duration-200",
                         item.completed ? "text-green-700" : "text-foreground group-hover:text-primary"
                       )}>
                         {item.title}
