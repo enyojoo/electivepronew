@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       is_active: true,
     }
 
+    // Create profile
     console.log(`Creating profile for user ${authData.user.id}:`, profileData)
     const { data: profileInsertData, error: profileError } = await supabaseAdmin
       .from("profiles")
@@ -77,7 +78,11 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       console.error("Profile creation error:", profileError)
       // Try to clean up the auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      } catch (cleanupError) {
+        console.error("Failed to cleanup auth user:", cleanupError)
+      }
       return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 })
     }
 

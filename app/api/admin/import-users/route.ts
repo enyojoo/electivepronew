@@ -94,9 +94,14 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Check if user already exists
-        const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(email)
-        if (existingUser.user) {
+        // Check if user already exists in profiles table
+        const { data: existingProfiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("email", email)
+          .limit(1)
+
+        if (existingProfiles && existingProfiles.length > 0) {
           result.errors.push({
             email,
             name,
@@ -142,6 +147,7 @@ export async function POST(request: NextRequest) {
           is_active: true,
         }
 
+        // Create profile
         console.log(`Creating profile for user ${authData.user.id}:`, profileData)
         const { data: profileInsertData, error: profileError } = await supabaseAdmin
           .from("profiles")
@@ -151,11 +157,15 @@ export async function POST(request: NextRequest) {
         if (profileError) {
           console.error("Profile creation error:", profileError)
           // Try to clean up the auth user if profile creation fails
-          await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+          try {
+            await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+          } catch (cleanupError) {
+            console.error("Failed to cleanup auth user:", cleanupError)
+          }
           result.errors.push({
             email,
             name,
-            error: `Failed to create user profile: ${profileError.message}`,
+            error: `Failed to create user profile: ${profileError.message || 'Unknown error'}`,
           })
           result.failed++
           continue

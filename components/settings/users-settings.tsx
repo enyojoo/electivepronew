@@ -592,11 +592,8 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Clear localStorage cache and trigger refetch
+        // Clear localStorage cache to trigger refetch
         localStorage.removeItem("admin_users_cache")
-        // Force refetch by resetting the hook's internal state
-        setUsers([])
-        setIsLoading(true)
 
         // Show detailed results
         if (data.failed > 0) {
@@ -641,11 +638,8 @@ export function UsersSettings() {
 
         const data = await response.json()
 
-        // Clear localStorage cache and trigger refetch
+        // Clear localStorage cache to trigger refetch
         localStorage.removeItem("admin_users_cache")
-        // Force refetch by resetting the hook's internal state
-        setUsers([])
-        setIsLoading(true)
 
         toast({
           title: "Success",
@@ -799,11 +793,8 @@ export function UsersSettings() {
         }),
       )
 
-        // Clear localStorage cache and trigger refetch
+        // Clear localStorage cache to trigger refetch
         localStorage.removeItem("admin_users_cache")
-        // Force refetch by resetting the hook's internal state
-        setUsers([])
-        setIsLoading(true)
 
         toast({
           title: "Success",
