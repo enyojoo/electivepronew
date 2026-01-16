@@ -92,10 +92,8 @@ export function UsersSettings() {
     let result = [...users]
 
     if (searchTerm) {
-      result = result.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      result = result.filter((user) =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
@@ -704,7 +702,6 @@ export function UsersSettings() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("admin.users.name")}</TableHead>
-                <TableHead>{t("admin.users.email")}</TableHead>
                 <TableHead>{t("admin.users.role")}</TableHead>
                 <TableHead>{t("admin.users.degree")}</TableHead>
                 <TableHead>{t("admin.users.group")}</TableHead>
@@ -715,10 +712,10 @@ export function UsersSettings() {
             </TableHeader>
             <TableBody>
               {showSkeleton ? (
-                <TableSkeleton columns={8} rows={5} />
+                <TableSkeleton columns={7} rows={5} />
               ) : getCurrentPageItems().length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {t("admin.users.noUsersFound") || "No users found"}
                   </TableCell>
                 </TableRow>
@@ -726,7 +723,6 @@ export function UsersSettings() {
                 getCurrentPageItems().map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{user.degreeName}</TableCell>
                     <TableCell>{user.groupName}</TableCell>
