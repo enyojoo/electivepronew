@@ -19,8 +19,7 @@ import {
   Users,
   Building,
   BookOpen,
-  UserPlus,
-  Target
+  UserPlus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -47,7 +46,6 @@ interface ChecklistStatus {
   universities: boolean
   courses: boolean
   users: boolean
-  electives: boolean
 }
 
 interface CachedData {
@@ -68,7 +66,6 @@ export function OnboardingChecklist() {
     universities: false,
     courses: false,
     users: false,
-    electives: false,
   })
 
   const [isLoading, setIsLoading] = useState(true)
@@ -152,10 +149,6 @@ export function OnboardingChecklist() {
         case "profiles":
           updatedStatus.users = false
           break
-        case "elective_courses":
-        case "elective_exchange":
-          updatedStatus.electives = false
-          break
       }
 
       // Update cache with invalidated status
@@ -231,7 +224,6 @@ export function OnboardingChecklist() {
         universities,
         courses,
         users,
-        electives,
       }
 
       return status
@@ -324,24 +316,6 @@ export function OnboardingChecklist() {
         () => {
           console.log("Profiles changed, invalidating cache")
           invalidateCacheForTable("profiles")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "elective_courses" },
-        () => {
-          console.log("Elective courses changed, invalidating cache")
-          invalidateCacheForTable("elective_courses")
-          setForceRefresh(prev => prev + 1)
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "elective_exchange" },
-        () => {
-          console.log("Elective exchange changed, invalidating cache")
-          invalidateCacheForTable("elective_exchange")
           setForceRefresh(prev => prev + 1)
         }
       )
@@ -446,14 +420,6 @@ export function OnboardingChecklist() {
       link: "/admin/settings?tab=users",
       completed: checklistStatus.users,
     },
-    {
-      id: "electives",
-      title: t("admin.checklist.electives", "Setup Electives"),
-      description: t("admin.checklist.electivesDesc", "Ask managers to create elective courses"),
-      icon: <Target className="h-4 w-4" />,
-      link: "/admin/dashboard",
-      completed: checklistStatus.electives,
-    },
   ]
 
   // Don't render if shouldn't show
@@ -502,7 +468,7 @@ export function OnboardingChecklist() {
               <Progress value={progressPercentage} className="h-2 transition-all duration-500" />
               <p id="checklist-progress" className="text-xs text-muted-foreground">
                 {progressPercentage === 100
-                  ? t("admin.checklist.complete", "All setup steps completed!")
+                  ? t("admin.checklist.readyToGo", "You're all set! Managers can now create electives.")
                   : t("admin.checklist.progress", `${completedCount} of ${totalCount} steps completed`)
                 }
               </p>
