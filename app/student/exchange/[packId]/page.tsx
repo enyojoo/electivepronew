@@ -42,52 +42,11 @@ import { createClient } from "@supabase/supabase-js"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelExchangeSelection } from "@/app/actions/student-exchange-selections"
+import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
 
 // Cache constants
-const EXCHANGE_DETAIL_CACHE_KEY = "studentExchangeDetail"
-const EXCHANGE_SELECTIONS_CACHE_KEY = "studentExchangeSelections"
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
-// Cache helper functions (same as admin/student dashboards)
-const getCachedData = (key: string): any | null => {
-  try {
-    const cachedData = localStorage.getItem(key)
-    if (!cachedData) return null
-
-    const parsed = JSON.parse(cachedData)
-
-    // Check if cache is expired
-    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(key)
-      return null
-    }
-
-    return parsed.data
-  } catch (error) {
-    console.error(`Error reading from cache (${key}):`, error)
-    return null
-  }
-}
-
-const setCachedData = (key: string, data: any) => {
-  try {
-    const cacheData = {
-      data,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem(key, JSON.stringify(cacheData))
-  } catch (error) {
-    console.error(`Error writing to cache (${key}):`, error)
-  }
-}
-
-const invalidateCache = (key: string) => {
-  try {
-    localStorage.removeItem(key)
-  } catch (error) {
-    console.error(`Error invalidating cache (${key}):`, error)
-  }
-}
 
 interface ExchangePageProps {
   params: {
@@ -119,7 +78,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const [existingSelection, setExistingSelection] = useState<any>(null)
   const [selectedUniversityIds, setSelectedUniversityIds] = useState<string[]>([])
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (profileLoading) return
     if (profileError) {
       setFetchError(`Failed to load profile: ${profileError}`)
@@ -138,28 +97,35 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       return
     }
 
-    // Load cached data immediately on mount
-    const cacheKey = `${EXCHANGE_DETAIL_CACHE_KEY}_${packId}`
-    const selectionsCacheKey = `${EXCHANGE_SELECTIONS_CACHE_KEY}_${packId}`
+    // Use group-specific cache keys
+    const cacheKey = `studentExchangeDetail_${profile.group.id}_${packId}`
+    const selectionsCacheKey = `studentExchangeSelections_${profile.group.id}_${packId}`
+
+    // Check if we need to force refresh
+    const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshStudentExchange')
+    if (shouldForceRefresh) {
+      clearForceRefreshFlag('forceRefreshStudentExchange')
+      invalidateCache(cacheKey)
+      invalidateCache(selectionsCacheKey)
+    }
 
     // Load cached data first
     const cachedData = getCachedData(cacheKey)
     const cachedSelections = getCachedData(selectionsCacheKey)
+    const hasCachedData = cachedData && cachedSelections
 
-    if (cachedData) {
+    // Only show loading if we don't have cached data or need to force refresh
+    if (!hasCachedData || shouldForceRefresh) {
+      setIsLoadingPage(true)
+    }
+
+    // If we have cached data and don't need to force refresh, use it
+    if (cachedData && cachedSelections && !shouldForceRefresh) {
       setExchangePackData(cachedData)
       setUniversities(cachedData.universities || [])
-    }
-
-    if (cachedSelections) {
       setExistingSelection(cachedSelections)
       setSelectedUniversityIds(cachedSelections.selected_university_ids || [])
-    }
-
-    // Check if we need to fetch from API (no cached data or data is empty)
-    const needsApiFetch = !cachedData || !cachedSelections
-
-    if (!needsApiFetch) {
+      setSelectionStatus(cachedSelections.status || null)
       setIsLoadingPage(false)
       return
     }
@@ -232,6 +198,15 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     } catch (error: any) {
       setFetchError(error.message || "Failed to load exchange program details.")
       toast({ title: "Error", description: error.message, variant: "destructive" })
+
+      // On error, keep cached data if it exists
+      if (!hasCachedData) {
+        setExchangePackData(null)
+        setUniversities([])
+        setExistingSelection(null)
+        setSelectedUniversityIds([])
+        setSelectionStatus(null)
+      }
     } finally {
       setIsLoadingPage(false)
     }
@@ -254,7 +229,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         { event: "*", schema: "public", table: "elective_exchange", filter: `id=eq.${packId}` },
         async () => {
           console.log("Exchange program pack changed, reloading data")
-          await loadData()
+          await loadData(true) // Force refresh
         }
       )
       .on(
@@ -262,7 +237,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         { event: "*", schema: "public", table: "universities" },
         async () => {
           console.log("Universities changed, reloading university data")
-          await loadData()
+          await loadData(true) // Force refresh
         }
       )
       .on(
@@ -270,21 +245,16 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         { event: "*", schema: "public", table: "exchange_selections", filter: `student_id=eq.${profile.id}` },
         async () => {
           console.log("Student exchange selections changed, reloading selections")
-          // Reload selections only
-          const { data: selectionsData, error: selectionsError } = await supabase
-            .from("exchange_selections")
-            .select("*")
-            .eq("student_id", profile.id)
-            .eq("elective_exchange_id", packId)
-
-          if (!selectionsError && selectionsData) {
-            setExistingSelection(selectionsData[0] || null)
-            setSelectedUniversityIds(selectionsData[0]?.selected_university_ids || [])
-            setSelectionStatus(selectionsData[0]?.status || null)
-          }
+          await loadData(true) // Force refresh
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✓ Student exchange detail page subscribed to real-time changes")
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("✗ Error subscribing to real-time changes on student exchange detail page")
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)

@@ -48,16 +48,16 @@ export async function PUT(request: NextRequest) {
     // Use createServerComponentClient which properly reads cookies in API routes
     const supabase = await createServerComponentClient()
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (sessionError) {
-      console.error("Session error:", sessionError)
+    if (userError) {
+      console.error("User error:", userError)
     }
 
-    if (!session) {
-      console.error("No session found")
+    if (!user) {
+      console.error("No authenticated user found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest) {
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single()
 
     if (!profile || profile.role !== "admin") {

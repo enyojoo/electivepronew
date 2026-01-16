@@ -74,11 +74,11 @@ export default async function proxy(req: NextRequest) {
   )
 
   try {
-    // Get the current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    // Get the current user (secure approach - authenticates with Supabase Auth server)
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (sessionError || !session) {
-      // No valid session, redirect to appropriate login page
+    if (userError || !user) {
+      // No valid user, redirect to appropriate login page
       const loginUrl = new URL(loginPages[requiredRole], req.url)
       return NextResponse.redirect(loginUrl)
     }
@@ -87,7 +87,7 @@ export default async function proxy(req: NextRequest) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single()
 
     if (profileError) {

@@ -9,9 +9,9 @@ export async function uploadLogo(file: File): Promise<string> {
 
   try {
     // Get the authenticated user
-    const { data: authData } = await supabase.auth.getSession()
-    if (!authData.session) {
-      throw new Error("No authenticated session found")
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData.user) {
+      throw new Error("No authenticated user found")
     }
 
     // Upload the file
@@ -44,9 +44,9 @@ export async function uploadFavicon(file: File): Promise<string> {
 
   try {
     // Get the authenticated user
-    const { data: authData } = await supabase.auth.getSession()
-    if (!authData.session) {
-      throw new Error("No authenticated session found")
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData.user) {
+      throw new Error("No authenticated user found")
     }
 
     // Upload the file

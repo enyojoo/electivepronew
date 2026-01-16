@@ -5,31 +5,31 @@ export async function getUserFromRequest(req: NextRequest) {
   try {
     const supabaseServerClient = await createServerComponentClient()
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabaseServerClient.auth.getSession()
+      data: { user },
+      error: userError,
+    } = await supabaseServerClient.auth.getUser()
 
-    if (sessionError) {
-      console.error("Error getting session:", sessionError.message)
+    if (userError) {
+      console.error("Error getting user:", userError.message)
       return null
     }
 
-    if (!session?.user) {
+    if (!user) {
       return null
     }
 
     const { data: profile, error: profileError } = await supabaseServerClient
       .from("profiles")
       .select("id, role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single()
 
     if (profileError) {
-      console.error(`Error fetching profile for user ${session.user.id}:`, profileError.message)
+      console.error(`Error fetching profile for user ${user.id}:`, profileError.message)
       return null
     }
 
-    return { user: session.user, profile }
+    return { user, profile }
   } catch (error) {
     console.error("Unexpected error in getUserFromRequest:", error)
     return null

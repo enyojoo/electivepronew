@@ -26,16 +26,16 @@ export default function ResetPasswordPage() {
 
   // Check if user is in password reset flow
   useEffect(() => {
-    const checkSession = async () => {
+    const checkUser = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
         router.push("/admin/login")
       }
     }
 
-    checkSession()
+    checkUser()
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {

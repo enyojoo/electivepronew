@@ -66,9 +66,9 @@ export default function AdminDashboard() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (error || !session) {
+        const { data: { user }, error } = await supabase.auth.getUser()
+
+        if (error || !user) {
           console.error("Auth error:", error)
           router.push("/admin/login")
           return
@@ -99,8 +99,8 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       // Check authentication first
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
         return // Auth check will handle redirect
       }
 

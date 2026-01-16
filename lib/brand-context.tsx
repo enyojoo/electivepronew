@@ -556,16 +556,16 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     async (updates: Partial<BrandSettings>) => {
       try {
-        // Verify we have a valid session before attempting to update
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (sessionError) {
-          console.error("Error getting session:", sessionError)
-          throw new Error("Authentication error: " + sessionError.message)
+        // Verify we have a valid user before attempting to update (secure approach)
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+        if (userError) {
+          console.error("Error getting user:", userError)
+          throw new Error("Authentication error: " + userError.message)
         }
 
-        if (!session) {
-          console.error("No active session found")
+        if (!user) {
+          console.error("No authenticated user found")
           throw new Error("You must be logged in to update settings")
         }
 

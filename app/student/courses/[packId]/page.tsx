@@ -40,52 +40,11 @@ import { createClient } from "@supabase/supabase-js"
 import { useCachedStudentProfile } from "@/hooks/use-cached-student-profile"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { cancelCourseSelection } from "@/app/actions/student-selections"
+import { getCachedData, setCachedData, invalidateCache, getForceRefreshFlag, clearForceRefreshFlag } from "@/lib/cache-utils"
 
-// Cache constants
-const COURSE_DETAIL_CACHE_KEY = "studentCourseDetail"
-const COURSE_SELECTIONS_CACHE_KEY = "studentCourseSelections"
+// Cache constants - make them pack-specific and group-specific
 const CACHE_EXPIRY = 60 * 60 * 1000 // 60 minutes
 
-// Cache helper functions (same as admin/student dashboards)
-const getCachedData = (key: string): any | null => {
-  try {
-    const cachedData = localStorage.getItem(key)
-    if (!cachedData) return null
-
-    const parsed = JSON.parse(cachedData)
-
-    // Check if cache is expired
-    if (Date.now() - parsed.timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(key)
-      return null
-    }
-
-    return parsed.data
-  } catch (error) {
-    console.error(`Error reading from cache (${key}):`, error)
-    return null
-  }
-}
-
-const setCachedData = (key: string, data: any) => {
-  try {
-    const cacheData = {
-      data,
-      timestamp: Date.now(),
-    }
-    localStorage.setItem(key, JSON.stringify(cacheData))
-  } catch (error) {
-    console.error(`Error writing to cache (${key}):`, error)
-  }
-}
-
-const invalidateCache = (key: string) => {
-  try {
-    localStorage.removeItem(key)
-  } catch (error) {
-    console.error(`Error invalidating cache (${key}):`, error)
-  }
-}
 
 // Assuming these types/enums are defined elsewhere and passed as props or imported
 // For example:
@@ -188,7 +147,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   const [existingSelectionRecord, setExistingSelectionRecord] = useState<any>(null)
   const [selectedIndividualCourseIds, setSelectedIndividualCourseIds] = useState<string[]>([])
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = false) => {
     if (profileLoading) return
     if (profileError) {
       setFetchError(`Failed to load profile: ${profileError}`)
@@ -207,28 +166,34 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       return
     }
 
-    // Load cached data immediately on mount
-    const cacheKey = `${COURSE_DETAIL_CACHE_KEY}_${packId}`
-    const selectionsCacheKey = `${COURSE_SELECTIONS_CACHE_KEY}_${packId}`
+    // Use group-specific cache keys
+    const cacheKey = `studentCourseDetail_${profile.group.id}_${packId}`
+    const selectionsCacheKey = `studentCourseSelections_${profile.group.id}_${packId}`
+
+    // Check if we need to force refresh
+    const shouldForceRefresh = forceRefresh || getForceRefreshFlag('forceRefreshStudentCourses')
+    if (shouldForceRefresh) {
+      clearForceRefreshFlag('forceRefreshStudentCourses')
+      invalidateCache(cacheKey)
+      invalidateCache(selectionsCacheKey)
+    }
 
     // Load cached data first
     const cachedData = getCachedData(cacheKey)
     const cachedSelections = getCachedData(selectionsCacheKey)
+    const hasCachedData = cachedData && cachedSelections
 
-    if (cachedData) {
+    // Only show loading if we don't have cached data or need to force refresh
+    if (!hasCachedData || shouldForceRefresh) {
+      setIsLoadingPage(true)
+    }
+
+    // If we have cached data and don't need to force refresh, use it
+    if (cachedData && cachedSelections && !shouldForceRefresh) {
       setElectiveCourseData(cachedData)
       setIndividualCourses(cachedData.courses || [])
-    }
-
-    if (cachedSelections) {
       setExistingSelectionRecord(cachedSelections)
       setSelectedIndividualCourseIds(cachedSelections.selected_course_ids || [])
-    }
-
-    // Check if we need to fetch from API (no cached data or data is empty)
-    const needsApiFetch = !cachedData || !cachedSelections
-
-    if (!needsApiFetch) {
       setIsLoadingPage(false)
       return
     }
@@ -314,12 +279,20 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       // For now, keeping it simple as the schema detail for this is pending
       setSelectedIndividualCourseIds(selectionData?.selected_course_ids || [])
 
-      // Cache the data
+      // Cache the data with group-specific keys
       setCachedData(cacheKey, packData)
       setCachedData(selectionsCacheKey, selectionData)
     } catch (error: any) {
       setFetchError(error.message || t("student.courses.failedToLoad"))
       toast({ title: "Error", description: error.message, variant: "destructive" })
+
+      // On error, keep cached data if it exists
+      if (!hasCachedData) {
+        setElectiveCourseData(null)
+        setIndividualCourses([])
+        setExistingSelectionRecord(null)
+        setSelectedIndividualCourseIds([])
+      }
     } finally {
       setIsLoadingPage(false)
     }
@@ -342,9 +315,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "elective_courses", filter: `id=eq.${packId}` },
         async () => {
           console.log("Elective course pack changed, reloading data")
-          // Invalidate cache
-          invalidateCache(`${COURSE_DETAIL_CACHE_KEY}_${packId}`)
-          await loadData()
+          await loadData(true) // Force refresh
         }
       )
       .on(
@@ -352,9 +323,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "courses" },
         async () => {
           console.log("Courses changed, reloading course data")
-          // Invalidate cache
-          invalidateCache(`${COURSE_DETAIL_CACHE_KEY}_${packId}`)
-          await loadData()
+          await loadData(true) // Force refresh
         }
       )
       .on(
@@ -362,22 +331,17 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         { event: "*", schema: "public", table: "course_selections", filter: `student_id=eq.${profile.id}` },
         async () => {
           console.log("Student selections changed, reloading selections")
-          // Invalidate selections cache
-          invalidateCache(`${COURSE_SELECTIONS_CACHE_KEY}_${packId}`)
-          // Reload selections only
-          const { data: selectionsData, error: selectionsError } = await supabase
-            .from("course_selections")
-            .select("*")
-            .eq("student_id", profile.id)
-            .eq("elective_courses_id", packId)
-
-          if (!selectionsError && selectionsData) {
-            setExistingSelectionRecord(selectionsData[0] || null)
-            setSelectedIndividualCourseIds(selectionsData[0]?.selected_course_ids || [])
-          }
+          // Reload selections only with force refresh
+          await loadData(true)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✓ Student course detail page subscribed to real-time changes")
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("✗ Error subscribing to real-time changes on student course detail page")
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)

@@ -24,25 +24,25 @@ export function useCachedStudentProfile(userId?: string) {
         let currentUserId = userId
 
         if (!currentUserId) {
-          console.log("useCachedStudentProfile: No userId provided, checking session")
+          console.log("useCachedStudentProfile: No userId provided, checking user")
           const {
-            data: { session },
-            error: sessionError,
-          } = await supabase.auth.getSession()
+            data: { user },
+            error: userError,
+          } = await supabase.auth.getUser()
 
-          if (sessionError) {
-            console.error("useCachedStudentProfile: Session error:", sessionError)
-            throw new Error(`Authentication error: ${sessionError.message}`)
+          if (userError) {
+            console.error("useCachedStudentProfile: User error:", userError)
+            throw new Error(`Authentication error: ${userError.message}`)
           }
 
-          if (!session || !session.user) {
-            console.log("useCachedStudentProfile: No active session found")
+          if (!user) {
+            console.log("useCachedStudentProfile: No authenticated user found")
             setIsLoading(false)
             return
           }
 
-          currentUserId = session.user.id
-          console.log("useCachedStudentProfile: Got userId from session:", currentUserId)
+          currentUserId = user.id
+          console.log("useCachedStudentProfile: Got userId from user:", currentUserId)
         }
 
         // Try to get data from cache first
