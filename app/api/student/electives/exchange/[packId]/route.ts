@@ -3,9 +3,16 @@ import { createServerComponentClient, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { packId: string } }
+  { params }: { params: Promise<{ packId: string }> }
 ) {
   try {
+    const resolvedParams = await params
+    const packId = resolvedParams.packId
+
+    if (!packId) {
+      return NextResponse.json({ error: "Pack ID is required" }, { status: 400 })
+    }
+
     // Get the current user's authenticated data (secure approach)
     const supabase = await createServerComponentClient()
     const {
@@ -24,7 +31,6 @@ export async function GET(
     }
 
     const userId = user.id
-    const packId = params.packId
 
     // Get student's group information
     const { data: studentProfileData, error: studentProfileError } = await supabaseAdmin
