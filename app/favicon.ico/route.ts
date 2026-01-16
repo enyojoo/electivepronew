@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
           .from("settings")
           .select("favicon_url")
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (!error && settings?.favicon_url && isValidUrl(settings.favicon_url)) {
           faviconUrl = settings.favicon_url

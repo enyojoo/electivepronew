@@ -16,9 +16,9 @@ export const metadata: Metadata = {
   description:
     "The complete platform for managing the selection of elective courses, exchange programs, and academic pathways.",
   icons: {
-    icon: DEFAULT_FAVICON_URL,
-    shortcut: DEFAULT_FAVICON_URL,
-    apple: DEFAULT_FAVICON_URL,
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
   },
   generator: 'v0.dev',
 }
@@ -62,9 +62,9 @@ export default async function RootLayout({
     <html lang={initialLanguage} suppressHydrationWarning style={{ "--primary": primaryColor || DEFAULT_PRIMARY_COLOR } as React.CSSProperties}>
       <head>
         <meta name="theme-color" content={primaryColor || DEFAULT_PRIMARY_COLOR} />
-        <link rel="icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
-        <link rel="shortcut icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
-        <link rel="apple-touch-icon" href={faviconUrl || DEFAULT_FAVICON_URL} />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" href="/favicon.ico" />
         {/* CRITICAL: This script runs FIRST, before any other scripts or React hydration */}
         {/* It sets lang attribute and title immediately to prevent any flicker */}
         <script
