@@ -64,6 +64,42 @@ export async function GET(
       return NextResponse.json({ error: "Exchange program not found" }, { status: 404 })
     }
 
+    // Fetch university details using the UUIDs from the universities column
+    let universities = []
+    if (exchangeProgram.universities && exchangeProgram.universities.length > 0) {
+      const { data: fetchedUniversities, error: universitiesError } = await supabaseAdmin
+        .from("universities")
+        .select("*")
+        .in("id", exchangeProgram.universities)
+
+      if (universitiesError) {
+        console.error("Error fetching university details:", universitiesError)
+        return NextResponse.json({ error: universitiesError.message }, { status: 500 })
+      }
+
+      // Fetch current student counts for each university (pending + approved)
+      const universitiesWithCounts = await Promise.all(
+        (fetchedUniversities || []).map(async (university) => {
+          const { count: currentStudents, error: countError } = await supabaseAdmin
+            .from("exchange_selections")
+            .select("*", { count: "exact", head: true })
+            .contains("selected_university_ids", [university.id])
+            .in("status", ["pending", "approved"])
+
+          if (countError) {
+            console.error("Error fetching exchange selection count:", countError)
+            return { ...university, current_students: 0 }
+          }
+
+          return { ...university, current_students: currentStudents || 0 }
+        }),
+      )
+
+      // Order universities to match the order in the elective exchange
+      const universitiesMap = new Map(universitiesWithCounts.map((u) => [u.id, u]))
+      universities = exchangeProgram.universities.map((uuid) => universitiesMap.get(uuid)).filter(Boolean)
+    }
+
     // Fetch student's exchange selection for this program
     const { data: selection, error: selectionError } = await supabaseAdmin
       .from("exchange_selections")
@@ -79,6 +115,7 @@ export async function GET(
 
     return NextResponse.json({
       exchangeProgram,
+      universities,
       selection
     })
   } catch (error: any) {

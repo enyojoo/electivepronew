@@ -223,52 +223,11 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
       const data = await response.json()
       console.log("CourseDetailPage: API data received:", data)
-      console.log("CourseDetailPage: Course data:", data.course)
-      console.log("CourseDetailPage: Course UUIDs:", data.course?.courses)
 
       // Set the course pack data
       if (data.course) {
         setElectiveCourseData(data.course)
-
-        // Fetch courses using the UUIDs from the courses column
-        const courseUuids = data.course.courses || []
-        console.log("CourseDetailPage: Processing courseUuids:", courseUuids, "length:", courseUuids.length)
-        if (courseUuids.length > 0) {
-          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-          const { data: fetchedCourses, error: coursesError } = await supabase
-            .from("courses")
-            .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
-            .in("id", courseUuids)
-
-          if (coursesError) throw coursesError
-          console.log("CourseDetailPage: Fetched courses from DB:", fetchedCourses)
-
-          // Fetch current student counts for each course (pending + approved)
-          const coursesWithCounts = await Promise.all(
-            (fetchedCourses || []).map(async (course) => {
-              const { count: currentStudents, error: countError } = await supabase
-                .from("course_selections")
-                .select("*", { count: "exact", head: true })
-                .contains("selected_course_ids", [course.id])
-                .in("status", ["pending", "approved"])
-
-              if (countError) {
-                console.error("Error fetching course selection count:", countError)
-                return { ...course, current_students: 0 }
-              }
-
-              return { ...course, current_students: currentStudents || 0 }
-            }),
-          )
-
-          const fetchedCoursesMap = new Map(coursesWithCounts.map((fc) => [fc.id, fc]))
-          const orderedFetchedCourses = courseUuids.map((uuid) => fetchedCoursesMap.get(uuid)).filter(Boolean)
-          console.log("CourseDetailPage: Final ordered courses:", orderedFetchedCourses)
-          setIndividualCourses(orderedFetchedCourses || [])
-        } else {
-          console.log("CourseDetailPage: No course UUIDs found, setting empty courses")
-          setIndividualCourses([])
-        }
+        setIndividualCourses(data.courses || [])
       }
 
       // Set the selection data
@@ -281,7 +240,8 @@ export default function ElectivePage({ params }: ElectivePageProps) {
       }
 
       // Cache the data with group-specific keys
-      setCachedData(cacheKey, data.course)
+      const cacheData = { ...data.course, courses: data.courses || [] }
+      setCachedData(cacheKey, cacheData)
       setCachedData(selectionsCacheKey, data.selection)
     } catch (error: any) {
       setFetchError(error.message || t("student.courses.failedToLoad"))

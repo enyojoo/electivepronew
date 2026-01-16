@@ -156,50 +156,11 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
       const data = await response.json()
       console.log("ExchangeDetailPage: API data received:", data)
-      console.log("ExchangeDetailPage: Exchange program data:", data.exchangeProgram)
-      console.log("ExchangeDetailPage: University UUIDs:", data.exchangeProgram?.universities)
 
       // Set the exchange pack data
       if (data.exchangeProgram) {
         setExchangePackData(data.exchangeProgram)
-
-        // Fetch universities using the UUIDs from the universities column
-        const universityUuids = data.exchangeProgram.universities || []
-        console.log("ExchangeDetailPage: Processing universityUuids:", universityUuids, "length:", universityUuids.length)
-        if (universityUuids.length > 0) {
-          const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-          const { data: fetchedUnis, error: unisError } = await supabase
-            .from("universities")
-            .select("*")
-            .in("id", universityUuids)
-
-          if (unisError) throw unisError
-          console.log("ExchangeDetailPage: Fetched universities from DB:", fetchedUnis)
-
-          // Fetch current student counts for each university (pending + approved)
-          const universitiesWithCounts = await Promise.all(
-            (fetchedUnis || []).map(async (university) => {
-              const { count: currentStudents, error: countError } = await supabase
-                .from("exchange_selections")
-                .select("*", { count: "exact", head: true })
-                .contains("selected_university_ids", [university.id])
-                .in("status", ["pending", "approved"])
-
-              if (countError) {
-                console.error("Error fetching exchange selection count:", countError)
-                return { ...university, current_students: 0 }
-              }
-
-              return { ...university, current_students: currentStudents || 0 }
-            }),
-          )
-
-          console.log("ExchangeDetailPage: Final universities:", universitiesWithCounts)
-          setUniversities(universitiesWithCounts || [])
-        } else {
-          console.log("ExchangeDetailPage: No university UUIDs found, setting empty universities")
-          setUniversities([])
-        }
+        setUniversities(data.universities || [])
       }
 
       // Set the selection data
@@ -212,6 +173,11 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         setSelectedUniversityIds([])
         setSelectionStatus(null)
       }
+
+      // Cache the data with group-specific keys
+      const cacheData = { ...data.exchangeProgram, universities: data.universities || [] }
+      setCachedData(cacheKey, cacheData)
+      setCachedData(selectionsCacheKey, data.selection)
     } catch (error: any) {
       setFetchError(error.message || "Failed to load exchange program details.")
       toast({ title: "Error", description: error.message, variant: "destructive" })

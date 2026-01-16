@@ -64,6 +64,42 @@ export async function GET(
       return NextResponse.json({ error: "Elective course not found" }, { status: 404 })
     }
 
+    // Fetch course details using the UUIDs from the courses column
+    let courses = []
+    if (course.courses && course.courses.length > 0) {
+      const { data: fetchedCourses, error: coursesError } = await supabaseAdmin
+        .from("courses")
+        .select("id, name, name_ru, instructor_en, instructor_ru, description, description_ru, max_students")
+        .in("id", course.courses)
+
+      if (coursesError) {
+        console.error("Error fetching course details:", coursesError)
+        return NextResponse.json({ error: coursesError.message }, { status: 500 })
+      }
+
+      // Fetch current student counts for each course (pending + approved)
+      const coursesWithCounts = await Promise.all(
+        (fetchedCourses || []).map(async (fetchedCourse) => {
+          const { count: currentStudents, error: countError } = await supabaseAdmin
+            .from("course_selections")
+            .select("*", { count: "exact", head: true })
+            .contains("selected_course_ids", [fetchedCourse.id])
+            .in("status", ["pending", "approved"])
+
+          if (countError) {
+            console.error("Error fetching course selection count:", countError)
+            return { ...fetchedCourse, current_students: 0 }
+          }
+
+          return { ...fetchedCourse, current_students: currentStudents || 0 }
+        }),
+      )
+
+      // Order courses to match the order in the elective course
+      const coursesMap = new Map(coursesWithCounts.map((c) => [c.id, c]))
+      courses = course.courses.map((uuid) => coursesMap.get(uuid)).filter(Boolean)
+    }
+
     // Fetch student's course selection for this course
     const { data: selection, error: selectionError } = await supabaseAdmin
       .from("course_selections")
@@ -79,6 +115,7 @@ export async function GET(
 
     return NextResponse.json({
       course,
+      courses,
       selection
     })
   } catch (error: any) {
