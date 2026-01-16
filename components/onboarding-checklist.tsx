@@ -176,12 +176,11 @@ export function OnboardingChecklist() {
   // Check completion status from database
   const checkCompletionStatus = async (): Promise<ChecklistStatus> => {
     try {
-      // Check brand settings
-      const { data: brandData } = await supabase
+      // Check brand settings - any record indicates it's been configured
+      const { count: brandCount } = await supabase
         .from("brand_settings")
-        .select("institution_name")
-        .limit(1)
-      const brandSettings = brandData && brandData.length > 0 && brandData[0].institution_name
+        .select("*", { count: "exact", head: true })
+      const brandSettings = (brandCount || 0) > 0
 
       // Check degrees
       const { count: degreesCount } = await supabase
@@ -349,10 +348,9 @@ export function OnboardingChecklist() {
       const cachedComplete = Object.values(cached.status).filter(Boolean).length
 
       // If we had more completed steps cached than we have now, data was deleted
+      // The checklist will automatically show again due to shouldShow logic
       if (cachedComplete > currentComplete) {
-        console.log("Data deletion detected, clearing visibility cache")
-        // Clear the visibility cache so checklist shows again
-        localStorage.removeItem(VISIBILITY_CACHE_KEY)
+        console.log("Data deletion detected - checklist will show again")
       }
     }
 
@@ -452,7 +450,7 @@ export function OnboardingChecklist() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle id="checklist-title" className="text-sm font-medium">
+              <CardTitle id="checklist-title" className="text-xs font-medium">
                 {t("admin.checklist.title", "Setup Checklist")}
               </CardTitle>
               <Badge variant="secondary" className="text-xs" aria-label={`${completedCount} of ${totalCount} steps completed`}>
@@ -502,7 +500,7 @@ export function OnboardingChecklist() {
               isAnimating ? "animate-in slide-in-from-top-2" : ""
             )}>
               <Progress value={progressPercentage} className="h-2 transition-all duration-500" />
-              <p id="checklist-progress" className="text-xs text-muted-foreground">
+              <p id="checklist-progress" className="text-[10px] text-muted-foreground">
                 {progressPercentage === 100
                   ? t("admin.checklist.readyToGo", "You're all set! Managers can now create electives.")
                   : t("admin.checklist.progress", `${completedCount} of ${totalCount} steps completed`)
@@ -531,7 +529,7 @@ export function OnboardingChecklist() {
           <CardContent
             id="checklist-content"
             className={cn(
-              "pt-0 overflow-hidden transition-all duration-300 ease-in-out",
+              "pt-0 px-3 overflow-hidden transition-all duration-300 ease-in-out",
               isAnimating ? "animate-in slide-in-from-top-2" : ""
             )}
             aria-labelledby="checklist-progress"
@@ -542,11 +540,11 @@ export function OnboardingChecklist() {
                   key={item.id}
                   onClick={() => navigateToStep(item.link)}
                   className={cn(
-                    "w-full text-left p-3 rounded-md transition-all duration-200 hover:bg-accent/50",
-                    "flex items-start gap-3 group",
+                    "w-full text-left p-2 rounded-md transition-all duration-200 hover:bg-accent/50",
+                    "flex items-start gap-2 group",
                     "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50",
                     item.completed ? "opacity-75 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02]",
-                    "sm:p-3 p-2" // Smaller padding on mobile
+                    "sm:p-2" // Consistent smaller padding
                   )}
                   disabled={item.completed}
                   aria-label={`${item.title}: ${item.completed ? 'Completed' : 'Click to complete'}`}
@@ -571,15 +569,15 @@ export function OnboardingChecklist() {
                         {item.icon}
                       </div>
                       <h4 className={cn(
-                        "text-sm font-medium truncate transition-colors duration-200",
+                        "text-xs font-medium truncate transition-colors duration-200",
                         item.completed ? "text-green-700" : "text-foreground group-hover:text-primary"
                       )}>
                         {item.title}
                       </h4>
                     </div>
                     <p className={cn(
-                      "text-xs text-muted-foreground transition-colors duration-200",
-                      "sm:block hidden sm:text-xs text-[10px] leading-tight"
+                      "text-[10px] text-muted-foreground transition-colors duration-200",
+                      "sm:block hidden leading-tight"
                     )}>
                       {item.description}
                     </p>
