@@ -443,7 +443,7 @@ export default function StudentDashboard() {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Card className="col-span-1">
             <CardHeader>
               <CardTitle>{t("student.dashboard.yourInfo")}</CardTitle>
