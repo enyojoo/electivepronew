@@ -132,9 +132,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       return
     }
 
-    console.log("DEBUG: Student profile:", { id: profile.id, group: profile.group })
     if (!profile.group?.id) {
-      console.log("DEBUG: Student has no group assigned")
       setFetchError(t("student.exchange.groupInfoMissing"))
       setIsLoadingPage(false)
       return
@@ -173,26 +171,15 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
       // Fetch exchange pack data
-      console.log("DEBUG: Querying elective_exchange with packId:", packId, "groupId:", profile.group.id)
       const { data: packData, error: packError } = await supabase
         .from("elective_exchange")
         .select("*")
         .eq("id", packId)
         .eq("group_id", profile.group.id)
-
-      console.log("DEBUG: elective_exchange query result:", { data: packData, error: packError })
+        .eq("status", "published")
 
       if (packError) throw packError
-      if (!packData || packData.length === 0) {
-        console.log("DEBUG: No elective_exchange found, checking if packId exists with any group...")
-        // Check if pack exists with any group
-        const { data: anyPack } = await supabase
-          .from("elective_exchange")
-          .select("id, group_id, status")
-          .eq("id", packId)
-        console.log("DEBUG: Exchange pack with any group:", anyPack)
-        throw new Error(t("student.exchange.programNotFound"))
-      }
+      if (!packData || packData.length === 0) throw new Error(t("student.exchange.programNotFound"))
       if (packData.length > 1) throw new Error(t("student.exchange.multipleProgramsFound"))
 
       const exchangePackData = packData[0]
