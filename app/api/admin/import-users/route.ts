@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Starting bulk user import process...")
+    console.log("SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
 
     const { users }: { users: UserImportData[] } = await request.json()
 

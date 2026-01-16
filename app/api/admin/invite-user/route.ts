@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
 
     const { email, name, role, degreeId, groupId, year } = await request.json()
 
+    console.log("SUPABASE_SERVICE_ROLE_KEY present:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+
     // Validate inputs
     if (!email || !name || !role) {
       return NextResponse.json({ error: "Email, name, and role are required" }, { status: 400 })
