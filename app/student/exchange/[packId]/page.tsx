@@ -521,57 +521,35 @@ export default function ExchangePage({ params }: ExchangePageProps) {
       const pathname = url.pathname
       const filename = pathname.split('/').pop() || 'statement_template.pdf'
 
+      // Fetch the file as a blob to ensure proper download behavior
+      const response = await fetch(exchangePackData.statement_template_url)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+
       // Create a temporary anchor element to trigger download
       const link = document.createElement('a')
-      link.href = exchangePackData.statement_template_url
-      link.download = filename // Explicit filename for download
+      link.href = blobUrl
+      link.download = filename
       link.style.display = 'none'
-      link.rel = 'noopener noreferrer' // Security best practice
 
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      // Keep spinner for a brief moment to show user something is happening
-      setTimeout(() => {
-        setDownloadingStatement(false)
-        toast({ title: "Download initiated", description: `"${filename}" is being downloaded.` })
-      }, 1000)
+      // Clean up the blob URL
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
+
+      toast({ title: "Download completed", description: `"${filename}" has been downloaded.` })
 
     } catch (error) {
       console.error("Download failed:", error)
+      toast({ title: "Download failed", description: "Unable to download the statement template. Please try again.", variant: "destructive" })
+    } finally {
       setDownloadingStatement(false)
-      // Fallback: try to force download with fetch
-      try {
-        const response = await fetch(exchangePackData.statement_template_url)
-        if (response.ok) {
-          const blob = await response.blob()
-          const url = new URL(exchangePackData.statement_template_url)
-          const filename = url.pathname.split('/').pop() || 'statement_template.pdf'
-
-          const blobUrl = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = blobUrl
-          link.download = filename
-          link.style.display = 'none'
-
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-
-          // Clean up the blob URL
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
-
-          toast({ title: "Download completed", description: `"${filename}" has been downloaded.` })
-        } else {
-          throw new Error('Fetch failed')
-        }
-      } catch (fetchError) {
-        console.error("Fallback download failed:", fetchError)
-        // Final fallback: open in new tab
-        window.open(exchangePackData.statement_template_url, '_blank')
-        toast({ title: "Download started", description: "Statement template opened in new tab." })
-      }
     }
   }
 
