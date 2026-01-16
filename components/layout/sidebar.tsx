@@ -22,6 +22,7 @@ import { useState, useEffect } from "react"
 import Logo from "@/components/logo"
 import Indicator from "@/components/indicator"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
+import { OnboardingChecklist } from "@/components/onboarding-checklist"
 
 interface SidebarProps {
   open: boolean
@@ -233,6 +234,9 @@ export function Sidebar({ open, setOpen, className }: SidebarProps) {
             </>
           )}
         </div>
+
+        {/* Onboarding Checklist - shows for admins during setup */}
+        {isAdmin && <OnboardingChecklist />}
 
         {/* Logout button at bottom with role-specific route */}
         <div className="mt-auto border-t flex-shrink-0">
