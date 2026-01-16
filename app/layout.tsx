@@ -19,13 +19,6 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
     apple: "/favicon.ico",
-    other: [
-      {
-        rel: "icon",
-        url: "/favicon.png",
-        type: "image/png",
-      },
-    ],
   },
   generator: 'v0.dev',
 }
@@ -72,7 +65,6 @@ export default async function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/favicon.ico" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
         {/* CRITICAL: This script runs FIRST, before any other scripts or React hydration */}
         {/* It sets lang attribute and title immediately to prevent any flicker */}
         <script

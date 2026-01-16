@@ -46,23 +46,13 @@ interface CachedData {
 }
 
 export function OnboardingChecklist() {
-  // Prevent SSR issues by not rendering on server
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  if (!isClient) {
-    return null // Don't render anything on server
-  }
-
   const { t } = useLanguage()
   const router = useRouter()
   const pathname = usePathname()
   const supabase = getSupabaseBrowserClient()
 
-  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(() => {
+  // Initialize checklist status from cache synchronously to prevent flashes
+  const getInitialChecklistStatus = (): ChecklistStatus => {
     if (typeof window === "undefined") return {
       brandSettings: false,
       degrees: false,
@@ -75,9 +65,9 @@ export function OnboardingChecklist() {
     try {
       const cached = localStorage.getItem(CHECKLIST_CACHE_KEY)
       if (cached) {
-        const parsed = JSON.parse(cached) as CachedData
-        if (Date.now() - parsed.timestamp < CACHE_DURATION) {
-          return parsed.status
+        const { data, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          return data
         }
       }
     } catch (error) {
@@ -92,7 +82,9 @@ export function OnboardingChecklist() {
       courses: false,
       users: false,
     }
-  })
+  }
+
+  const [checklistStatus, setChecklistStatus] = useState<ChecklistStatus>(getInitialChecklistStatus)
 
   const [isLoading, setIsLoading] = useState(() => {
     // Only set loading if we don't have valid cache
@@ -152,20 +144,23 @@ export function OnboardingChecklist() {
 
   // Only show for admin users and when not dismissed
   const isAdmin = pathname.includes("/admin")
-  const allStepsComplete = checklistStatus ? Object.values(checklistStatus).every(status => status) : false
+  const allStepsComplete = useMemo(() =>
+    Object.values(checklistStatus).every(status => status),
+    [checklistStatus]
+  )
 
   // Check if checklist has been manually dismissed
-  const [isDismissed, setIsDismissed] = useState(() => {
+  const isDismissed = useMemo(() => {
     if (typeof window === "undefined") return false
     try {
       return localStorage.getItem(DISMISSED_CACHE_KEY) === "true"
     } catch {
       return false
     }
-  })
+  }, [])
 
   // Show checklist if admin user and not dismissed (even when complete)
-  const shouldShow = isAdmin && !isDismissed && progressPercentage < 100
+  const shouldShow = isAdmin && !isDismissed
 
   // Get cached data
   const getCachedStatus = (): CachedData | null => {
@@ -359,7 +354,7 @@ export function OnboardingChecklist() {
     loadChecklistStatus()
   }, [isAdmin, forceRefresh])
 
-  // Real-time updates via database listeners - invalidate cache without triggering re-renders
+  // Real-time updates via database listeners
   useEffect(() => {
     if (!isAdmin) return
 
@@ -371,7 +366,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Settings changed, invalidating cache")
           invalidateCacheForTable("settings")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .on(
@@ -380,7 +375,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Degrees changed, invalidating cache")
           invalidateCacheForTable("degrees")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .on(
@@ -389,7 +384,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Groups changed, invalidating cache")
           invalidateCacheForTable("groups")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .on(
@@ -398,7 +393,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Universities changed, invalidating cache")
           invalidateCacheForTable("universities")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .on(
@@ -407,7 +402,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Courses changed, invalidating cache")
           invalidateCacheForTable("courses")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .on(
@@ -416,7 +411,7 @@ export function OnboardingChecklist() {
         () => {
           console.log("Profiles changed, invalidating cache")
           invalidateCacheForTable("profiles")
-          // Don't trigger immediate refresh - let user interaction refresh
+          setForceRefresh(prev => prev + 1)
         }
       )
       .subscribe()
@@ -435,7 +430,7 @@ export function OnboardingChecklist() {
       if (!cached) return
 
       // Check if previously completed steps are now incomplete
-      const currentComplete = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
+      const currentComplete = Object.values(checklistStatus).filter(Boolean).length
       const cachedComplete = Object.values(cached.status).filter(Boolean).length
 
       // If we had more completed steps cached than we have now, data was deleted
@@ -462,7 +457,8 @@ export function OnboardingChecklist() {
   // Handle manual dismissal of the checklist
   const dismissChecklist = () => {
     localStorage.setItem(DISMISSED_CACHE_KEY, "true")
-    setIsDismissed(true)
+    // Force re-render to update shouldShow
+    setForceRefresh(prev => prev + 1)
   }
 
   // Handle navigation to specific step
@@ -471,9 +467,9 @@ export function OnboardingChecklist() {
   }
 
   // Calculate progress
-  const completedCount = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
-  const totalCount = checklistStatus ? Object.keys(checklistStatus).length : 6
-  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+  const completedCount = Object.values(checklistStatus).filter(Boolean).length
+  const totalCount = Object.keys(checklistStatus).length
+  const progressPercentage = (completedCount / totalCount) * 100
 
   // Define checklist items
   const checklistItems: ChecklistItem[] = [
@@ -482,42 +478,42 @@ export function OnboardingChecklist() {
       title: t("admin.checklist.brandSettings", "Update Brand Settings"),
       description: t("admin.checklist.brandSettingsDesc", "Set institution name, logo, and branding"),
       link: "/admin/settings?tab=settings",
-      completed: checklistStatus?.brandSettings || false,
+      completed: checklistStatus.brandSettings,
     },
     {
       id: "degrees",
       title: t("admin.checklist.degrees", "Create Degrees"),
       description: t("admin.checklist.degreesDesc", "Add academic degree programs"),
       link: "/admin/settings?tab=degrees",
-      completed: checklistStatus?.degrees || false,
+      completed: checklistStatus.degrees,
     },
     {
       id: "groups",
       title: t("admin.checklist.groups", "Create Groups"),
       description: t("admin.checklist.groupsDesc", "Set up student groups within degrees"),
       link: "/admin/groups",
-      completed: checklistStatus?.groups || false,
+      completed: checklistStatus.groups,
     },
     {
       id: "universities",
       title: t("admin.checklist.universities", "Add Partner Universities"),
       description: t("admin.checklist.universitiesDesc", "Add exchange partner institutions"),
       link: "/admin/universities",
-      completed: checklistStatus?.universities || false,
+      completed: checklistStatus.universities,
     },
     {
       id: "courses",
       title: t("admin.checklist.courses", "Create Course Catalogues"),
       description: t("admin.checklist.coursesDesc", "Create available courses for electives"),
       link: "/admin/courses",
-      completed: checklistStatus?.courses || false,
+      completed: checklistStatus.courses,
     },
     {
       id: "users",
       title: t("admin.checklist.users", "Import/Create Users"),
       description: t("admin.checklist.usersDesc", "Import or create student and manager accounts"),
       link: "/admin/settings?tab=users",
-      completed: checklistStatus?.users || false,
+      completed: checklistStatus.users,
     },
   ]
 
@@ -589,7 +585,7 @@ export function OnboardingChecklist() {
               <Progress value={progressPercentage} className="h-2 transition-all duration-500" />
               <p id="checklist-progress" className="text-[10px] text-muted-foreground">
                 {progressPercentage === 100
-                  ? t("admin.checklist.completedMessage", "Congratulations! You're all set! Managers can now create electives.")
+                  ? t("admin.checklist.congratulations", "Congratulations! You're all set! Managers can now create electives.")
                   : t("admin.checklist.progress", `${completedCount} of ${totalCount} steps completed`)
                 }
               </p>
