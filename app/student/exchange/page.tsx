@@ -321,8 +321,8 @@ export default function ExchangePage() {
       <DashboardLayout>
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{t("student.exchange.title")}</h1>
-            <p className="text-muted-foreground">{t("student.exchange.subtitle")}</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{t("student.exchange.title")}</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">{t("student.exchange.subtitle")}</p>
           </div>
           <CardGridSkeleton itemCount={3} />
         </div>
@@ -335,7 +335,7 @@ export default function ExchangePage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("student.exchange.title")}</h1>
-          <p className="text-muted-foreground">{t("student.exchange.subtitle")}</p>
+          <p className="text-sm sm:text-base text-muted-foreground">{t("student.exchange.subtitle")}</p>
         </div>
 
         {fetchError && (
@@ -357,7 +357,7 @@ export default function ExchangePage() {
         )}
 
         {!fetchError && exchangePrograms.length > 0 && (
-          <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
             {exchangePrograms.map((exchange) => {
               const selectionStatus = getSelectionStatus(exchange.id)
               const selectedCount = getSelectedUniversitiesCount(exchange.id)
@@ -367,7 +367,7 @@ export default function ExchangePage() {
               return (
                 <Card
                   key={exchange.id}
-                  className={`h-full transition-all hover:shadow-md ${
+                  className={`flex flex-col h-full transition-all hover:shadow-md ${
                     selectionStatus === "approved"
                       ? "border-green-500 bg-green-50/30 dark:bg-green-950/10"
                       : selectionStatus === "pending"
@@ -378,7 +378,7 @@ export default function ExchangePage() {
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
-                        <CardTitle className="text-xl">{name}</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl">{name}</CardTitle>
                         {selectionStatus ? (
                           <Badge className={getStatusColor(selectionStatus)} variant="secondary">
                             <span className="flex items-center space-x-1">
@@ -409,22 +409,22 @@ export default function ExchangePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="flex-grow"></CardContent>
-                  <CardFooter className="flex flex-col pt-0 pb-4 gap-4">
-                    <div className="flex flex-col gap-y-2 text-sm w-full">
+                  <CardFooter className="flex flex-col gap-4 pt-0 pb-4">
+                    <div className="flex flex-col gap-y-2 text-xs sm:text-sm w-full">
                       <div className="flex items-center gap-1.5">
                         <span className="text-muted-foreground">{t("student.exchange.deadline")}:</span>
                         <span className={deadlinePassed ? "text-red-600" : ""}>{formatDate(exchange.deadline)}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground">{t("student.exchange.limit")}:</span>
-                          <span>{exchange.max_selections}</span>
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="text-muted-foreground">{t("student.exchange.limitText")}</span>
+                          <span className="font-bold">{exchange.max_selections}</span>
+                          <span className="text-muted-foreground">{t("student.exchange.limitSuffix")}</span>
                         </div>
                       </div>
                     </div>
-
                     <div
-                      className={`flex items-center justify-between rounded-md p-2 w-full ${
+                      className={`flex items-center justify-end rounded-md p-2 w-full ${
                         selectionStatus === "approved"
                           ? "bg-green-100/50 dark:bg-green-900/20"
                           : selectionStatus === "pending"
@@ -432,9 +432,6 @@ export default function ExchangePage() {
                             : "bg-gray-100/50 dark:bg-gray-900/20"
                       }`}
                     >
-                      <span className="text-sm">
-                        {t("student.exchange.selected")}: {selectedCount}/{exchange.max_selections}
-                      </span>
                       <Link href={`/student/exchange/${exchange.id}`}>
                         <Button
                           size="sm"

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,91 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const resolvedParams = use(params)
   const packId = resolvedParams.packId
 
+  // Helper function to get cached data synchronously
+  const getCachedExchangeData = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible exchange cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangeDetail")) {
+            const cached = getCachedData(key)
+            if (cached && cached.id === packId) {
+              console.log("ExchangeDetailPage: Found cached exchange data for packId:", packId)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return null
+  }
+
+  const getCachedUniversities = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible exchange cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangeDetail")) {
+            const cached = getCachedData(key)
+            if (cached && cached.id === packId && cached.universities) {
+              console.log("ExchangeDetailPage: Found cached universities data for packId:", packId)
+              return cached.universities
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  }
+
+  const getCachedExchangeSelection = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible selection cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangeSelections")) {
+            const cached = getCachedData(key)
+            if (cached && cached.elective_exchange_id === packId) {
+              console.log("ExchangeDetailPage: Found cached selection data for packId:", packId)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return null
+  }
+
+  const getCachedSelectedUniversityIds = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible selection cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentExchangeSelections")) {
+            const cached = getCachedData(key)
+            if (cached && cached.elective_exchange_id === packId && cached.selected_university_ids) {
+              console.log("ExchangeDetailPage: Found cached selected university IDs for packId:", packId)
+              return cached.selected_university_ids
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  }
+
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [studentName, setStudentName] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -73,11 +159,15 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
 
-  const [exchangePackData, setExchangePackData] = useState<any>(null)
-  const [universities, setUniversities] = useState<any[]>([])
-  const [existingSelection, setExistingSelection] = useState<any>(null)
-  const [selectedUniversityIds, setSelectedUniversityIds] = useState<string[]>([])
-  const [selectionStatus, setSelectionStatus] = useState<string | null>(null)
+  // Initialize with cached data synchronously (like list pages)
+  const [exchangePackData, setExchangePackData] = useState<any>(() => getCachedExchangeData(packId))
+  const [universities, setUniversities] = useState<any[]>(() => getCachedUniversities(packId))
+  const [existingSelection, setExistingSelection] = useState<any>(() => getCachedExchangeSelection(packId))
+  const [selectedUniversityIds, setSelectedUniversityIds] = useState<string[]>(() => getCachedSelectedUniversityIds(packId))
+  const [selectionStatus, setSelectionStatus] = useState<string | null>(() => {
+    const cached = getCachedExchangeSelection(packId)
+    return cached ? cached.status || null : null
+  })
 
   const loadData = useCallback(async (forceRefresh = false) => {
     if (profileLoading) return
@@ -402,9 +492,21 @@ export default function ExchangePage({ params }: ExchangePageProps) {
     }
     setDownloadingStatement(true)
     try {
-      window.open(exchangePackData.statement_template_url, "_blank")
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement('a')
+      link.href = exchangePackData.statement_template_url
+      link.download = '' // This will use the filename from the URL
+      // Don't set target to avoid opening in new tab
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({ title: "Download started", description: "Statement template is being downloaded." })
     } catch (error) {
-      toast({ title: "Download failed", variant: "destructive" })
+      // Fallback: open in new tab if download fails
+      window.open(exchangePackData.statement_template_url, '_blank')
+      toast({ title: "Download started", description: "Statement template opened in new tab." })
     } finally {
       setDownloadingStatement(false)
     }
@@ -498,7 +600,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         <Info className="h-4 w-4" />
         <AlertTitle>{t("student.exchange.selectionPeriodActive")}</AlertTitle>
         <AlertDescription>
-          {t("student.exchange.selectionPeriodDesc")} {exchangePackData?.max_selections} {t("student.exchange.until")}{" "}
+          {t("student.exchange.selectionUntil")} 11:59 PM{" "}
           {exchangePackData?.deadline && formatDateDisplay(exchangePackData.deadline)}.
         </AlertDescription>
       </Alert>
@@ -514,19 +616,17 @@ export default function ExchangePage({ params }: ExchangePageProps) {
   if (fetchError)
     return (
       <DashboardLayout>
-        <div className="p-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error Loading Page</AlertTitle>
-            <AlertDescription>{fetchError}</AlertDescription>
-          </Alert>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Loading Page</AlertTitle>
+          <AlertDescription>{fetchError}</AlertDescription>
+        </Alert>
       </DashboardLayout>
     )
   if (!exchangePackData)
     return (
       <DashboardLayout>
-        <div className="p-4 text-center">{t("student.exchange.notFound")}</div>
+        <div className="text-center">{t("student.exchange.notFound")}</div>
       </DashboardLayout>
     )
 
@@ -542,7 +642,7 @@ export default function ExchangePage({ params }: ExchangePageProps) {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/student/exchange" passHref>
             <Button variant="outline" size="icon" aria-label={t("student.exchange.backToExchange")}>
@@ -550,113 +650,27 @@ export default function ExchangePage({ params }: ExchangePageProps) {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{packName}</h1>
-            <p className="text-sm text-muted-foreground">{t("student.exchange.selectUniversities")}</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{packName}</h1>
           </div>
         </div>
 
         {getStatusAlert()}
 
-        <Card
-          className={
-            currentSelectionStatus === SelectionStatus.APPROVED
-              ? "border-green-200 dark:border-green-800"
-              : currentSelectionStatus === SelectionStatus.PENDING
-                ? "border-yellow-200 dark:border-yellow-800"
-                : ""
-          }
-        >
+        <Card>
           <CardHeader>
-            <CardTitle>{t("student.exchange.selectionProgress")}</CardTitle>
-            <CardDescription>
-              {t("student.exchange.selectedOutOf")} {selectedUniversityIds.length} {t("student.exchange.of")}{" "}
-              {exchangePackData.max_selections || 0} {t("student.exchange.allowedUniversities")}
-            </CardDescription>
+            <CardTitle className="flex items-center justify-between text-sm sm:text-base md:text-lg">
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-primary" />
+                {t("student.exchange.availableUniversities")}
+              </div>
+              <Badge variant="secondary">
+                {t("student.exchange.selected")} {selectedUniversityIds.length} {t("student.exchange.of")} {exchangePackData?.max_selections || 0}
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">{t("student.exchange.selectFromAvailable")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Progress
-              value={selectionProgress}
-              className={`h-3 ${currentSelectionStatus === SelectionStatus.APPROVED ? "bg-green-100 dark:bg-green-950 [&>*]:bg-green-600" : currentSelectionStatus === SelectionStatus.PENDING ? "bg-yellow-100 dark:bg-yellow-950 [&>*]:bg-yellow-500" : "[&>*]:bg-primary"}`}
-            />
-            <p className="mt-2.5 text-sm text-muted-foreground">
-              {selectedUniversityIds.length === exchangePackData.max_selections
-                ? t("student.exchange.maxSelections")
-                : `${t("student.exchange.canSelectMore")} ${exchangePackData.max_selections - selectedUniversityIds.length} ${exchangePackData.max_selections - selectedUniversityIds.length === 1 ? t("student.exchange.moreUniversity") : t("student.exchange.moreUniversities")}`}
-            </p>
-          </CardContent>
-        </Card>
-
-        {statementRequired && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                {t("student.statement.title")}
-              </CardTitle>
-              <CardDescription>{t("student.statement.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {exchangePackData.statement_template_url && (
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto bg-transparent"
-                  onClick={handleDownloadStatementTemplate}
-                  disabled={downloadingStatement || exchangePackData.status === "draft"}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {downloadingStatement ? t("student.statement.downloading") : t("student.statement.downloadTemplate")}
-                </Button>
-              )}
-              <div className="relative">
-                <Label
-                  htmlFor="statement-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                    <p className="mb-1 text-sm text-muted-foreground">
-                      <span className="font-semibold">{t("student.statement.clickToUpload")}</span>{" "}
-                      {t("student.statement.orDragAndDrop")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("student.statement.pdfOnly")}</p>
-                  </div>
-                  <Input
-                    id="statement-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    disabled={isUploadingStatement || !canSubmit}
-                    className="sr-only"
-                  />
-                </Label>
-                {isUploadingStatement && (
-                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {t("student.statement.uploading")}
-                  </div>
-                )}
-              </div>
-              {uploadedStatement && (
-                <Alert variant="success">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>{t("student.statement.fileReadyTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("student.statement.fileReadyDesc", { fileName: uploadedStatement.name })}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {existingSelection?.statement_url && !uploadedStatement && (
-                <Alert variant="info">
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>{t("student.statement.previouslyUploadedTitle")}</AlertTitle>
-                  <AlertDescription>{t("student.statement.previouslyUploadedDesc")}</AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
           {universities.map((uni) => {
             const isSelected = selectedUniversityIds.includes(uni.id)
             const isAtCapacity = uni.max_students && uni.current_students >= uni.max_students
@@ -666,11 +680,11 @@ export default function ExchangePage({ params }: ExchangePageProps) {
             return (
               <Card
                 key={uni.id}
-                className={`flex flex-col h-full transition-all hover:shadow-md ${isSelected ? (currentSelectionStatus === SelectionStatus.APPROVED ? "border-green-500 ring-2 ring-green-500/50" : currentSelectionStatus === SelectionStatus.PENDING ? "border-yellow-500 ring-2 ring-yellow-500/50" : "border-primary ring-2 ring-primary/50") : "border-border"} ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                className={`flex flex-col h-full transition-all hover:shadow-md ${isSelected ? (currentSelectionStatus === SelectionStatus.APPROVED ? "border-green-500 bg-green-50 dark:bg-green-950/50" : currentSelectionStatus === SelectionStatus.PENDING ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/50" : "border-primary bg-primary/5 dark:bg-primary/10") : "border-border"} ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start gap-2">
-                    <CardTitle className="text-lg">{uni.name}</CardTitle>
+                    <CardTitle className="text-sm sm:text-base md:text-lg">{uni.name}</CardTitle>
                     {uni.max_students && (
                       <span
                         className={`text-xs whitespace-nowrap px-2 py-1 rounded-full flex items-center gap-1 ${
@@ -735,7 +749,79 @@ export default function ExchangePage({ params }: ExchangePageProps) {
               </Card>
             )
           })}
-        </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {statementRequired && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                <FileText className="h-5 w-5 text-primary" />
+                {t("student.statement.title")}
+              </CardTitle>
+              <CardDescription>{t("student.statement.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {exchangePackData.statement_template_url && (
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                  onClick={handleDownloadStatementTemplate}
+                  disabled={downloadingStatement || exchangePackData.status === "draft"}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingStatement ? t("student.statement.downloading") : t("student.statement.downloadTemplate")}
+                </Button>
+              )}
+              <div className="relative">
+                <Label
+                  htmlFor="statement-upload"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                    <p className="mb-1 text-sm text-muted-foreground">
+                      <span className="font-semibold">{t("student.statement.clickToUpload")}</span>{" "}
+                      {t("student.statement.orDragAndDrop")}
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{t("student.statement.pdfOnly")}</p>
+                  </div>
+                  <Input
+                    id="statement-upload"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileUpload}
+                    disabled={isUploadingStatement || !canSubmit}
+                    className="sr-only"
+                  />
+                </Label>
+                {isUploadingStatement && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    {t("student.statement.uploading")}
+                  </div>
+                )}
+              </div>
+              {uploadedStatement && (
+                <Alert variant="success">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>{t("student.statement.fileReadyTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {t("student.statement.fileReadyDesc", { fileName: uploadedStatement.name })}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {existingSelection?.statement_url && !uploadedStatement && (
+                <Alert variant="info">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>{t("student.statement.previouslyUploadedTitle")}</AlertTitle>
+                  <AlertDescription>{t("student.statement.previouslyUploadedDesc")}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {canSubmit && (
           <div className="flex flex-col sm:flex-row justify-end items-center gap-3 mt-8">
@@ -845,17 +931,17 @@ export default function ExchangePage({ params }: ExchangePageProps) {
         </Dialog>
 
         <Dialog open={!!viewingUniversity} onOpenChange={(open) => !open && setViewingUniversity(null)}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{viewingUniversity?.name}</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="mx-auto max-w-[95vw] sm:max-w-lg">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-sm sm:text-base md:text-lg">{viewingUniversity?.name}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 {viewingUniversity?.country}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">{t("student.exchange.universityDescription")}</h4>
-                <p className="text-sm text-muted-foreground">
+                <h4 className="text-xs sm:text-sm font-medium">{t("student.exchange.universityDescription")}</h4>
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {viewingUniversity?.description || "No description available."}
                 </p>
               </div>

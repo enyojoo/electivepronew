@@ -107,13 +107,12 @@ export async function uploadFile(
 
 export async function uploadStatement(file: File, userId: string, packId: string): Promise<string> {
   try {
-    // Create a unique file path
+    // Create a unique file path in the statements folder
     const fileExt = file.name.split(".").pop()
-    const fileName = `${userId}_${packId}_${Date.now()}.${fileExt}`
-    const filePath = `${fileName}`
+    const fileName = `student_statements/${userId}_${packId}_${Date.now()}.${fileExt}`
 
-    // Upload the file to Supabase Storage
-    const { error } = await supabase.storage.from("statements").upload(filePath, file, {
+    // Upload the file to Supabase Storage using the documents bucket (same as managers)
+    const { error } = await supabase.storage.from("documents").upload(fileName, file, {
       cacheControl: "3600",
       upsert: false,
     })
@@ -123,7 +122,7 @@ export async function uploadStatement(file: File, userId: string, packId: string
     }
 
     // Get the public URL
-    const { data: urlData } = supabase.storage.from("statements").getPublicUrl(filePath)
+    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(fileName)
 
     return urlData.publicUrl
   } catch (error) {

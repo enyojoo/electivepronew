@@ -113,8 +113,36 @@ export async function GET(
       return NextResponse.json({ error: selectionError.message }, { status: 500 })
     }
 
+    // Generate signed URLs for template if it exists
+    let signedTemplateUrl = null
+    if (course.syllabus_template_url) {
+      try {
+        // Extract the file path from the URL
+        const url = new URL(course.syllabus_template_url)
+        const pathParts = url.pathname.split('/')
+        const filePath = pathParts.slice(pathParts.indexOf('documents') + 1).join('/')
+
+        if (filePath) {
+          const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+            .from('documents')
+            .createSignedUrl(filePath, 3600) // 1 hour expiry
+
+          if (!signedUrlError && signedUrlData) {
+            signedTemplateUrl = signedUrlData.signedUrl
+          }
+        }
+      } catch (error) {
+        console.error("Error creating signed URL for template:", error)
+        // Fallback to original URL
+        signedTemplateUrl = course.syllabus_template_url
+      }
+    }
+
     return NextResponse.json({
-      course,
+      course: {
+        ...course,
+        syllabus_template_url: signedTemplateUrl || course.syllabus_template_url
+      },
       courses,
       selection
     })

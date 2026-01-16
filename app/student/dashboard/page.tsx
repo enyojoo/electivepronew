@@ -385,10 +385,10 @@ export default function StudentDashboard() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
             {t("student.dashboard.welcome", { name: profile?.full_name || t("student.dashboard.student") })}
           </h1>
-          <p className="text-muted-foreground">{t("student.dashboard.subtitle")}</p>
+          <p className="text-sm sm:text-base text-muted-foreground">{t("student.dashboard.subtitle")}</p>
         </div>
 
         {profileError && (
@@ -399,7 +399,7 @@ export default function StudentDashboard() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t("student.dashboard.requiredElectives")}</CardTitle>

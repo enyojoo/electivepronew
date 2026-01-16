@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -131,6 +132,91 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   const resolvedParams = use(params)
   const packId = resolvedParams.packId
 
+  // Helper function to get cached data synchronously
+  const getCachedCourseData = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible course cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentCourseDetail")) {
+            const cached = getCachedData(key)
+            if (cached && cached.id === packId) {
+              console.log("CourseDetailPage: Found cached course data for packId:", packId)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return null
+  }
+
+  const getCachedCourses = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible course cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentCourseDetail")) {
+            const cached = getCachedData(key)
+            if (cached && cached.id === packId && cached.courses) {
+              console.log("CourseDetailPage: Found cached courses data for packId:", packId)
+              return cached.courses
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  }
+
+  const getCachedSelection = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible selection cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentCourseSelections")) {
+            const cached = getCachedData(key)
+            if (cached && cached.elective_courses_id === packId) {
+              console.log("CourseDetailPage: Found cached selection data for packId:", packId)
+              return cached
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return null
+  }
+
+  const getCachedSelectedIds = (packId: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        // Check all possible selection cache keys (group-specific)
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && key.startsWith("studentCourseSelections")) {
+            const cached = getCachedData(key)
+            if (cached && cached.elective_courses_id === packId && cached.selected_course_ids) {
+              console.log("CourseDetailPage: Found cached selected IDs for packId:", packId)
+              return cached.selected_course_ids
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    }
+    return []
+  }
+
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [studentName, setStudentName] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -142,10 +228,11 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCancelling, setIsCancelling] = useState(false)
 
-  const [electiveCourseData, setElectiveCourseData] = useState<any>(null)
-  const [individualCourses, setIndividualCourses] = useState<any[]>([])
-  const [existingSelectionRecord, setExistingSelectionRecord] = useState<any>(null)
-  const [selectedIndividualCourseIds, setSelectedIndividualCourseIds] = useState<string[]>([])
+  // Initialize with cached data synchronously (like list pages)
+  const [electiveCourseData, setElectiveCourseData] = useState<any>(() => getCachedCourseData(packId))
+  const [individualCourses, setIndividualCourses] = useState<any[]>(() => getCachedCourses(packId))
+  const [existingSelectionRecord, setExistingSelectionRecord] = useState<any>(() => getCachedSelection(packId))
+  const [selectedIndividualCourseIds, setSelectedIndividualCourseIds] = useState<string[]>(() => getCachedSelectedIds(packId))
 
   const loadData = useCallback(async (forceRefresh = false) => {
     if (profileLoading) return
@@ -463,9 +550,21 @@ export default function ElectivePage({ params }: ElectivePageProps) {
     }
     setDownloadingStatement(true)
     try {
-      window.open(electiveCourseData.syllabus_template_url, "_blank")
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement('a')
+      link.href = electiveCourseData.syllabus_template_url
+      link.download = '' // This will use the filename from the URL
+      // Don't set target to avoid opening in new tab
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast({ title: "Download started", description: "Statement template is being downloaded." })
     } catch (error) {
-      toast({ title: "Download failed", variant: "destructive" })
+      // Fallback: open in new tab if download fails
+      window.open(electiveCourseData.syllabus_template_url, '_blank')
+      toast({ title: "Download started", description: "Statement template opened in new tab." })
     } finally {
       setDownloadingStatement(false)
     }
@@ -539,7 +638,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         <Info className="h-4 w-4" />
         <AlertTitle>{t("student.courses.selectionPeriodActive")}</AlertTitle>
         <AlertDescription>
-          {t("student.courses.selectionPeriodDesc")} {electiveCourseData?.max_selections} {t("student.courses.until")}{" "}
+          {t("student.courses.selectionUntil")} 11:59 PM{" "}
           {electiveCourseData?.deadline && formatDateDisplay(electiveCourseData.deadline)}.
         </AlertDescription>
       </Alert>
@@ -556,20 +655,18 @@ export default function ElectivePage({ params }: ElectivePageProps) {
   if (fetchError) {
     return (
       <DashboardLayout>
-        <div className="p-4">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error Loading Page</AlertTitle>
-            <AlertDescription>{fetchError}</AlertDescription>
-          </Alert>
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Loading Page</AlertTitle>
+          <AlertDescription>{fetchError}</AlertDescription>
+        </Alert>
       </DashboardLayout>
     )
   }
   if (!electiveCourseData) {
     return (
       <DashboardLayout>
-        <div className="p-4 text-center">{t("student.courses.notFound")}</div>
+        <div className="text-center">{t("student.courses.notFound")}</div>
       </DashboardLayout>
     )
   }
@@ -615,7 +712,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-4 md:p-6 lg:p-8">
+      <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/student/courses" passHref>
             <Button variant="outline" size="icon" aria-label={t("student.courses.backToCourses")}>
@@ -623,118 +720,28 @@ export default function ElectivePage({ params }: ElectivePageProps) {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{electivePackName}</h1>
-            <p className="text-sm text-muted-foreground">{t("student.courses.selectIndividualCourses")}</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{electivePackName}</h1>
           </div>
         </div>
 
         {getStatusAlert()}
 
-        <Card
-          className={
-            currentSelectionStatus === SelectionStatus.APPROVED
-              ? "border-green-200 dark:border-green-800"
-              : currentSelectionStatus === SelectionStatus.PENDING
-                ? "border-yellow-200 dark:border-yellow-800"
-                : ""
-          }
-        >
-          <CardHeader>
-            <CardTitle>{t("student.courses.selectionProgress")}</CardTitle>
-            <CardDescription>
-              {t("student.courses.selectedOutOf")} {selectedIndividualCourseIds.length} {t("student.courses.of")}{" "}
-              {electiveCourseData.max_selections || 0} {t("student.courses.allowedCourses")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Progress
-              value={selectionProgress}
-              className={`h-3 ${currentSelectionStatus === SelectionStatus.APPROVED ? "bg-green-100 dark:bg-green-950 [&>*]:bg-green-600" : currentSelectionStatus === SelectionStatus.PENDING ? "bg-yellow-100 dark:bg-yellow-950 [&>*]:bg-yellow-500" : "[&>*]:bg-primary"}`}
-            />
-            {(electiveCourseData.max_selections || 0) > 0 && (
-              <p className="mt-2.5 text-sm text-muted-foreground">
-                {selectedIndividualCourseIds.length === electiveCourseData.max_selections
-                  ? t("student.courses.maxSelections")
-                  : `${t("student.courses.canSelectMore")} ${electiveCourseData.max_selections - selectedIndividualCourseIds.length} ${electiveCourseData.max_selections - selectedIndividualCourseIds.length === 1 ? t("student.courses.moreCourse") : t("student.courses.moreCourses")}`}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {statementRequiredForPack && (
+        {individualCourses.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                {t("student.statement.title")}
+              <CardTitle className="flex items-center justify-between text-sm sm:text-base md:text-lg">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  {t("student.courses.availableCourses")}
+                </div>
+                <Badge variant="secondary">
+                  {t("student.courses.selected")} {selectedIndividualCourseIds.length} {t("student.courses.of")} {electiveCourseData?.max_selections || 0}
+                </Badge>
               </CardTitle>
-              <CardDescription>{t("student.statement.description")}</CardDescription>
+              <CardDescription>{t("student.courses.selectFromAvailable")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {electiveCourseData.syllabus_template_url && (
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto bg-transparent"
-                  onClick={handleDownloadStatementTemplate}
-                  disabled={downloadingStatement || electiveCourseData.status === "draft"}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {downloadingStatement ? t("student.statement.downloading") : t("student.statement.downloadTemplate")}
-                </Button>
-              )}
-              <div className="relative">
-                <Label
-                  htmlFor="statement-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                    <p className="mb-1 text-sm text-muted-foreground">
-                      <span className="font-semibold">{t("student.statement.clickToUpload")}</span>{" "}
-                      {t("student.statement.orDragAndDrop")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{t("student.statement.pdfOnly")}</p>
-                  </div>
-                  <Input
-                    id="statement-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileUpload}
-                    disabled={isUploadingStatement || !canSubmit}
-                    className="sr-only"
-                  />
-                </Label>
-                {isUploadingStatement && (
-                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    {t("student.statement.uploading")}
-                  </div>
-                )}
-              </div>
-
-              {uploadedStatement && (
-                <Alert variant="success">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>{t("student.statement.fileReadyTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("student.statement.fileReadyDesc", { fileName: uploadedStatement.name })}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {existingSelectionRecord?.statement_url && !uploadedStatement && (
-                <Alert variant="info">
-                  <Info className="h-4 w-4" />
-                  <AlertTitle>{t("student.statement.previouslyUploadedTitle")}</AlertTitle>
-                  <AlertDescription>{t("student.statement.previouslyUploadedDesc")}</AlertDescription>
-                  {/* Optionally, add a button to view/download the existing statement if URL is directly accessible */}
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {individualCourses.length > 0 ? (
-          <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <CardContent>
+              <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
             {individualCourses.map((course) => {
               const isSelected = selectedIndividualCourseIds.includes(course.id)
               const isAtCapacity = course.max_students && course.current_students >= course.max_students
@@ -748,16 +755,16 @@ export default function ElectivePage({ params }: ElectivePageProps) {
                   className={`flex flex-col h-full transition-all hover:shadow-md ${
                     isSelected
                       ? currentSelectionStatus === SelectionStatus.APPROVED
-                        ? "border-green-500 ring-2 ring-green-500/50"
+                        ? "border-green-500 bg-green-50 dark:bg-green-950/50"
                         : currentSelectionStatus === SelectionStatus.PENDING
-                          ? "border-yellow-500 ring-2 ring-yellow-500/50"
-                          : "border-primary ring-2 ring-primary/50"
+                          ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/50"
+                          : "border-primary bg-primary/5 dark:bg-primary/10"
                       : "border-border"
                   } ${isDisabledByMax || isDisabledByCapacity ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="text-lg leading-tight">
+                      <CardTitle className="text-sm sm:text-base md:text-lg leading-tight">
                         {language === "ru" && course.name_ru ? course.name_ru : course.name}
                       </CardTitle>
                       {course.max_students !== null && course.max_students !== undefined && (
@@ -768,7 +775,7 @@ export default function ElectivePage({ params }: ElectivePageProps) {
                         </span>
                       )}
                     </div>
-                    <CardDescription className="text-xs">
+                    <CardDescription className="text-xs sm:text-sm">
                       {language === "ru" && course.instructor_ru
                         ? course.instructor_ru
                         : course.instructor_en || course.teacher}
@@ -813,12 +820,93 @@ export default function ElectivePage({ params }: ElectivePageProps) {
                 </Card>
               )
             })}
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                <BookOpen className="h-5 w-5 text-primary" />
+                {t("student.courses.availableCourses")}
+              </CardTitle>
+              <CardDescription>{t("student.courses.selectFromAvailable")}</CardDescription>
+            </CardHeader>
             <CardContent className="py-10 text-center">
               <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">{t("student.courses.noIndividualCourses")}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {statementRequiredForPack && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+                <FileText className="h-5 w-5 text-primary" />
+                {t("student.statement.title")}
+              </CardTitle>
+              <CardDescription>{t("student.statement.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {electiveCourseData.syllabus_template_url && (
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                  onClick={handleDownloadStatementTemplate}
+                  disabled={downloadingStatement || electiveCourseData.status === "draft"}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingStatement ? t("student.statement.downloading") : t("student.statement.downloadTemplate")}
+                </Button>
+              )}
+              <div className="relative">
+                <Label
+                  htmlFor="statement-upload"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80 transition-colors"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                    <p className="mb-1 text-sm text-muted-foreground">
+                      <span className="font-semibold">{t("student.statement.clickToUpload")}</span>{" "}
+                      {t("student.statement.orDragAndDrop")}
+                    </p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{t("student.statement.pdfOnly")}</p>
+                  </div>
+                  <Input
+                    id="statement-upload"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileUpload}
+                    disabled={isUploadingStatement || !canSubmit}
+                    className="sr-only"
+                  />
+                </Label>
+                {isUploadingStatement && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    {t("student.statement.uploading")}
+                  </div>
+                )}
+              </div>
+
+              {uploadedStatement && (
+                <Alert variant="success">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>{t("student.statement.fileReadyTitle")}</AlertTitle>
+                  <AlertDescription>
+                    {t("student.statement.fileReadyDesc", { fileName: uploadedStatement.name })}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {existingSelectionRecord?.statement_url && !uploadedStatement && (
+                <Alert variant="info">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>{t("student.statement.previouslyUploadedTitle")}</AlertTitle>
+                  <AlertDescription>{t("student.statement.previouslyUploadedDesc")}</AlertDescription>
+                  {/* Optionally, add a button to view/download the existing statement if URL is directly accessible */}
+                </Alert>
+              )}
             </CardContent>
           </Card>
         )}
@@ -939,33 +1027,30 @@ export default function ElectivePage({ params }: ElectivePageProps) {
         </Dialog>
 
         <Dialog open={!!viewingCourse} onOpenChange={(open) => !open && setViewingCourse(null)}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-xl">
+          <DialogContent className="mx-auto max-w-[95vw] sm:max-w-lg">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-sm sm:text-base md:text-lg">
                 {language === "ru" && viewingCourse?.name_ru
                   ? viewingCourse.name_ru
                   : viewingCourse?.name_en || viewingCourse?.name}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs sm:text-sm">
                 {language === "ru" && viewingCourse?.instructor_ru
                   ? viewingCourse.instructor_ru
                   : viewingCourse?.instructor_en || viewingCourse?.teacher}
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4 max-h-[60vh] overflow-y-auto prose prose-sm dark:prose-invert">
-              {viewingCourse && selectedIndividualCourseIds.includes(viewingCourse.id) && (
-                <Alert variant="info" className="mb-4">
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>{t("student.courses.currentlySelected")}</AlertDescription>
-                </Alert>
-              )}
-              <p className="whitespace-pre-wrap">
-                {language === "ru" && viewingCourse?.description_ru
-                  ? viewingCourse.description_ru
-                  : viewingCourse?.description ||
-                    viewingCourse?.description ||
-                    t("student.courses.noDescriptionAvailable")}
-              </p>
+            <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
+              <div className="space-y-2">
+                <h4 className="text-xs sm:text-sm font-medium">{t("student.courses.courseDescription")}</h4>
+                <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap">
+                  {language === "ru" && viewingCourse?.description_ru
+                    ? viewingCourse.description_ru
+                    : viewingCourse?.description ||
+                      viewingCourse?.description ||
+                      t("student.courses.noDescriptionAvailable")}
+                </p>
+              </div>
             </div>
             <ShadDialogFooter>
               <Button variant="outline" onClick={() => setViewingCourse(null)}>
