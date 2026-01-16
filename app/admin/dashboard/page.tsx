@@ -260,79 +260,58 @@ export default function AdminDashboard() {
       }
     }
 
+    // Set up individual real-time subscriptions
+    const setupRealtimeSubscription = (tableName: string, statKey: keyof DashboardStats) => {
+      const channel = supabase
+        .channel(`${tableName}-realtime-dashboard`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: tableName },
+          async (payload) => {
+            // Invalidate cache immediately
+            localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
+
+            // Set loading state
+            setDashboardStats((prev) => ({
+              ...prev,
+              [statKey]: { ...prev[statKey], isLoading: true },
+            }))
+
+            // Refetch the specific stat
+            await refetchStat(tableName, statKey)
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            // Subscription successful
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            // Reconnect on error
+            setTimeout(() => {
+              supabase.removeChannel(channel)
+              setupRealtimeSubscription(tableName, statKey)
+            }, 5000)
+          }
+        })
+
+      return channel
+    }
+
+    // Set up all subscriptions
     const channels = [
-      supabase
-        .channel("profiles-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            users: { ...prev.users, isLoading: true },
-          }))
-          refetchStat("profiles", "users")
-        })
-        .subscribe(),
-      supabase
-        .channel("groups-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            groups: { ...prev.groups, isLoading: true },
-          }))
-          refetchStat("groups", "groups")
-        })
-        .subscribe(),
-      supabase
-        .channel("courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            courses: { ...prev.courses, isLoading: true },
-          }))
-          refetchStat("courses", "courses")
-        })
-        .subscribe(),
-      supabase
-        .channel("elective-courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            courseElectives: { ...prev.courseElectives, isLoading: true },
-          }))
-          refetchStat("elective_courses", "courseElectives")
-        })
-        .subscribe(),
-      supabase
-        .channel("elective-exchange-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            exchangePrograms: { ...prev.exchangePrograms, isLoading: true },
-          }))
-          refetchStat("elective_exchange", "exchangePrograms")
-        })
-        .subscribe(),
-      supabase
-        .channel("universities-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, () => {
-          localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
-          setDashboardStats((prev) => ({
-            ...prev,
-            universities: { ...prev.universities, isLoading: true },
-          }))
-          refetchStat("universities", "universities")
-        })
-        .subscribe(),
+      setupRealtimeSubscription("profiles", "users"),
+      setupRealtimeSubscription("groups", "groups"),
+      setupRealtimeSubscription("courses", "courses"),
+      setupRealtimeSubscription("elective_courses", "courseElectives"),
+      setupRealtimeSubscription("elective_exchange", "exchangePrograms"),
+      setupRealtimeSubscription("universities", "universities"),
     ]
 
     // Cleanup subscriptions on unmount
     return () => {
       channels.forEach((channel) => {
-        supabase.removeChannel(channel)
+        if (channel) {
+          supabase.removeChannel(channel)
+        }
       })
     }
   }, [supabase])
