@@ -46,6 +46,17 @@ interface CachedData {
 }
 
 export function OnboardingChecklist() {
+  // Prevent SSR issues by not rendering on server
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  if (!isClient) {
+    return null // Don't render anything on server
+  }
+
   const { t } = useLanguage()
   const router = useRouter()
   const pathname = usePathname()
@@ -466,9 +477,9 @@ export function OnboardingChecklist() {
   }
 
   // Calculate progress
-  const completedCount = Object.values(checklistStatus).filter(Boolean).length
-  const totalCount = Object.keys(checklistStatus).length
-  const progressPercentage = (completedCount / totalCount) * 100
+  const completedCount = checklistStatus ? Object.values(checklistStatus).filter(Boolean).length : 0
+  const totalCount = checklistStatus ? Object.keys(checklistStatus).length : 6
+  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
   // Define checklist items
   const checklistItems: ChecklistItem[] = [
