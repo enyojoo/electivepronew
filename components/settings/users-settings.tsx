@@ -1083,17 +1083,19 @@ export function UsersSettings() {
               }
             </DialogTitle>
             <DialogDescription className="mt-1.5">
-              {editingUser?.id ? t("admin.settings.subtitle") : t("admin.users.createUserDescription")}
+              {editingUser?.id
+                ? t("admin.settings.subtitle")
+                : isImportMode
+                  ? (t("admin.users.importUserDescription") || "Create new user accounts. A temporary password will be generated.")
+                  : t("admin.users.createUserDescription")
+              }
             </DialogDescription>
           </DialogHeader>
 
           {editingUser && (
             <div className="px-6 py-4">
               <div className="space-y-5">
-                {/* Basic Information Section */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-foreground">{t("admin.users.basicInfo") || "Basic Information"}</h3>
-                  <div className="space-y-4">
                     {isImportMode ? (
                       <div className="space-y-2">
                         <ModernFileUploader
