@@ -199,8 +199,7 @@ export function DegreesSettings() {
       .filter(
         (degree) =>
           (degree.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (degree.code || "").toLowerCase().includes(searchTerm.toLowerCase()),
+          (degree.nameRu || "").toLowerCase().includes(searchTerm.toLowerCase()),
       )
 
     setFilteredDegrees(filtered)
@@ -533,17 +532,16 @@ export function DegreesSettings() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("admin.degrees.name", "Name")}</TableHead>
-                    <TableHead>{t("admin.degrees.code")}</TableHead>
                     <TableHead>{t("admin.degrees.status")}</TableHead>
                     <TableHead className="w-[80px]">{t("admin.degrees.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingDegrees && degrees.length === 0 ? (
-                    <TableSkeleton columns={4} rows={5} />
+                    <TableSkeleton columns={3} rows={5} />
                   ) : filteredDegrees.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                           {t("admin.degrees.noDegreesFound")}
                         </TableCell>
                       </TableRow>
@@ -553,7 +551,6 @@ export function DegreesSettings() {
                         <TableCell className="font-medium">
                           {language === "ru" && degree.nameRu ? degree.nameRu : degree.name}
                         </TableCell>
-                        <TableCell>{degree.code || ""}</TableCell>
                         <TableCell>{getStatusBadge(degree.status || "active")}</TableCell>
                         <TableCell>
                           <DropdownMenu>
