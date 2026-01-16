@@ -185,7 +185,6 @@ export default function AdminDashboard() {
           universities: { count: universitiesCount || 0, isLoading: false },
         }
 
-        console.log("Dashboard stats loaded:", newStats)
         setDashboardStats(newStats)
 
         // Cache the stats
@@ -230,17 +229,14 @@ export default function AdminDashboard() {
     // Helper function to refetch and update a specific stat
     const refetchStat = async (table: string, statKey: keyof DashboardStats) => {
       try {
-        console.log(`Refetching ${table} count for dashboard...`)
         const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true })
         if (error) {
-          console.error(`Error fetching ${table} count:`, error)
           setDashboardStats((prev) => ({
             ...prev,
             [statKey]: { ...prev[statKey], isLoading: false },
           }))
           return
         }
-        console.log(`${table} count updated:`, count)
         setDashboardStats((prev) => {
           const updated = {
             ...prev,
@@ -257,7 +253,6 @@ export default function AdminDashboard() {
           return updated
         })
       } catch (error) {
-        console.error(`Error in refetchStat for ${table}:`, error)
         setDashboardStats((prev) => ({
           ...prev,
           [statKey]: { ...prev[statKey], isLoading: false },
@@ -268,8 +263,7 @@ export default function AdminDashboard() {
     const channels = [
       supabase
         .channel("profiles-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
-          console.log("Profiles change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -277,17 +271,10 @@ export default function AdminDashboard() {
           }))
           refetchStat("profiles", "users")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to profiles changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to profiles changes")
-          }
-        }),
+        .subscribe(),
       supabase
         .channel("groups-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, (payload) => {
-          console.log("Groups change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -295,17 +282,10 @@ export default function AdminDashboard() {
           }))
           refetchStat("groups", "groups")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to groups changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to groups changes")
-          }
-        }),
+        .subscribe(),
       supabase
         .channel("courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, (payload) => {
-          console.log("Courses change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "courses" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -313,17 +293,10 @@ export default function AdminDashboard() {
           }))
           refetchStat("courses", "courses")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to courses changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to courses changes")
-          }
-        }),
+        .subscribe(),
       supabase
         .channel("elective-courses-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, (payload) => {
-          console.log("Elective courses change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_courses" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -331,17 +304,10 @@ export default function AdminDashboard() {
           }))
           refetchStat("elective_courses", "courseElectives")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to elective_courses changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to elective_courses changes")
-          }
-        }),
+        .subscribe(),
       supabase
         .channel("elective-exchange-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, (payload) => {
-          console.log("Elective exchange change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "elective_exchange" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -349,17 +315,10 @@ export default function AdminDashboard() {
           }))
           refetchStat("elective_exchange", "exchangePrograms")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to elective_exchange changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to elective_exchange changes")
-          }
-        }),
+        .subscribe(),
       supabase
         .channel("universities-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, (payload) => {
-          console.log("Universities change detected:", payload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "universities" }, () => {
           localStorage.removeItem(DASHBOARD_STATS_CACHE_KEY)
           setDashboardStats((prev) => ({
             ...prev,
@@ -367,13 +326,7 @@ export default function AdminDashboard() {
           }))
           refetchStat("universities", "universities")
         })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("✓ Subscribed to universities changes")
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("✗ Error subscribing to universities changes")
-          }
-        }),
+        .subscribe(),
     ]
 
     // Cleanup subscriptions on unmount

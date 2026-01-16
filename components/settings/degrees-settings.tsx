@@ -207,14 +207,12 @@ export function DegreesSettings() {
 
   // Set up real-time subscriptions for instant updates
   useEffect(() => {
-    console.log("Setting up real-time subscription for degrees")
     const channel = supabase
       .channel("degrees-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "degrees" },
-        (payload) => {
-          console.log("Real-time update received for degrees:", payload.eventType, payload.new?.id || payload.old?.id)
+        () => {
           // Invalidate cache and refetch
           localStorage.removeItem(DEGREES_CACHE_KEY)
           setIsLoadingDegrees(true)
@@ -223,7 +221,6 @@ export function DegreesSettings() {
       .subscribe()
 
     return () => {
-      console.log("Cleaning up degrees real-time subscription")
       supabase.removeChannel(channel)
     }
   }, [supabase])
