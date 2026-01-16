@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const tempPassword = Math.random().toString(36).slice(-12) + "A1!"
 
     // Create auth user
+    console.log(`Creating auth user for ${email}`)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create user account" }, { status: 500 })
     }
 
+    console.log(`Auth user created successfully with ID: ${authData.user.id}`)
+
     // Create profile (without degree_id, group_id, academic_year - those go in student_profiles/manager_profiles)
     const profileData: any = {
       id: authData.user.id,
@@ -63,7 +66,11 @@ export async function POST(request: NextRequest) {
       is_active: true,
     }
 
-    const { error: profileError } = await supabaseAdmin.from("profiles").insert(profileData)
+    console.log(`Creating profile for user ${authData.user.id}:`, profileData)
+    const { data: profileInsertData, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .insert(profileData)
+      .select()
 
     if (profileError) {
       console.error("Profile creation error:", profileError)
@@ -71,6 +78,8 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 })
     }
+
+    console.log(`Profile created successfully:`, profileInsertData)
 
     // Create student or manager profile if needed
     if (role === "student" && groupId) {
