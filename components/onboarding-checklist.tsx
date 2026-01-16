@@ -157,7 +157,7 @@ export function OnboardingChecklist() {
     } catch {
       return false
     }
-  }, [])
+  }, [forceRefresh])
 
   // Show checklist if admin user and not dismissed (even when complete)
   const shouldShow = isAdmin && !isDismissed
