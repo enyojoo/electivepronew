@@ -1096,48 +1096,48 @@ export function UsersSettings() {
             <div className="px-6 py-4">
               <div className="space-y-5">
                 <div className="space-y-4">
-                    {isImportMode ? (
+                  {isImportMode ? (
+                    <div className="space-y-2">
+                      <ModernFileUploader
+                        onFileSelect={setUploadedFile}
+                        selectedFile={uploadedFile}
+                        isUploading={false}
+                        accept=".csv"
+                        maxSize={5}
+                        title={t("admin.users.uploadCsv") || "Upload CSV File"}
+                        description={t("admin.users.csvFormat") || "CSV should contain 'name' and 'email' columns"}
+                      />
+                      {csvError && (
+                        <p className="text-sm text-destructive">{csvError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
                       <div className="space-y-2">
-                        <ModernFileUploader
-                          onFileSelect={setUploadedFile}
-                          selectedFile={uploadedFile}
-                          isUploading={false}
-                          accept=".csv"
-                          maxSize={5}
-                          title={t("admin.users.uploadCsv") || "Upload CSV File"}
-                          description={t("admin.users.csvFormat") || "CSV should contain 'name' and 'email' columns"}
+                        <Label htmlFor="edit-name" className="text-sm font-medium">{t("admin.users.name")}</Label>
+                        <Input
+                          id="edit-name"
+                          value={editingUser.name}
+                          onChange={(e) => handleEditInputChange("name", e.target.value)}
+                          className="h-10"
                         />
-                        {csvError && (
-                          <p className="text-sm text-destructive">{csvError}</p>
-                        )}
-
                       </div>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-name" className="text-sm font-medium">{t("admin.users.name")}</Label>
-                          <Input
-                            id="edit-name"
-                            value={editingUser.name}
-                            onChange={(e) => handleEditInputChange("name", e.target.value)}
-                            className="h-10"
-                          />
-                        </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-email" className="text-sm font-medium">{t("admin.users.email")}</Label>
-                          <Input
-                            id="edit-email"
-                            type="email"
-                            value={editingUser.email}
-                            onChange={(e) => handleEditInputChange("email", e.target.value)}
-                            className="h-10"
-                          />
-                        </div>
-                      </>
-                    )}
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-email" className="text-sm font-medium">{t("admin.users.email")}</Label>
+                        <Input
+                          id="edit-email"
+                          type="email"
+                          value={editingUser.email}
+                          onChange={(e) => handleEditInputChange("email", e.target.value)}
+                          className="h-10"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-role" className="text-sm font-medium">{t("admin.users.role")}</Label>
                         <Select value={editingUser.role} onValueChange={(value) => handleEditInputChange("role", value)}>
@@ -1165,7 +1165,6 @@ export function UsersSettings() {
                         </Select>
                       </div>
                     </div>
-                  </div>
                 </div>
 
                 {/* Student-specific fields */}
@@ -1301,7 +1300,6 @@ export function UsersSettings() {
                     </div>
                   </div>
                 )}
-              </div>
             </div>
           )}
 
@@ -1318,7 +1316,7 @@ export function UsersSettings() {
               ) : (
                 <>
                   {isImportMode ? <Plus className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
-                  {isImportMode ? (t("admin.users.import") || "Import") : t("settings.branding.save")}
+                  {isImportMode ? "Import" : "Save"}
                 </>
               )}
             </Button>
