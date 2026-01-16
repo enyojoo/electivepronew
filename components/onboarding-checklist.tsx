@@ -240,14 +240,19 @@ export function OnboardingChecklist() {
   // Check completion status from database
   const checkCompletionStatus = async (): Promise<ChecklistStatus> => {
     try {
-      // Check brand settings - configured if English institution name exists (from settings table)
+      // Check brand settings - configured if customized beyond defaults
       const { data: brandData } = await (supabase as any)
         .from("settings")
-        .select("name")
+        .select("name, logo_url, primary_color, favicon_url")
         .limit(1)
         .maybeSingle()
 
-      const brandSettings = brandData && !!brandData.name
+      const brandSettings = brandData && (
+        brandData.name !== 'ElectivePRO' || // Changed from default
+        brandData.logo_url || // Custom logo uploaded
+        brandData.primary_color !== '#027659' || // Changed from default color
+        brandData.favicon_url // Custom favicon uploaded
+      )
 
       // Check degrees
       const { count: degreesCount } = await supabase
